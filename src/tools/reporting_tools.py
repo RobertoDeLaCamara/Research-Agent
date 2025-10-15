@@ -6,7 +6,16 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 # Importamos la definición de AgentState desde el archivo agent.py
-from ..agent import AgentState
+from typing import TypedDict, List
+from langchain_core.messages import BaseMessage
+
+class AgentState(TypedDict):
+    topic: str
+    video_urls: List[str]
+    video_metadata: List[dict]
+    summaries: List[str]
+    report: str
+    messages: List[BaseMessage]
 
 # --------------------------------------------------------------------------
 # NODO 3: GENERACIÓN DEL INFORME EN HTML

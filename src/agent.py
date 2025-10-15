@@ -7,8 +7,8 @@ from langgraph.graph import StateGraph, END
 # --- Importación de las herramientas (nodos) ---
 # Importamos las funciones que realizarán el trabajo real desde nuestros archivos de herramientas.
 # La sintaxis con '.' (ej. '.tools') indica una importación relativa dentro del paquete 'src'.
-from .tools.youtube_tools import search_videos_node, summarize_videos_node
-from .tools.reporting_tools import generate_report_node, send_email_node
+from tools.youtube_tools import search_videos_node, summarize_videos_node
+from tools.reporting_tools import generate_report_node, send_email_node
 
 # --------------------------------------------------------------------------
 # 1. DEFINICIÓN DEL ESTADO DEL AGENTE (AGENT STATE)

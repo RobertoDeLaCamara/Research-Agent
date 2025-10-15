@@ -7,7 +7,16 @@ from langchain_community.tools import YouTubeSearchTool
 
 # Importamos la definición de AgentState desde el archivo agent.py
 # El '..' indica que subimos un nivel en la estructura de directorios para encontrar el módulo.
-from ..agent import AgentState
+from typing import TypedDict, List
+from langchain_core.messages import BaseMessage
+
+class AgentState(TypedDict):
+    topic: str
+    video_urls: List[str]
+    video_metadata: List[dict]
+    summaries: List[str]
+    report: str
+    messages: List[BaseMessage]
 
 # --------------------------------------------------------------------------
 # NODO 1: BÚSQUEDA DE VÍDEOS EN YOUTUBE
@@ -31,15 +40,12 @@ def search_videos_node(state: AgentState) -> dict:
 
     try:
         # Inicializamos la herramienta de búsqueda de YouTube.
-        # Esta herramienta se encarga de hacer la llamada a la API de YouTube por nosotros.
         tool = YouTubeSearchTool()
 
-        # Ejecutamos la búsqueda. Le pedimos explícitamente los 10 resultados más relevantes.
-        # La herramienta devuelve una cadena con formato de lista de Python, ej: "['/watch?v=...', '/watch?v=...']"
-        search_results_str = tool.run(f"{topic}, top 10 relevant videos")
+        # Ejecutamos la búsqueda con solo el tema
+        search_results_str = tool.run(topic)
 
         # Convertimos la cadena de resultados en una lista real de Python.
-        # Es importante usar eval() aquí, ya que la salida de la herramienta está diseñada para ello.
         video_urls = eval(search_results_str)
 
         print(f"✅ Se encontraron {len(video_urls)} vídeos.")
@@ -81,36 +87,34 @@ def summarize_videos_node(state: AgentState) -> dict:
     # 'gpt-3.5-turbo-16k' es una buena opción por su gran ventana de contexto.
     llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo-16k")
 
-    # Definimos el prompt (instrucción) para nuestro resumen.
-    # Queremos un resumen técnico y conciso.
-    summary_prompt = """
-    Escribe un resumen ejecutivo conciso de la siguiente transcripción de vídeo.
-    El resumen debe estar dirigido a una audiencia técnica, destacando los puntos clave,
-    conceptos principales y conclusiones importantes.
-
-    Transcripción:
-    "{text}"
-
-    RESUMEN EJECUTIVO CONCISO:
-    """
-
     # Cargamos una "cadena de resumen" de LangChain.
     # 'map_reduce' es eficiente para documentos largos como las transcripciones.
     summarize_chain = load_summarize_chain(
         llm,
-        chain_type="map_reduce",
-        map_prompt=summary_prompt,
-        combine_prompt=summary_prompt
+        chain_type="map_reduce"
     )
 
-    for i, url_suffix in enumerate(video_urls):
-        full_url = f"https://www.youtube.com{url_suffix}"
+    for i, url in enumerate(video_urls):
+        # Si la URL ya es completa, la usamos tal como está
+        if url.startswith('https://'):
+            full_url = url
+        else:
+            # Si es solo un sufijo, agregamos el dominio
+            full_url = f"https://www.youtube.com{url}"
+        
+        # Limpiar caracteres HTML codificados y extraer solo el ID del video
+        full_url = full_url.replace('&amp;', '&')
+        
+        # Extraer solo el ID del video para crear una URL limpia
+        if 'watch?v=' in full_url:
+            video_id = full_url.split('watch?v=')[1].split('&')[0]
+            full_url = f"https://www.youtube.com/watch?v={video_id}"
+        
         print(f"\nProcesando vídeo {i+1}/{len(video_urls)}: {full_url}")
 
         try:
             # Usamos el cargador de YouTube de LangChain.
-            # 'add_video_info=True' nos da acceso a metadatos como el título y el autor.
-            loader = YoutubeLoader.from_youtube_url(full_url, add_video_info=True, language=["es", "en"])
+            loader = YoutubeLoader.from_youtube_url(full_url, add_video_info=True)
             docs = loader.load()
 
             # Extraemos los metadatos antes de resumir
