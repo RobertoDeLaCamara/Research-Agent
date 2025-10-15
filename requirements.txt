@@ -1,6 +1,6 @@
-langgraph
-langchain
-langchain-openai
-youtube-transcript-api
-google-api-python-client
-python-dotenv
+langgraph==0.6.10
+langchain==0.3.0
+langchain-openai==1.0.0a4
+youtube-transcript-api==1.2.3
+google-api-python-client==2.184.0
+python-dotenv==1.0.0
