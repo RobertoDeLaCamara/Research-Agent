@@ -1,8 +1,23 @@
 # src/main.py
 
 import os
+import argparse
 from dotenv import load_dotenv
 from agent import app  # Importamos la aplicación 'app' desde nuestro archivo agent.py
+
+def parse_args():
+    """
+    Parsea los argumentos de la línea de comandos.
+    """
+    parser = argparse.ArgumentParser(description="Agente de Resumen de YouTube")
+    parser.add_argument(
+        "topic",
+        type=str,
+        nargs="?",
+        default="Inteligencia Artificial en la Educación",
+        help="El tema a investigar en YouTube (por defecto: 'Inteligencia Artificial en la Educación')"
+    )
+    return parser.parse_args()
 
 def run_agent():
     """
@@ -12,9 +27,9 @@ def run_agent():
     load_dotenv()
 
     # --- CONFIGURACIÓN DEL USUARIO ---
-    # Aquí es donde defines el tema que quieres que el agente investigue.
-    # ¡Puedes cambiar este valor por cualquier tema que te interese!
-    topic_to_research = "Inteligencia Artificial en la Educación"
+    # Obtenemos el tema desde los argumentos de la línea de comandos
+    args = parse_args()
+    topic_to_research = args.topic
     # --------------------------------
 
     print(f"▶️  Iniciando agente para el tema: '{topic_to_research}'")
