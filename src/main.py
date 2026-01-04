@@ -14,7 +14,7 @@ def run_agent():
     # --- CONFIGURACIÓN DEL USUARIO ---
     # Aquí es donde defines el tema que quieres que el agente investigue.
     # ¡Puedes cambiar este valor por cualquier tema que te interese!
-    topic_to_research = "Últimas tendencias en Inteligencia Artificial Generativa"
+    topic_to_research = "Inteligencia Artificial en la Educación"
     # --------------------------------
 
     print(f"▶️  Iniciando agente para el tema: '{topic_to_research}'")

@@ -1,10 +1,15 @@
-# LangChain Stack - Versiones compatibles con la serie 0.2.x
-langchain==0.2.3
-langchain-core==0.2.5
-langchain-openai==0.1.8 # <-- VERSIÓN CORREGIDA. Compatible con langchain-core 0.2.x
-langgraph==0.0.68
+# LangChain Stack
+langchain>=0.2.0
+langchain-core>=0.2.20
+langchain-openai>=0.1.8
+langchain-ollama
+langchain-community
+langgraph>=0.0.68 # Compatible con langchain-core 0.2.x
 
 # APIs y Utilidades
 youtube-transcript-api==0.6.2
 google-api-python-client==2.130.0
 python-dotenv==1.0.1
+youtube-search
+pytube
+transformers
