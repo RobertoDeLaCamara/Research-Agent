@@ -13,3 +13,7 @@ python-dotenv==1.0.1
 youtube-search
 pytube
 transformers
+wikipedia
+arxiv
+duckduckgo-search
+tweepy

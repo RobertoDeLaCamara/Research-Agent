@@ -9,6 +9,8 @@ from langgraph.graph import StateGraph, END
 # La sintaxis con '.' (ej. '.tools') indica una importación relativa dentro del paquete 'src'.
 from tools.youtube_tools import search_videos_node, summarize_videos_node
 from tools.reporting_tools import generate_report_node, send_email_node
+from tools.research_tools import search_web_node, search_wiki_node, search_arxiv_node
+from tools.synthesis_tools import consolidate_research_node
 
 # --------------------------------------------------------------------------
 # 1. DEFINICIÓN DEL ESTADO DEL AGENTE (AGENT STATE)
@@ -34,6 +36,10 @@ class AgentState(TypedDict):
     video_urls: List[str]
     video_metadata: List[dict]
     summaries: List[str]
+    web_research: List[dict]
+    wiki_research: List[dict]
+    arxiv_research: List[dict]
+    consolidated_summary: str
     report: str
     messages: List[BaseMessage]
 
@@ -52,6 +58,10 @@ workflow = StateGraph(AgentState)
 print("Definiendo los nodos del grafo...")
 workflow.add_node("search_videos", search_videos_node)
 workflow.add_node("summarize_videos", summarize_videos_node)
+workflow.add_node("search_web", search_web_node)
+workflow.add_node("search_wiki", search_wiki_node)
+workflow.add_node("search_arxiv", search_arxiv_node)
+workflow.add_node("consolidate_research", consolidate_research_node)
 workflow.add_node("generate_report", generate_report_node)
 workflow.add_node("send_email", send_email_node)
 print("Nodos definidos.")
@@ -60,11 +70,15 @@ print("Nodos definidos.")
 # Las aristas conectan los nodos y definen el orden de ejecución.
 # Nuestro flujo es lineal: un paso sigue al otro.
 print("Conectando los nodos con las aristas...")
-workflow.set_entry_point("search_videos") # El primer nodo en ejecutarse.
+workflow.set_entry_point("search_wiki") # Empezamos por Wikipedia para contexto
+workflow.add_edge("search_wiki", "search_web")
+workflow.add_edge("search_web", "search_arxiv")
+workflow.add_edge("search_arxiv", "search_videos")
 workflow.add_edge("search_videos", "summarize_videos")
-workflow.add_edge("summarize_videos", "generate_report")
+workflow.add_edge("summarize_videos", "consolidate_research")
+workflow.add_edge("consolidate_research", "generate_report")
 workflow.add_edge("generate_report", "send_email")
-workflow.add_edge("send_email", END) # 'END' es un nodo especial que finaliza la ejecución.
+workflow.add_edge("send_email", END)
 print("Aristas conectadas.")
 
 # --------------------------------------------------------------------------

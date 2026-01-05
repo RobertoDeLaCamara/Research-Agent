@@ -14,6 +14,10 @@ class AgentState(TypedDict):
     video_urls: List[str]
     video_metadata: List[dict]
     summaries: List[str]
+    web_research: List[dict]
+    wiki_research: List[dict]
+    arxiv_research: List[dict]
+    consolidated_summary: str
     report: str
     messages: List[BaseMessage]
 
@@ -58,9 +62,58 @@ def generate_report_node(state: AgentState) -> dict:
         </style>
     </head>
     <body>
-        <h1>Informe de Investigación de YouTube sobre: {topic}</h1>
+        <h1>Informe de Investigación sobre: {topic}</h1>
     """
 
+    # --- SECCIÓN: RESUMEN CONSOLIDADO (SÍNTESIS) ---
+    if state.get("consolidated_summary"):
+        import markdown
+        # Convertimos el markdown de la síntesis a HTML para el informe
+        synthesis_html = markdown.markdown(state["consolidated_summary"])
+        html_content += f"""
+        <div style="background-color: #eefbff; padding: 20px; border-radius: 10px; border: 1px solid #b3e5fc; margin-bottom: 30px;">
+            <h1 style="color: #01579b; border: none;">💡 Síntesis Ejecutiva Consolidada</h1>
+            <div class="summary">{synthesis_html}</div>
+        </div>
+        <hr style="border: 1px solid #ddd; margin: 40px 0;">
+        """
+
+    # --- SECCIÓN: WIKIPEDIA ---
+    if state.get("wiki_research"):
+        html_content += "<h1>Contexto General (Wikipedia)</h1>"
+        for item in state["wiki_research"]:
+            html_content += f"""
+            <div class="video-block">
+                <h2>{item.get('title')}</h2>
+                <p>{item.get('summary')}</p>
+                <p><a href="{item.get('url')}">Leer más en Wikipedia</a></p>
+            </div>
+            """
+
+    # --- SECCIÓN: WEB RESEARCH ---
+    if state.get("web_research"):
+        html_content += "<h1>Investigación Web</h1>"
+        for item in state["web_research"]:
+            html_content += f"""
+            <div class="video-block">
+                <p>{item.get('content', item.get('snippet', ''))}</p>
+                <p><a href="{item.get('url')}">Fuente original</a></p>
+            </div>
+            """
+
+    # --- SECCIÓN: ARXIV ---
+    if state.get("arxiv_research"):
+        html_content += "<h1>Artículos Científicos (arXiv)</h1>"
+        for item in state["arxiv_research"]:
+            html_content += f"""
+            <div class="video-block">
+                <h2>{item.get('title')}</h2>
+                <p><strong>Autores:</strong> {item.get('authors')}</p>
+                <p>{item.get('summary')}</p>
+            </div>
+            """
+
+    html_content += "<h1>Investigación de YouTube</h1>"
     for i, (summary, metadata) in enumerate(zip(summaries, video_metadata)):
         html_content += f"""
         <div class="video-block">

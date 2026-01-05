@@ -16,6 +16,10 @@ class AgentState(TypedDict):
     video_urls: List[str]
     video_metadata: List[dict]
     summaries: List[str]
+    web_research: List[dict]
+    wiki_research: List[dict]
+    arxiv_research: List[dict]
+    consolidated_summary: str
     report: str
     messages: List[BaseMessage]
 
