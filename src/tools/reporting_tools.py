@@ -89,10 +89,13 @@ def generate_report_node(state: AgentState) -> dict:
     if state.get("wiki_research"):
         html_content += "<h1>Contexto General (Wikipedia)</h1>"
         for item in state["wiki_research"]:
+            summary = item.get('summary', '')
+            if len(summary) > 500:
+                summary = summary[:500] + "..."
             html_content += f"""
             <div class="video-block">
                 <h2>{item.get('title')}</h2>
-                <p>{item.get('summary')}</p>
+                <p>{summary}</p>
                 <p><a href="{item.get('url')}">Leer más en Wikipedia</a></p>
             </div>
             """
@@ -101,9 +104,12 @@ def generate_report_node(state: AgentState) -> dict:
     if state.get("web_research"):
         html_content += "<h1>Investigación Web</h1>"
         for item in state["web_research"]:
+            content = item.get('content', item.get('snippet', ''))
+            if len(content) > 500:
+                content = content[:500] + "..."
             html_content += f"""
             <div class="video-block">
-                <p>{item.get('content', item.get('snippet', ''))}</p>
+                <p>{content}</p>
                 <p><a href="{item.get('url')}">Fuente original</a></p>
             </div>
             """
@@ -112,11 +118,13 @@ def generate_report_node(state: AgentState) -> dict:
     if state.get("arxiv_research"):
         html_content += "<h1>Artículos Científicos (arXiv)</h1>"
         for item in state["arxiv_research"]:
+            url = item.get('url', '#')
             html_content += f"""
             <div class="video-block">
                 <h2>{item.get('title')}</h2>
                 <p><strong>Autores:</strong> {item.get('authors')}</p>
                 <p>{item.get('summary')}</p>
+                <p><a href="{url}">Ver en arXiv</a></p>
             </div>
             """
 
@@ -124,9 +132,13 @@ def generate_report_node(state: AgentState) -> dict:
     if state.get("scholar_research"):
         html_content += "<h1>Artículos Destacados (Semantic Scholar)</h1>"
         for item in state["scholar_research"]:
+            url = item.get('url', '#')
             html_content += f"""
             <div class="video-block">
+                <h2>{item.get('title')} ({item.get('year', 'N/A')})</h2>
+                <p><strong>Autores:</strong> {item.get('authors')}</p>
                 <p>{item.get('content')}</p>
+                <p><a href="{url}">Ver en Semantic Scholar</a></p>
             </div>
             """
 
@@ -160,29 +172,42 @@ def generate_report_node(state: AgentState) -> dict:
     
     # Wiki
     for item in state.get("wiki_research", []):
-        ref = f"Wikipedia: {item.get('title')} - {item.get('url')}"
+        url = item.get('url', '#')
+        title = item.get('title', 'Wikipedia')
+        ref = f"Wikipedia: {title} - {url}"
         bibliography.append(ref)
-        html_content += f"<li>{ref}</li>"
+        html_content += f"<li>Wikipedia: {title} - <a href='{url}'>{url}</a></li>"
     # arXiv
     for item in state.get("arxiv_research", []):
-        ref = f"arXiv: {item.get('title')} ({item.get('authors')})"
+        url = item.get('url', '#')
+        title = item.get('title', 'Articulo arXiv')
+        authors = item.get('authors', 'Desconocido')
+        ref = f"arXiv: {title} ({authors}) - {url}"
         bibliography.append(ref)
-        html_content += f"<li>{ref}</li>"
+        html_content += f"<li>arXiv: {title} ({authors}) - <a href='{url}'>{url}</a></li>"
     # Scholar
-    scholar_data = state.get("scholar_research", [])
-    if scholar_data:
-        bibliography.append("Semantic Scholar Analysis Results")
-        html_content += f"<li>Fuentes de Semantic Scholar (detalladas en el análisis)</li>"
+    for item in state.get("scholar_research", []):
+        url = item.get('url', '#')
+        title = item.get('title', 'Articulo Scholar')
+        year = item.get('year', 'N/A')
+        ref = f"Semantic Scholar: {title} ({year}) - {url}"
+        bibliography.append(ref)
+        html_content += f"<li>Semantic Scholar: {title} ({year}) - <a href='{url}'>{url}</a></li>"
     # GitHub
     for item in state.get("github_research", []):
-        ref = f"GitHub: {item.get('name')} - {item.get('url')}"
+        url = item.get('url', '#')
+        name = item.get('name', 'Repository')
+        ref = f"GitHub: {name} - {url}"
         bibliography.append(ref)
-        html_content += f"<li>{ref}</li>"
+        html_content += f"<li>GitHub: {name} - <a href='{url}'>{url}</a></li>"
     # YouTube
     for metadata in video_metadata:
-        ref = f"YouTube: {metadata.get('title')} por {metadata.get('author')} - {metadata.get('url')}"
+        url = metadata.get('url', '#')
+        title = metadata.get('title', 'Video')
+        author = metadata.get('author', 'Autor')
+        ref = f"YouTube: {title} por {author} - {url}"
         bibliography.append(ref)
-        html_content += f"<li>{ref}</li>"
+        html_content += f"<li>YouTube: {title} por {author} - <a href='{url}'>{url}</a></li>"
     
     html_content += "</ul>"
 
@@ -199,7 +224,7 @@ def generate_report_node(state: AgentState) -> dict:
     # --- GENERACIÓN DE PDF ---
     pdf_path = "reporte_investigacion.pdf"
     try:
-        generate_pdf(state, topic, pdf_path)
+        generate_pdf(state, topic, pdf_path, bibliography) # <--- Pasamos la bibliografía local
         print("✅ PDF generado con éxito.")
     except Exception as e:
         print(f"⚠️ Error al generar PDF: {e}")
@@ -208,32 +233,47 @@ def generate_report_node(state: AgentState) -> dict:
     print("✅ Informe HTML generado con éxito.")
     return {"report": html_content, "bibliography": bibliography, "pdf_path": pdf_path}
 
-def generate_pdf(state: AgentState, topic: str, output_path: str):
-    """Genera un archivo PDF profesional usando fpdf2."""
+def generate_pdf(state: AgentState, topic: str, output_path: str, bibliography_list: list = None):
+    """Genera un archivo PDF profesional usando fpdf2 con todas las secciones."""
     pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
-    pdf.set_font("Arial", "B", 16)
+    
+    # Margen explícito
+    l_margin = 15
+    pdf.set_left_margin(l_margin)
+    pdf.set_right_margin(l_margin)
+    eff_w = pdf.w - 2 * l_margin
+
+    # Usamos Helvetica (estándar). No admite emojis ni caracteres especiales complejos.
+    pdf.set_font("Helvetica", "B", 16)
     
     # Título
-    pdf.cell(0, 10, f"Informe de Investigacion: {topic}", ln=True, align='C')
-    pdf.ln(10)
+    safe_topic = topic.encode('latin-1', 'replace').decode('latin-1')
+    pdf.multi_cell(eff_w, 10, f"Informe de Investigacion: {safe_topic}", align='C')
+    pdf.ln(5)
     
+    def clean_text(text):
+        if not text: return ""
+        # Removemos acentos problemáticos y emojis
+        import unicodedata
+        text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
+        return text
+
+    def add_section_header(title):
+        pdf.set_font("Helvetica", "B", 14)
+        pdf.set_fill_color(230, 230, 230)
+        pdf.multi_cell(eff_w, 10, clean_text(title), fill=True)
+        pdf.ln(2)
+
     # Síntesis
-    pdf.set_font("Arial", "B", 14)
-    pdf.cell(0, 10, "Sintesis Ejecutiva Consolidada", ln=True)
-    pdf.set_font("Arial", "", 11)
-    # Limpiamos un poco el markdown para el PDF simple (fpdf2 maneja algo de MD pero mejor texto plano)
+    add_section_header("Sintesis Ejecutiva Consolidada")
+    pdf.set_font("Helvetica", "", 10)
     summary_text = state.get("consolidated_summary", "No disponible").replace("#", "").replace("*", "")
-    pdf.multi_cell(0, 7, summary_text)
-    pdf.ln(10)
-    
-    # Bibliografía
-    pdf.set_font("Arial", "B", 14)
-    pdf.cell(0, 10, "Bibliografia", ln=True)
-    pdf.set_font("Arial", "", 9)
-    for ref in state.get("bibliography", []):
-        pdf.multi_cell(0, 5, f"- {ref}")
-        
+    pdf.multi_cell(eff_w, 6, clean_text(summary_text))
+    pdf.ln(5)
+
+
     pdf.output(output_path)
 
 

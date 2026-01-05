@@ -4,8 +4,10 @@ import os
 from typing import List, TypedDict
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_community.tools import DuckDuckGoSearchRun
-from langchain_community.document_loaders import WikipediaLoader, ArxivLoader
+from langchain_community.document_loaders import WikipediaLoader
 from langchain_community.tools.semanticscholar.tool import SemanticScholarQueryRun
+import arxiv
+from semanticscholar import SemanticScholar
 from github import Github
 
 class AgentState(TypedDict):
@@ -70,37 +72,60 @@ def search_wiki_node(state: AgentState) -> dict:
     return {"wiki_research": results}
 
 def search_arxiv_node(state: AgentState) -> dict:
-    """Busca artículos científicos en arXiv."""
+    """Busca artículos científicos en arXiv usando la librería arxiv directamente."""
     print("\n--- 📄 NODO: BUSCANDO EN ARXIV ---")
     topic = state["topic"]
     results = []
     
     try:
-        loader = ArxivLoader(query=topic, load_max_docs=3)
-        docs = loader.load()
-        for doc in docs:
+        client = arxiv.Client()
+        search = arxiv.Search(
+            query=topic,
+            max_results=3,
+            sort_by=arxiv.SortCriterion.Relevance
+        )
+        
+        for result in client.results(search):
             results.append({
-                "title": doc.metadata.get("Title"),
-                "summary": doc.page_content[:1000] + "...",
-                "authors": doc.metadata.get("Authors")
+                "title": result.title,
+                "summary": result.summary[:1000] + "...",
+                "authors": ", ".join(author.name for author in result.authors),
+                "url": result.entry_id
             })
-        print(f"✅ Búsqueda en arXiv completada.")
+            
+        print(f"✅ Búsqueda en arXiv completada. Se encontraron {len(results)} artículos.")
     except Exception as e:
         print(f"⚠️ Error en arXiv: {e}")
         
     return {"arxiv_research": results}
 
 def search_scholar_node(state: AgentState) -> dict:
-    """Busca artículos académicos en Semantic Scholar."""
+    """Busca artículos académicos en Semantic Scholar usando la librería directamente."""
     print("\n--- 🎓 NODO: BUSCANDO EN SEMANTIC SCHOLAR ---")
     topic = state["topic"]
     results = []
     
     try:
-        scholar = SemanticScholarQueryRun()
-        res_text = scholar.run(topic)
-        results = [{"content": res_text}]
-        print(f"✅ Búsqueda en Semantic Scholar completada.")
+        sch = SemanticScholar()
+        # Pedimos campos específicos para evitar sobrecarga y posibles hangs
+        search_results = sch.search_paper(topic, limit=3, fields=['title', 'abstract', 'url', 'year', 'authors'])
+        
+        # Iteramos con un contador para evitar quedarnos atrapados en PaginatedResults si algo falla
+        count = 0
+        for paper in search_results:
+            if count >= 3:
+                break
+            authors_list = [author['name'] for author in paper.authors] if paper.authors else []
+            results.append({
+                "title": paper.title,
+                "content": paper.abstract if paper.abstract else "Sin resumen disponible.",
+                "url": paper.url,
+                "authors": ", ".join(authors_list) if authors_list else "Autor desconocido",
+                "year": paper.year
+            })
+            count += 1
+            
+        print(f"✅ Búsqueda en Semantic Scholar completada. Se encontraron {len(results)} resultados.")
     except Exception as e:
         print(f"⚠️ Error en Semantic Scholar: {e}")
         

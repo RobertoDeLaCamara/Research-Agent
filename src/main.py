@@ -9,7 +9,7 @@ def parse_args():
     """
     Parsea los argumentos de la línea de comandos.
     """
-    parser = argparse.ArgumentParser(description="Agente de Resumen de YouTube")
+    parser = argparse.ArgumentParser(description="Research-Agent: Multi-source AI Researcher")
     parser.add_argument(
         "topic",
         type=str,

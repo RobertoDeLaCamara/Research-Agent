@@ -49,17 +49,20 @@ def consolidate_research_node(state: AgentState) -> dict:
     if arxiv:
         context += "--- ARTÍCULOS CIENTÍFICOS (ARXIV) ---\n"
         for item in arxiv:
-            context += f"Título: {item.get('title')}\nResumen: {item.get('summary')}\n\n"
+            context += f"Título: {item.get('title')}\nResumen: {item.get('summary')}\nURL: {item.get('url')}\n\n"
             
     if scholar:
         context += "--- ARTÍCULOS ACADÉMICOS DESTACADOS (SEMANTIC SCHOLAR) ---\n"
         for item in scholar:
-            context += f"Análisis: {item.get('content')}\n\n"
+            context += f"Título: {item.get('title')} ({item.get('year', 'N/A')})\n"
+            context += f"Autores: {item.get('authors')}\n"
+            context += f"Resumen: {item.get('content')}\n"
+            context += f"URL: {item.get('url')}\n\n"
             
     if github:
         context += "--- REPOSITORIOS Y CÓDIGO (GITHUB) ---\n"
         for item in github:
-            context += f"Repo: {item.get('name')}\nDescripción: {item.get('description')}\nEstrellas: {item.get('stars')}\n\n"
+            context += f"Repo: {item.get('name')}\nDescripción: {item.get('description')}\nEstrellas: {item.get('stars')}\nURL: {item.get('url')}\n\n"
             
     if yt_summaries:
         context += "--- RESÚMENES DE YOUTUBE ---\n"
@@ -74,7 +77,8 @@ Instrucciones:
 1. Divide el informe en secciones lógicas (Introducción, Tendencias Clave, Tecnologías Emergentes, Implementaciones de Código, Conclusiones).
 2. Integra la información de todas las fuentes (Wikipedia, Web, arXiv, Semantic Scholar, GitHub y YouTube) de manera fluida.
 3. El lenguaje debe ser profesional y objetivo.
-4. IMPORTANTE: Responde ÚNICAMENTE con el cuerpo del informe en formato Markdown.
+4. MANDATORIO: Cada vez que menciones un repositorio de GitHub, un artículo de arXiv o de Semantic Scholar, DEBES incluir su URL correspondiente (ej. usando formato Markdown [Nombre](URL) o simplemente la URL entre paréntesis). No omitas ninguna URL proporcionada en el contexto.
+5. IMPORTANTE: Responde ÚNICAMENTE con el cuerpo del informe en formato Markdown.
 
 INFORMACIÓN PARA SINTETIZAR:
 {context}
