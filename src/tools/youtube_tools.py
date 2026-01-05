@@ -19,7 +19,11 @@ class AgentState(TypedDict):
     web_research: List[dict]
     wiki_research: List[dict]
     arxiv_research: List[dict]
+    github_research: List[dict]
+    scholar_research: List[dict]
     consolidated_summary: str
+    bibliography: List[str]
+    pdf_path: str
     report: str
     messages: List[BaseMessage]
 

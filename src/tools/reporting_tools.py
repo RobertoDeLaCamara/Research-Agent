@@ -4,6 +4,10 @@ import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
+import markdown
+from fpdf import FPDF
 
 # Importamos la definición de AgentState desde el archivo agent.py
 from typing import TypedDict, List
@@ -17,7 +21,11 @@ class AgentState(TypedDict):
     web_research: List[dict]
     wiki_research: List[dict]
     arxiv_research: List[dict]
+    github_research: List[dict]
+    scholar_research: List[dict]
     consolidated_summary: str
+    bibliography: List[str]
+    pdf_path: str
     report: str
     messages: List[BaseMessage]
 
@@ -67,7 +75,6 @@ def generate_report_node(state: AgentState) -> dict:
 
     # --- SECCIÓN: RESUMEN CONSOLIDADO (SÍNTESIS) ---
     if state.get("consolidated_summary"):
-        import markdown
         # Convertimos el markdown de la síntesis a HTML para el informe
         synthesis_html = markdown.markdown(state["consolidated_summary"])
         html_content += f"""
@@ -113,6 +120,28 @@ def generate_report_node(state: AgentState) -> dict:
             </div>
             """
 
+    # --- SECCIÓN: SEMANTIC SCHOLAR ---
+    if state.get("scholar_research"):
+        html_content += "<h1>Artículos Destacados (Semantic Scholar)</h1>"
+        for item in state["scholar_research"]:
+            html_content += f"""
+            <div class="video-block">
+                <p>{item.get('content')}</p>
+            </div>
+            """
+
+    # --- SECCIÓN: GITHUB ---
+    if state.get("github_research"):
+        html_content += "<h1>Repositorios de Código (GitHub)</h1>"
+        for item in state["github_research"]:
+            html_content += f"""
+            <div class="video-block">
+                <h2>{item.get('name')} (⭐ {item.get('stars')})</h2>
+                <p>{item.get('description')}</p>
+                <p><a href="{item.get('url')}">Ver en GitHub</a></p>
+            </div>
+            """
+
     html_content += "<h1>Investigación de YouTube</h1>"
     for i, (summary, metadata) in enumerate(zip(summaries, video_metadata)):
         html_content += f"""
@@ -125,13 +154,87 @@ def generate_report_node(state: AgentState) -> dict:
         </div>
         """
 
+    # --- SECCIÓN: BIBLIOGRAFÍA ---
+    bibliography = []
+    html_content += "<hr><h1>Bibliografía y Fuentes</h1><ul>"
+    
+    # Wiki
+    for item in state.get("wiki_research", []):
+        ref = f"Wikipedia: {item.get('title')} - {item.get('url')}"
+        bibliography.append(ref)
+        html_content += f"<li>{ref}</li>"
+    # arXiv
+    for item in state.get("arxiv_research", []):
+        ref = f"arXiv: {item.get('title')} ({item.get('authors')})"
+        bibliography.append(ref)
+        html_content += f"<li>{ref}</li>"
+    # Scholar
+    scholar_data = state.get("scholar_research", [])
+    if scholar_data:
+        bibliography.append("Semantic Scholar Analysis Results")
+        html_content += f"<li>Fuentes de Semantic Scholar (detalladas en el análisis)</li>"
+    # GitHub
+    for item in state.get("github_research", []):
+        ref = f"GitHub: {item.get('name')} - {item.get('url')}"
+        bibliography.append(ref)
+        html_content += f"<li>{ref}</li>"
+    # YouTube
+    for metadata in video_metadata:
+        ref = f"YouTube: {metadata.get('title')} por {metadata.get('author')} - {metadata.get('url')}"
+        bibliography.append(ref)
+        html_content += f"<li>{ref}</li>"
+    
+    html_content += "</ul>"
+
     html_content += """
     </body>
     </html>
     """
+    
+    # Guardamos el HTML
+    report_path = "reporte_final.html"
+    with open(report_path, "w", encoding="utf-8") as f:
+        f.write(html_content)
+    
+    # --- GENERACIÓN DE PDF ---
+    pdf_path = "reporte_investigacion.pdf"
+    try:
+        generate_pdf(state, topic, pdf_path)
+        print("✅ PDF generado con éxito.")
+    except Exception as e:
+        print(f"⚠️ Error al generar PDF: {e}")
+        pdf_path = None
 
     print("✅ Informe HTML generado con éxito.")
-    return {"report": html_content}
+    return {"report": html_content, "bibliography": bibliography, "pdf_path": pdf_path}
+
+def generate_pdf(state: AgentState, topic: str, output_path: str):
+    """Genera un archivo PDF profesional usando fpdf2."""
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    
+    # Título
+    pdf.cell(0, 10, f"Informe de Investigacion: {topic}", ln=True, align='C')
+    pdf.ln(10)
+    
+    # Síntesis
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(0, 10, "Sintesis Ejecutiva Consolidada", ln=True)
+    pdf.set_font("Arial", "", 11)
+    # Limpiamos un poco el markdown para el PDF simple (fpdf2 maneja algo de MD pero mejor texto plano)
+    summary_text = state.get("consolidated_summary", "No disponible").replace("#", "").replace("*", "")
+    pdf.multi_cell(0, 7, summary_text)
+    pdf.ln(10)
+    
+    # Bibliografía
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(0, 10, "Bibliografia", ln=True)
+    pdf.set_font("Arial", "", 9)
+    for ref in state.get("bibliography", []):
+        pdf.multi_cell(0, 5, f"- {ref}")
+        
+    pdf.output(output_path)
 
 
 # --------------------------------------------------------------------------
@@ -163,15 +266,29 @@ def send_email_node(state: AgentState) -> dict:
         return {}
 
     # Creación del objeto del mensaje de correo.
-    message = MIMEMultipart("alternative")
-    message["Subject"] = f"Informe de YouTube sobre: {topic}"
-    message["From"] = sender_email
-    message["To"] = receiver_email
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = receiver_email
+    msg['Subject'] = f"Informe de Investigación: {topic}"
+    msg.attach(MIMEText(state["report"], 'html'))
 
-    # Adjuntamos el informe en formato HTML.
-    # El cliente de correo renderizará este HTML en lugar de mostrarlo como texto plano.
-    html_part = MIMEText(report, "html")
-    message.attach(html_part)
+    # Adjuntamos el PDF si existe
+    pdf_path = state.get("pdf_path")
+    if pdf_path and os.path.exists(pdf_path):
+        try:
+            with open(pdf_path, "rb") as attachment:
+                part = MIMEBase("application", "octet-stream")
+                part.set_payload(attachment.read())
+            
+            encoders.encode_base64(part)
+            part.add_header(
+                "Content-Disposition",
+                f"attachment; filename={os.path.basename(pdf_path)}",
+            )
+            msg.attach(part)
+            print(f"✅ PDF adjunto al correo: {pdf_path}")
+        except Exception as e:
+            print(f"⚠️ Error al adjuntar PDF: {e}")
 
     try:
         # Iniciamos la conexión con el servidor SMTP.
@@ -181,7 +298,7 @@ def send_email_node(state: AgentState) -> dict:
         server.login(sender_email, password)
         
         # Enviamos el correo.
-        server.sendmail(sender_email, receiver_email, message.as_string())
+        server.sendmail(sender_email, receiver_email, msg.as_string())
         print(f"✅ Correo electrónico enviado con éxito a {receiver_email}.")
         
     except smtplib.SMTPAuthenticationError:

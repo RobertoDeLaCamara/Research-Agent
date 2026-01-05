@@ -11,7 +11,11 @@ class AgentState(TypedDict):
     web_research: List[dict]
     wiki_research: List[dict]
     arxiv_research: List[dict]
+    github_research: List[dict]
+    scholar_research: List[dict]
     consolidated_summary: str
+    bibliography: List[str]
+    pdf_path: str
     report: str
     messages: List[BaseMessage]
 
@@ -25,6 +29,8 @@ def consolidate_research_node(state: AgentState) -> dict:
     wiki = state.get("wiki_research", [])
     web = state.get("web_research", [])
     arxiv = state.get("arxiv_research", [])
+    scholar = state.get("scholar_research", [])
+    github = state.get("github_research", [])
     yt_summaries = state.get("summaries", [])
     
     # Construcción del contexto para el LLM
@@ -45,6 +51,16 @@ def consolidate_research_node(state: AgentState) -> dict:
         for item in arxiv:
             context += f"Título: {item.get('title')}\nResumen: {item.get('summary')}\n\n"
             
+    if scholar:
+        context += "--- ARTÍCULOS ACADÉMICOS DESTACADOS (SEMANTIC SCHOLAR) ---\n"
+        for item in scholar:
+            context += f"Análisis: {item.get('content')}\n\n"
+            
+    if github:
+        context += "--- REPOSITORIOS Y CÓDIGO (GITHUB) ---\n"
+        for item in github:
+            context += f"Repo: {item.get('name')}\nDescripción: {item.get('description')}\nEstrellas: {item.get('stars')}\n\n"
+            
     if yt_summaries:
         context += "--- RESÚMENES DE YOUTUBE ---\n"
         for i, summary in enumerate(yt_summaries):
@@ -55,8 +71,8 @@ Eres un experto analista de investigación. Tu tarea es crear un INFORME CONSOLI
 El informe debe ser técnico, estructurado y fácil de leer.
 
 Instrucciones:
-1. Divide el informe en secciones lógicas (Introducción, Tendencias Clave, Tecnologías Emergentes, Conclusiones).
-2. Integra la información de todas las fuentes (Wikipedia, Web, arXiv y YouTube) de manera fluida.
+1. Divide el informe en secciones lógicas (Introducción, Tendencias Clave, Tecnologías Emergentes, Implementaciones de Código, Conclusiones).
+2. Integra la información de todas las fuentes (Wikipedia, Web, arXiv, Semantic Scholar, GitHub y YouTube) de manera fluida.
 3. El lenguaje debe ser profesional y objetivo.
 4. IMPORTANTE: Responde ÚNICAMENTE con el cuerpo del informe en formato Markdown.
 
