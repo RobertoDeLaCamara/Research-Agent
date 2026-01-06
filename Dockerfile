@@ -18,12 +18,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the current directory contents into the container at /app
 COPY . .
 
-# Create a directory for reports
-RUN mkdir -p reports
+# Expose port for Streamlit
+EXPOSE 8501
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 
-# Run the agent when the container launches
-# Usage: docker run research-agent "Topic"
-ENTRYPOINT ["python", "src/main.py"]
+# Default command: run the dashboard
+CMD ["streamlit", "run", "src/app.py", "--server.address=0.0.0.0"]

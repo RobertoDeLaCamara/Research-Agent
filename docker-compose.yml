@@ -6,4 +6,7 @@ services:
     volumes:
       - ./reports:/app/reports
     network_mode: "host"
-    # To run: docker compose run research-agent "Topic"
+    ports:
+      - "8501:8501"
+    # Run Dashboard (default): docker compose up
+    # Run CLI: docker compose run --rm research-agent "Topic" python src/main.py "Topic"

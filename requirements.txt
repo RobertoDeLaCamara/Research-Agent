@@ -24,3 +24,8 @@ markdown
 semanticscholar
 PyGithub
 langchain-classic
+streamlit
+streamlit-extras
+pytest
+pytest-mock
+pytest-asyncio
