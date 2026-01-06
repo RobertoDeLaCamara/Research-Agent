@@ -9,6 +9,7 @@ from langchain_community.tools.semanticscholar.tool import SemanticScholarQueryR
 import arxiv
 from semanticscholar import SemanticScholar
 from github import Github
+import re
 
 class AgentState(TypedDict):
     topic: str
@@ -51,13 +52,21 @@ def search_web_node(state: AgentState) -> dict:
     return {"web_research": results}
 
 def search_wiki_node(state: AgentState) -> dict:
-    """Busca en Wikipedia para obtener un contexto general."""
+    """Busca en Wikipedia para obtener un contexto general. Detecta idioma automáticamente."""
     print("\n--- 📖 NODO: BUSCANDO EN WIKIPEDIA ---")
     topic = state["topic"]
     results = []
     
+    # Detección simple de idioma: si contiene caracteres latinos con tildes o eñes, usamos español.
+    # Por defecto inglés para mayor cobertura global.
+    lang = "en"
+    if re.search(r'[áéíóúÁÉÍÓÚñÑ]', topic):
+        lang = "es"
+        print("Detectado posible idioma español por caracteres especiales.")
+    
     try:
-        loader = WikipediaLoader(query=topic, load_max_docs=1, lang="es")
+        print(f"Buscando en Wikipedia ({lang})...")
+        loader = WikipediaLoader(query=topic, load_max_docs=1, lang=lang)
         docs = loader.load()
         for doc in docs:
             results.append({
@@ -132,7 +141,7 @@ def search_scholar_node(state: AgentState) -> dict:
     return {"scholar_research": results}
 
 def search_github_node(state: AgentState) -> dict:
-    """Busca repositorios relevantes en GitHub."""
+    """Busca repositorios relevantes en GitHub. Intenta búsqueda amplia si la específica falla."""
     print("\n--- 💻 NODO: BUSCANDO EN GITHUB ---")
     topic = state["topic"]
     results = []
@@ -144,8 +153,15 @@ def search_github_node(state: AgentState) -> dict:
         else:
             g = Github() # Public access
             
+        # Intento 1: Búsqueda específica en Python
+        print(f"Buscando repositorios de Python para: {topic}")
         repositories = g.search_repositories(query=f"{topic} language:python", sort="stars", order="desc")
         
+        # Comprobar si hay resultados usando totalCount para evitar errores de slice
+        if repositories.totalCount == 0:
+            print("No se encontraron repositorios de Python. Intentando búsqueda global...")
+            repositories = g.search_repositories(query=topic, sort="stars", order="desc")
+            
         for i, repo in enumerate(repositories):
             if i >= 5:
                 break

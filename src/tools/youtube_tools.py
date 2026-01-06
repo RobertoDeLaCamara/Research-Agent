@@ -10,6 +10,7 @@ from langchain_community.document_loaders import YoutubeLoader
 # El '..' indica que subimos un nivel en la estructura de directorios para encontrar el módulo.
 from typing import TypedDict, List
 from langchain_core.messages import BaseMessage
+from langchain_core.documents import Document
 
 class AgentState(TypedDict):
     topic: str
@@ -113,14 +114,35 @@ def summarize_videos_node(state: AgentState) -> dict:
             # Cargamos la transcripción (intentando español e inglés)
             loader = YoutubeLoader.from_youtube_url(url, add_video_info=False, language=["es", "en"])
             docs = loader.load()
+            
+            if not docs:
+                raise ValueError("No se pudo obtener la transcripción.")
 
             # Resumimos
             summary = summarize_chain.run(docs)
             summaries.append(summary)
-            print("  - ✅ Resumen generado.")
+            print("  - ✅ Resumen generado desde transcripción.")
 
         except Exception as e:
-            print(f"  - ⚠️ Error al procesar {url}: {e}")
-            summaries.append("No fue posible generar un resumen para este vídeo.")
+            print(f"  - ⚠️ Error al obtener transcripción: {e}")
+            print(f"  - 🔄 Usando metadatos como fallback...")
+            
+            # Fallback: Usar título y descripción si no hay transcripción
+            # Creamos un documento "fake" con la información disponible
+            fallback_text = f"Título del vídeo: {metadata.get('title')}\nCanal: {metadata.get('author')}\n"
+            
+            # Intentar obtener más detalles con YoutubeSearch si es posible, o usar lo que tenemos
+            fallback_doc = Document(page_content=fallback_text)
+            
+            try:
+                # Usamos el LLM para generar un resumen basado en el título/autor (que es mejor que nada)
+                # O simplemente reportamos la limitación de forma elegante
+                prompt = f"Genera un breve párrafo explicando de qué trata este vídeo basándote solo en su título: '{metadata.get('title')}'. Menciona que es una fuente audiovisual relevante para el tema {state['topic']}."
+                summary = llm.invoke(prompt).content
+                summaries.append(summary)
+                print("  - ✅ Resumen generado desde metadatos.")
+            except Exception as e_inner:
+                print(f"  - ❌ Error final en fallback: {e_inner}")
+                summaries.append(f"Vídeo titulado '{metadata.get('title')}' por {metadata.get('author')}. No fue posible extraer el contenido detallado debido a restricciones de YouTube.")
 
     return {"summaries": summaries}

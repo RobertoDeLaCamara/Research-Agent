@@ -55,116 +55,221 @@ def generate_report_node(state: AgentState) -> dict:
 
     # Usamos f-strings de varias líneas para construir el HTML de manera legible.
     # Se añade un poco de estilo CSS en línea para mejorar la apariencia.
+    # Premium HTML Design with modern CSS
     html_content = f"""
-    <html>
+    <!DOCTYPE html>
+    <html lang="es">
     <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Informe: {topic}</title>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
         <style>
-            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-            h1 {{ color: #444; border-bottom: 2px solid #ddd; padding-bottom: 10px; }}
-            h2 {{ color: #555; }}
-            h3 {{ color: #666; }}
-            a {{ color: #1a0dab; text-decoration: none; }}
-            a:hover {{ text-decoration: underline; }}
-            .video-block {{ margin-bottom: 30px; padding: 15px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #f9f9f9; }}
-            .summary {{ white-space: pre-wrap; }}
+            :root {{
+                --primary: #2563eb;
+                --primary-dark: #1e40af;
+                --secondary: #64748b;
+                --bg: #f8fafc;
+                --card-bg: #ffffff;
+                --text: #1e293b;
+                --text-light: #64748b;
+                --accent: #eff6ff;
+                --border: #e2e8f0;
+            }}
+            
+            body {{ 
+                font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+                line-height: 1.6; 
+                color: var(--text); 
+                background-color: var(--bg);
+                margin: 0;
+                padding: 0;
+            }}
+            
+            .container {{
+                max-width: 900px;
+                margin: 40px auto;
+                padding: 0 20px;
+            }}
+            
+            header {{
+                text-align: center;
+                margin-bottom: 50px;
+                padding: 40px 0;
+                background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+                color: white;
+                border-radius: 16px;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            }}
+            
+            h1 {{ margin: 0; font-weight: 700; font-size: 2.5rem; letter-spacing: -0.025em; }}
+            .subtitle {{ opacity: 0.8; font-weight: 300; margin-top: 10px; font-size: 1.1rem; }}
+            
+            h2 {{ 
+                color: var(--text); 
+                font-size: 1.75rem; 
+                margin-top: 40px; 
+                margin-bottom: 20px;
+                border-left: 4px solid var(--primary);
+                padding-left: 15px;
+            }}
+            
+            .section-card {{
+                background: var(--card-bg);
+                padding: 30px;
+                border-radius: 12px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                margin-bottom: 30px;
+                border: 1px solid var(--border);
+            }}
+            
+            .synthesis-card {{
+                background: linear-gradient(to bottom right, #eff6ff, #ffffff);
+                border: 1px solid #bfdbfe;
+                padding: 40px;
+            }}
+            
+            .synthesis-card h2 {{ border-left-color: #3b82f6; margin-top: 0; }}
+            
+            .research-item {{
+                margin-bottom: 25px;
+                padding-bottom: 20px;
+                border-bottom: 1px solid var(--border);
+            }}
+            
+            .research-item:last-child {{ border-bottom: none; margin-bottom: 0; padding-bottom: 0; }}
+            
+            .item-title {{ font-weight: 600; font-size: 1.25rem; color: var(--primary); margin-bottom: 8px; display: block; }}
+            .item-meta {{ font-size: 0.875rem; color: var(--text-light); margin-bottom: 12px; }}
+            .item-content {{ font-size: 1rem; color: var(--text); }}
+            
+            a {{ color: var(--primary); text-decoration: none; font-weight: 500; }}
+            a:hover {{ color: var(--primary-dark); text-decoration: underline; }}
+            
+            .tag {{
+                display: inline-block;
+                padding: 2px 10px;
+                border-radius: 9999px;
+                font-size: 0.75rem;
+                font-weight: 600;
+                background: var(--accent);
+                color: var(--primary);
+                margin-bottom: 10px;
+            }}
+            
+            .summary-text {{ white-space: pre-wrap; }}
+            
+            ul.bib-list {{ list-style: none; padding: 0; }}
+            ul.bib-list li {{ 
+                padding: 12px 0; 
+                border-bottom: 1px solid var(--border);
+                font-size: 0.95rem;
+            }}
+            
+            @media (max-width: 640px) {{
+                h1 {{ font-size: 1.75rem; }}
+                .container {{ margin: 20px auto; }}
+            }}
         </style>
     </head>
     <body>
-        <h1>Informe de Investigación sobre: {topic}</h1>
+        <div class="container">
+            <header>
+                <h1>Investigación Inteligente</h1>
+                <div class="subtitle">{topic}</div>
+            </header>
     """
 
-    # --- SECCIÓN: RESUMEN CONSOLIDADO (SÍNTESIS) ---
+    # --- SECCIÓN: SÍNTESIS EJECUTIVA ---
     if state.get("consolidated_summary"):
-        # Convertimos el markdown de la síntesis a HTML para el informe
         synthesis_html = markdown.markdown(state["consolidated_summary"])
         html_content += f"""
-        <div style="background-color: #eefbff; padding: 20px; border-radius: 10px; border: 1px solid #b3e5fc; margin-bottom: 30px;">
-            <h1 style="color: #01579b; border: none;">💡 Síntesis Ejecutiva Consolidada</h1>
-            <div class="summary">{synthesis_html}</div>
+        <div class="section-card synthesis-card">
+            <h2>💡 Síntesis Ejecutiva Consolidada</h2>
+            <div class="summary-text">{synthesis_html}</div>
         </div>
-        <hr style="border: 1px solid #ddd; margin: 40px 0;">
         """
 
     # --- SECCIÓN: WIKIPEDIA ---
     if state.get("wiki_research"):
-        html_content += "<h1>Contexto General (Wikipedia)</h1>"
+        html_content += "<h2><span class='tag'>WIKIPEDIA</span> Contexto General</h2><div class='section-card'>"
         for item in state["wiki_research"]:
             summary = item.get('summary', '')
             if len(summary) > 500:
                 summary = summary[:500] + "..."
             html_content += f"""
-            <div class="video-block">
-                <h2>{item.get('title')}</h2>
-                <p>{summary}</p>
-                <p><a href="{item.get('url')}">Leer más en Wikipedia</a></p>
+            <div class="research-item">
+                <a href="{item.get('url')}" class="item-title">{item.get('title')}</a>
+                <p class="item-content">{summary}</p>
             </div>
             """
+        html_content += "</div>"
 
     # --- SECCIÓN: WEB RESEARCH ---
     if state.get("web_research"):
-        html_content += "<h1>Investigación Web</h1>"
+        html_content += "<h2><span class='tag'>WEB</span> Investigación Ampliada</h2><div class='section-card'>"
         for item in state["web_research"]:
             content = item.get('content', item.get('snippet', ''))
             if len(content) > 500:
                 content = content[:500] + "..."
             html_content += f"""
-            <div class="video-block">
-                <p>{content}</p>
-                <p><a href="{item.get('url')}">Fuente original</a></p>
+            <div class="research-item">
+                <p class="item-content">{content}</p>
+                <a href="{item.get('url')}" class="item-meta">Ver fuente original &rarr;</a>
             </div>
             """
+        html_content += "</div>"
 
     # --- SECCIÓN: ARXIV ---
     if state.get("arxiv_research"):
-        html_content += "<h1>Artículos Científicos (arXiv)</h1>"
+        html_content += "<h2><span class='tag'>ACADÉMICO</span> Artículos en arXiv</h2><div class='section-card'>"
         for item in state["arxiv_research"]:
-            url = item.get('url', '#')
             html_content += f"""
-            <div class="video-block">
-                <h2>{item.get('title')}</h2>
-                <p><strong>Autores:</strong> {item.get('authors')}</p>
-                <p>{item.get('summary')}</p>
-                <p><a href="{url}">Ver en arXiv</a></p>
+            <div class="research-item">
+                <a href="{item.get('url', '#')}" class="item-title">{item.get('title')}</a>
+                <div class="item-meta">Autores: {item.get('authors')}</div>
+                <p class="item-content">{item.get('summary')}</p>
             </div>
             """
+        html_content += "</div>"
 
     # --- SECCIÓN: SEMANTIC SCHOLAR ---
     if state.get("scholar_research"):
-        html_content += "<h1>Artículos Destacados (Semantic Scholar)</h1>"
+        html_content += "<h2><span class='tag'>CIENCIA</span> Semantic Scholar</h2><div class='section-card'>"
         for item in state["scholar_research"]:
-            url = item.get('url', '#')
             html_content += f"""
-            <div class="video-block">
-                <h2>{item.get('title')} ({item.get('year', 'N/A')})</h2>
-                <p><strong>Autores:</strong> {item.get('authors')}</p>
-                <p>{item.get('content')}</p>
-                <p><a href="{url}">Ver en Semantic Scholar</a></p>
+            <div class="research-item">
+                <a href="{item.get('url', '#')}" class="item-title">{item.get('title')} ({item.get('year', 'N/A')})</a>
+                <div class="item-meta">Autores: {item.get('authors')}</div>
+                <p class="item-content">{item.get('content')}</p>
             </div>
             """
+        html_content += "</div>"
 
     # --- SECCIÓN: GITHUB ---
     if state.get("github_research"):
-        html_content += "<h1>Repositorios de Código (GitHub)</h1>"
+        html_content += "<h2><span class='tag'>CÓDIGO</span> Repositorios Destacados</h2><div class='section-card'>"
         for item in state["github_research"]:
             html_content += f"""
-            <div class="video-block">
-                <h2>{item.get('name')} (⭐ {item.get('stars')})</h2>
-                <p>{item.get('description')}</p>
-                <p><a href="{item.get('url')}">Ver en GitHub</a></p>
+            <div class="research-item">
+                <a href="{item.get('url')}" class="item-title">{item.get('name')} (⭐ {item.get('stars')})</a>
+                <p class="item-content">{item.get('description')}</p>
             </div>
             """
+        html_content += "</div>"
 
-    html_content += "<h1>Investigación de YouTube</h1>"
-    for i, (summary, metadata) in enumerate(zip(summaries, video_metadata)):
-        html_content += f"""
-        <div class="video-block">
-            <h2>Vídeo {i+1}: {metadata.get('title', 'Título no disponible')}</h2>
-            <p><strong>Autor:</strong> {metadata.get('author', 'Autor no disponible')}</p>
-            <p><strong>URL:</strong> <a href="{metadata.get('url', '#')}">{metadata.get('url', 'URL no disponible')}</a></p>
-            <h3>Resumen Ejecutivo:</h3>
-            <p class="summary">{summary}</p>
-        </div>
-        """
+    # --- SECCIÓN: YOUTUBE ---
+    if summaries:
+        html_content += "<h2><span class='tag'>MULTIMEDIA</span> Análisis de YouTube</h2><div class='section-card'>"
+        for i, (summary, metadata) in enumerate(zip(summaries, video_metadata)):
+            html_content += f"""
+            <div class="research-item">
+                <div class="item-title">Vídeo {i+1}: {metadata.get('title', 'Sin título')}</div>
+                <div class="item-meta">Autor: {metadata.get('author', 'Desconocido')} | <a href="{metadata.get('url', '#')}">Ver en YouTube</a></div>
+                <div class="item-content summary-text">{summary}</div>
+            </div>
+            """
+        html_content += "</div>"
 
     # --- SECCIÓN: BIBLIOGRAFÍA ---
     bibliography = []

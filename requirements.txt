@@ -4,6 +4,7 @@ langchain-core>=0.2.20
 langchain-openai>=0.1.8
 langchain-ollama
 langchain-community
+langchain-tavily
 langgraph>=0.0.68 # Compatible con langchain-core 0.2.x
 
 # APIs y Utilidades
