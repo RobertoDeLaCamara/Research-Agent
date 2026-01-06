@@ -5,33 +5,35 @@ An autonomous research agent powered by LangChain and LangGraph that performs de
 ## 🌟 Key Features
 
 *   **Multi-Source Research**: Investigations across Wikipedia, Google Search (Tavily), arXiv, Semantic Scholar, GitHub, and YouTube.
-*   **AI Synthesis**: Uses advanced LLMs to consolidate findings into a technical Executive Summary.
-*   **Professional Reporting**:
-    *   **HTML Report**: Full-featured report with truncated research sections for better readability and full bibliography.
-    *   **PDF Summary**: High-quality PDF focused exclusively on the Executive Summary for professional sharing.
-*   **Smart Linking**: Automatic extraction of URLs with clickable links in the summary and bibliography.
+*   **Robust Content Extraction**:
+    *   **YouTube Fallback**: Automatically continues research using video metadata (titles/authors) if transcripts are blocked or unavailable.
+    *   **GitHub Recall**: Intelligent search fallback that broadens the scope if specific language-filtered results are not found.
+*   **Bilingual Support**: Dynamic language detection (English/Spanish) for Wikipedia sources based on the research topic.
+*   **Premium Reporting**:
+    *   **Modern HTML Report**: High-end aesthetic with a clean, card-based mobile-responsive design and professional typography.
+    *   **PDF Summary**: High-quality PDF focused on the Executive Summary for professional sharing.
+*   **AI Synthesis**: Uses advanced LLMs (Ollama-based Qwen 2.5/Gemma) to consolidate findings into a technical Executive Summary.
 *   **Email Delivery**: Automatically sends the generated reports (HTML + PDF) to your email via SMTP.
-*   **Local-First Architecture**: Designed to work with local models like Qwen 2.5/Gemma via Ollama.
 
 ## 🛠 Architecture
 
 The agent follows a graph-based workflow using **LangGraph**:
 
-1.  **Wikipedia**: Initial context gathering.
-2.  **Web Search**: Current events and diverse viewpoints.
+1.  **Wikipedia**: Initial context gathering with auto-language detection.
+2.  **Web Search**: Current events via Tavily (with DuckDuckGo fallback).
 3.  **Scientific Repositories**: arXiv and Semantic Scholar for academic depth.
-4.  **GitHub**: Real-world implementations and code.
-5.  **YouTube**: Expert explanations and audiovisual context.
+4.  **GitHub**: Broadened search for implementations and code.
+5.  **YouTube**: Analysis with transcript/metadata extraction.
 6.  **Synthesis**: LLM-driven consolidation of all data.
-7.  **Reporting**: Final HTML/PDF generation and email dispatch.
+7.  **Reporting**: Premium HTML/PDF generation and email dispatch.
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
 *   Python 3.10+
-*   [Ollama](https://ollama.com/) with `qwen2.5:14b` (or your preferred model)
-*   API Keys for Tavily, Semantic Scholar (optional), and GitHub.
+*   [Ollama](https://ollama.com/) with `qwen2.5:14b` (recommended) or any preferred model.
+*   API Keys for **Tavily** and **GitHub** (Token).
 
 ### Setup
 
@@ -51,10 +53,8 @@ The agent follows a graph-based workflow using **LangGraph**:
 3.  **Configure environment**:
     Copy `env.example` to `.env` and fill in your credentials:
     ```bash
-    TAVILY_API_KEY=your_key
-    GITHUB_TOKEN=your_token
-    EMAIL_USER=your_email
-    EMAIL_PASS=your_app_password
+    cp env.example .env
+    # Edit .env with your keys
     ```
 
 ### Usage
