@@ -5,7 +5,7 @@ An autonomous research agent powered by LangChain and LangGraph that performs de
 ## 🌟 Key Features
 
 *   **Multi-Source Research**: Investigations across Wikipedia, Google Search (Tavily), arXiv, Semantic Scholar, GitHub, and YouTube.
-*   **AI Synthesis**: Uses advanced LLMs (via Ollama) to consolidate findings into a technical Executive Summary.
+*   **AI Synthesis**: Uses advanced LLMs to consolidate findings into a technical Executive Summary.
 *   **Professional Reporting**:
     *   **HTML Report**: Full-featured report with truncated research sections for better readability and full bibliography.
     *   **PDF Summary**: High-quality PDF focused exclusively on the Executive Summary for professional sharing.
