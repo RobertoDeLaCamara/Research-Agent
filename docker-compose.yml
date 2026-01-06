@@ -1,0 +1,9 @@
+services:
+  research-agent:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./reports:/app/reports
+    network_mode: "host"
+    # To run: docker compose run research-agent "Topic"

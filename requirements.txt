@@ -17,4 +17,10 @@ transformers
 wikipedia
 arxiv
 duckduckgo-search
-tweepystackapi
+stackapi
+fpdf
+requests
+markdown
+semanticscholar
+PyGithub
+langchain-classic
