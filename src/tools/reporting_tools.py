@@ -67,6 +67,10 @@ def generate_report_node(state: AgentState) -> dict:
         <title>Informe: {topic}</title>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
         <style>
+            * {{
+                box-sizing: border-box;
+            }}
+
             :root {{
                 --primary: #2563eb;
                 --primary-dark: #1e40af;
@@ -143,7 +147,11 @@ def generate_report_node(state: AgentState) -> dict:
             
             .item-title {{ font-weight: 600; font-size: 1.25rem; color: var(--primary); margin-bottom: 8px; display: block; }}
             .item-meta {{ font-size: 0.875rem; color: var(--text-light); margin-bottom: 12px; }}
-            .item-content {{ font-size: 1rem; color: var(--text); }}
+            .item-content {{ 
+                font-size: 1rem; 
+                color: var(--text); 
+                word-break: break-word;
+            }}
             
             a {{ color: var(--primary); text-decoration: none; font-weight: 500; }}
             a:hover {{ color: var(--primary-dark); text-decoration: underline; }}
@@ -159,13 +167,17 @@ def generate_report_node(state: AgentState) -> dict:
                 margin-bottom: 10px;
             }}
             
-            .summary-text {{ white-space: pre-wrap; }}
+            .summary-text {{ 
+                white-space: pre-wrap; 
+                word-break: break-word;
+            }}
             
-            ul.bib-list {{ list-style: none; padding: 0; }}
-            ul.bib-list li {{ 
+            .bib-list {{ list-style: none; padding: 0; }}
+            .bib-list li {{ 
                 padding: 12px 0; 
                 border-bottom: 1px solid var(--border);
                 font-size: 0.95rem;
+                word-break: break-all;
             }}
             
             @media (max-width: 640px) {{
@@ -280,7 +292,9 @@ def generate_report_node(state: AgentState) -> dict:
             <div class="research-item">
                 <a href="{item.get('url')}" class="item-title">{item.get('title')}</a>
                 <div class="item-meta">Score: {item.get('score')} | Resuelta: {'Sí' if item.get('is_answered') else 'No'}</div>
-                <p class="tag">{item.get('tags')}</p>
+                <div class="tag-container">
+                    {' '.join([f'<span class="tag">{t.strip()}</span>' for t in item.get('tags', '').split(',')])}
+                </div>
             </div>
             """
         html_content += "</div>"
@@ -300,7 +314,7 @@ def generate_report_node(state: AgentState) -> dict:
 
     # --- SECCIÓN: BIBLIOGRAFÍA ---
     bibliography = []
-    html_content += "<hr><h1>Bibliografía y Fuentes</h1><ul>"
+    html_content += "<hr><h2>📚 Bibliografía y Fuentes</h2><div class='section-card'><ul class='bib-list'>"
     
     # Wiki
     for item in state.get("wiki_research", []):
@@ -355,9 +369,10 @@ def generate_report_node(state: AgentState) -> dict:
         bibliography.append(ref)
         html_content += f"<li>YouTube: {title} por {author} - <a href='{url}'>{url}</a></li>"
     
-    html_content += "</ul>"
+    html_content += "</ul></div>"
 
     html_content += """
+    </div>
     </body>
     </html>
     """
