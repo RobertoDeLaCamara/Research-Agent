@@ -22,6 +22,8 @@ class AgentState(TypedDict):
     arxiv_research: List[dict]
     github_research: List[dict]
     scholar_research: List[dict]
+    hn_research: List[dict]
+    so_research: List[dict]
     consolidated_summary: str
     bibliography: List[str]
     pdf_path: str

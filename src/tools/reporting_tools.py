@@ -23,6 +23,8 @@ class AgentState(TypedDict):
     arxiv_research: List[dict]
     github_research: List[dict]
     scholar_research: List[dict]
+    hn_research: List[dict]
+    so_research: List[dict]
     consolidated_summary: str
     bibliography: List[str]
     pdf_path: str
@@ -258,6 +260,31 @@ def generate_report_node(state: AgentState) -> dict:
             """
         html_content += "</div>"
 
+    # --- SECCIÓN: HACKER NEWS ---
+    if state.get("hn_research"):
+        html_content += "<h2><span class='tag'>HACKER NEWS</span> Discusiones</h2><div class='section-card'>"
+        for item in state["hn_research"]:
+            html_content += f"""
+            <div class="research-item">
+                <a href="{item.get('url')}" class="item-title">{item.get('title')}</a>
+                <div class="item-meta">Autor: {item.get('author')} | Puntos: {item.get('points')}</div>
+            </div>
+            """
+        html_content += "</div>"
+
+    # --- SECCIÓN: STACK OVERFLOW ---
+    if state.get("so_research"):
+        html_content += "<h2><span class='tag'>STACK OVERFLOW</span> Soporte Técnico</h2><div class='section-card'>"
+        for item in state["so_research"]:
+            html_content += f"""
+            <div class="research-item">
+                <a href="{item.get('url')}" class="item-title">{item.get('title')}</a>
+                <div class="item-meta">Score: {item.get('score')} | Resuelta: {'Sí' if item.get('is_answered') else 'No'}</div>
+                <p class="tag">{item.get('tags')}</p>
+            </div>
+            """
+        html_content += "</div>"
+
     # --- SECCIÓN: YOUTUBE ---
     if summaries:
         html_content += "<h2><span class='tag'>MULTIMEDIA</span> Análisis de YouTube</h2><div class='section-card'>"
@@ -305,6 +332,20 @@ def generate_report_node(state: AgentState) -> dict:
         ref = f"GitHub: {name} - {url}"
         bibliography.append(ref)
         html_content += f"<li>GitHub: {name} - <a href='{url}'>{url}</a></li>"
+    # Hacker News
+    for item in state.get("hn_research", []):
+        url = item.get('url', '#')
+        title = item.get('title', 'Hacker News')
+        ref = f"Hacker News: {title} - {url}"
+        bibliography.append(ref)
+        html_content += f"<li>Hacker News: {title} - <a href='{url}'>{url}</a></li>"
+    # Stack Overflow
+    for item in state.get("so_research", []):
+        url = item.get('url', '#')
+        title = item.get('title', 'Stack Overflow')
+        ref = f"Stack Overflow: {title} - {url}"
+        bibliography.append(ref)
+        html_content += f"<li>Stack Overflow: {title} - <a href='{url}'>{url}</a></li>"
     # YouTube
     for metadata in video_metadata:
         url = metadata.get('url', '#')

@@ -13,6 +13,8 @@ class AgentState(TypedDict):
     arxiv_research: List[dict]
     github_research: List[dict]
     scholar_research: List[dict]
+    hn_research: List[dict]
+    so_research: List[dict]
     consolidated_summary: str
     bibliography: List[str]
     pdf_path: str
@@ -31,6 +33,8 @@ def consolidate_research_node(state: AgentState) -> dict:
     arxiv = state.get("arxiv_research", [])
     scholar = state.get("scholar_research", [])
     github = state.get("github_research", [])
+    hn = state.get("hn_research", [])
+    so = state.get("so_research", [])
     yt_summaries = state.get("summaries", [])
     
     # Construcción del contexto para el LLM
@@ -64,6 +68,16 @@ def consolidate_research_node(state: AgentState) -> dict:
         for item in github:
             context += f"Repo: {item.get('name')}\nDescripción: {item.get('description')}\nEstrellas: {item.get('stars')}\nURL: {item.get('url')}\n\n"
             
+    if hn:
+        context += "--- DISCUSIONES EN HACKER NEWS ---\n"
+        for item in hn:
+            context += f"Título: {item.get('title')}\nAutor: {item.get('author')}\nPuntos: {item.get('points')}\nURL: {item.get('url')}\n\n"
+            
+    if so:
+        context += "--- PREGUNTAS TÉCNICAS (STACK OVERFLOW) ---\n"
+        for item in so:
+            context += f"Título: {item.get('title')}\nScore: {item.get('score')}\nResuelta: {item.get('is_answered')}\nURL: {item.get('url')}\n\n"
+            
     if yt_summaries:
         context += "--- RESÚMENES DE YOUTUBE ---\n"
         for i, summary in enumerate(yt_summaries):
@@ -75,9 +89,9 @@ El informe debe ser técnico, estructurado y fácil de leer.
 
 Instrucciones:
 1. Divide el informe en secciones lógicas (Introducción, Tendencias Clave, Tecnologías Emergentes, Implementaciones de Código, Conclusiones).
-2. Integra la información de todas las fuentes (Wikipedia, Web, arXiv, Semantic Scholar, GitHub y YouTube) de manera fluida.
+2. Integra la información de todas las fuentes (Wikipedia, Web, arXiv, Semantic Scholar, GitHub, Hacker News, Stack Overflow y YouTube) de manera fluida.
 3. El lenguaje debe ser profesional y objetivo.
-4. MANDATORIO: Cada vez que menciones un repositorio de GitHub, un artículo de arXiv o de Semantic Scholar, DEBES incluir su URL correspondiente (ej. usando formato Markdown [Nombre](URL) o simplemente la URL entre paréntesis). No omitas ninguna URL proporcionada en el contexto.
+4. MANDATORIO: Cada vez que menciones un repositorio de GitHub, un artículo de arXiv, de Semantic Scholar, una discusión de Hacker News o una pregunta de Stack Overflow, DEBES incluir su URL correspondiente (ej. usando formato Markdown [Nombre](URL) o simplemente la URL entre paréntesis). No omitas ninguna URL proporcionada en el contexto.
 5. IMPORTANTE: Responde ÚNICAMENTE con el cuerpo del informe en formato Markdown.
 
 INFORMACIÓN PARA SINTETIZAR:

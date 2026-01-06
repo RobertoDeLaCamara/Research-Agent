@@ -21,6 +21,8 @@ class AgentState(TypedDict):
     arxiv_research: List[dict]
     github_research: List[dict]
     scholar_research: List[dict]
+    hn_research: List[dict]
+    so_research: List[dict]
     consolidated_summary: str
     bibliography: List[str]
     pdf_path: str
@@ -148,6 +150,7 @@ def search_github_node(state: AgentState) -> dict:
     
     token = os.getenv("GITHUB_TOKEN")
     try:
+        from github import Github
         if token:
             g = Github(token)
         else:
@@ -177,5 +180,73 @@ def search_github_node(state: AgentState) -> dict:
         print(f"⚠️ Error en GitHub: {e}")
         
     return {"github_research": results}
+
+def search_hn_node(state: AgentState) -> dict:
+    """Busca discusiones relevantes en Hacker News."""
+    print("\n--- 🧡 NODO: BUSCANDO EN HACKER NEWS ---")
+    topic = state["topic"]
+    results = []
+    
+    try:
+        from langchain_community.document_loaders import HNLoader
+        # Usamos una búsqueda simple en Algolia HN API via el loader si es posible, 
+        # o simulamos la búsqueda de historias populares.
+        # El HNLoader de LangChain suele cargar por ID o por "new", "top", etc.
+        # Para temas específicos, usaremos una aproximación de búsqueda.
+        query = topic.replace(" ", "+")
+        search_url = f"https://news.ycombinator.com/item?id=" # Solo base
+        
+        # Como HNLoader no tiene búsqueda directa por query en la versión estándar de LC,
+        # usaremos una búsqueda vía API de Algolia rápida.
+        import requests
+        search_api = f"https://hn.algolia.com/api/v1/search?query={query}&tags=story"
+        response = requests.get(search_api)
+        data = response.json()
+        
+        for i, hit in enumerate(data.get('hits', [])):
+            if i >= 5:
+                break
+            results.append({
+                "title": hit.get('title'),
+                "url": f"https://news.ycombinator.com/item?id={hit.get('objectID')}",
+                "author": hit.get('author'),
+                "points": hit.get('points'),
+                "num_comments": hit.get('num_comments')
+            })
+            
+        print(f"✅ Búsqueda en Hacker News completada ({len(results)} historias encontradas).")
+    except Exception as e:
+        print(f"⚠️ Error en Hacker News: {e}")
+        
+    return {"hn_research": results}
+
+def search_so_node(state: AgentState) -> dict:
+    """Busca preguntas técnicas en Stack Overflow."""
+    print("\n--- 💙 NODO: BUSCANDO EN STACK OVERFLOW ---")
+    topic = state["topic"]
+    results = []
+    
+    try:
+        from stackapi import StackAPI
+        SITE = StackAPI('stackoverflow')
+        # Buscamos preguntas relacionadas con el tema
+        questions = SITE.fetch('search/advanced', q=topic, sort='relevance', order='desc')
+        
+        for i, item in enumerate(questions.get('items', [])):
+            if i >= 5:
+                break
+            results.append({
+                "title": item.get('title'),
+                "url": item.get('link'),
+                "score": item.get('score'),
+                "is_answered": item.get('is_answered'),
+                "tags": ", ".join(item.get('tags', []))
+            })
+            
+        print(f"✅ Búsqueda en Stack Overflow completada ({len(results)} preguntas encontradas).")
+    except Exception as e:
+        print(f"⚠️ Error en Stack Overflow: {e}")
+        
+    return {"so_research": results}
 
 

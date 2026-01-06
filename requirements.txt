@@ -17,4 +17,4 @@ transformers
 wikipedia
 arxiv
 duckduckgo-search
-tweepy
+tweepystackapi
