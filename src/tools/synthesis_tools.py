@@ -84,15 +84,30 @@ def consolidate_research_node(state: AgentState) -> dict:
             context += f"Video {i+1}: {summary}\n\n"
 
     prompt = f"""
-Eres un experto analista de investigación. Tu tarea es crear un INFORME CONSOLIDADO Y PROFESIONAL basado en la información proporcionada arriba.
-El informe debe ser técnico, estructurado y fácil de leer.
+Eres un experto analista de investigación senior. Tu tarea es producir una SÍNTESIS EJECUTIVA CONSOLIDADA, PROFESIONAL Y PERFECTAMENTE FORMATEADA.
 
-Instrucciones:
-1. Divide el informe en secciones lógicas (Introducción, Tendencias Clave, Tecnologías Emergentes, Implementaciones de Código, Conclusiones).
-2. Integra la información de todas las fuentes (Wikipedia, Web, arXiv, Semantic Scholar, GitHub, Hacker News, Stack Overflow y YouTube) de manera fluida.
-3. El lenguaje debe ser profesional y objetivo.
-4. MANDATORIO: Cada vez que menciones un repositorio de GitHub, un artículo de arXiv, de Semantic Scholar, una discusión de Hacker News o una pregunta de Stack Overflow, DEBES incluir su URL correspondiente (ej. usando formato Markdown [Nombre](URL) o simplemente la URL entre paréntesis). No omitas ninguna URL proporcionada en el contexto.
-5. IMPORTANTE: Responde ÚNICAMENTE con el cuerpo del informe en formato Markdown.
+REGLAS DE FORMATO MANDATORIAS:
+1. ESTRUCTURA HIERÁRQUICA: Divide el informe en Secciones (H2) y Subtemas (H3).
+2. PROHIBIDO ENUMERAR ESTRUCTURA: NO uses números (1., 2., 3.) para los títulos de secciones ni para los subtemas.
+3. INDENTACIÓN DE DETALLES: Los detalles bajo cada subtema DEBEN usar viñetas (*) y estar indentados.
+
+EJEMPLO DE ESTRUCTURA CORRECTA (BIEN):
+## Tendencias Clave
+### Avances en IA Generativa
+* Se ha observado un incremento en la eficiencia de los modelos...
+* Los nuevos algoritmos permiten una mayor precisión en...
+
+EJEMPLO DE ESTRUCTURA ERRÓNEA (MAL) - NO HACER ESTO:
+## 1. Tendencias Clave
+## 2. Avances en IA Generativa
+3. Se ha observado un incremento...
+4. Los nuevos algoritmos...
+
+Instrucciones de Contenido:
+- Análisis Exhaustivo: Desarrolla cada sección con profundidad técnica (Introducción, Tendencias Clave, Tecnologías Emergentes, Implementaciones de Código, Conclusiones).
+- Integración Multifuente: Conecta hallazgos de todas las fuentes (GitHub, arXiv, etc.) con referencias [Nombre](URL).
+
+FORMATO DE SALIDA: Solo Markdown puro. Sin introducciones ni comentarios adicionales.
 
 INFORMACIÓN PARA SINTETIZAR:
 {context}

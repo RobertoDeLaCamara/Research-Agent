@@ -168,8 +168,32 @@ def generate_report_node(state: AgentState) -> dict:
             }}
             
             .summary-text {{ 
-                white-space: pre-wrap; 
                 word-break: break-word;
+            }}
+            .summary-text h2 {{
+                font-size: 1.4rem;
+                margin-top: 25px;
+                margin-bottom: 12px;
+                color: var(--primary-dark);
+                border-left: none;
+                padding-left: 0;
+            }}
+            .summary-text h3 {{
+                font-size: 1.2rem;
+                margin-top: 20px;
+                margin-bottom: 10px;
+                color: var(--primary);
+                font-weight: 600;
+            }}
+            .summary-text ul {{
+                padding-left: 25px;
+                margin-bottom: 15px;
+            }}
+            .summary-text li {{
+                margin-bottom: 8px;
+            }}
+            .summary-text p {{
+                margin-bottom: 12px;
             }}
             
             .bib-list {{ list-style: none; padding: 0; }}
@@ -196,7 +220,21 @@ def generate_report_node(state: AgentState) -> dict:
 
     # --- SECCIÓN: SÍNTESIS EJECUTIVA ---
     if state.get("consolidated_summary"):
-        synthesis_html = markdown.markdown(state["consolidated_summary"])
+        raw_summary = state["consolidated_summary"]
+        
+        # Pre-procesamiento para evitar listas numeradas planas: 
+        # Convertimos cualquier línea que empiece por número (ej. "1. ") en una viñeta (*)
+        processed_lines = []
+        import re
+        for line in raw_summary.split("\n"):
+            # Si la línea empieza con un número y un punto, lo cambiamos por un asterisco
+            # (dejando el resto de la línea igual, incluyendo posibles espacios de indentación)
+            new_line = re.sub(r'^(\s*)\d+\.\s+', r'\1* ', line)
+            processed_lines.append(new_line)
+        
+        processed_summary = "\n".join(processed_lines)
+        synthesis_html = markdown.markdown(processed_summary)
+        
         html_content += f"""
         <div class="section-card synthesis-card">
             <h2>💡 Síntesis Ejecutiva Consolidada</h2>
@@ -429,9 +467,46 @@ def generate_pdf(state: AgentState, topic: str, output_path: str, bibliography_l
 
     # Síntesis
     add_section_header("Sintesis Ejecutiva Consolidada")
-    pdf.set_font("Helvetica", "", 10)
-    summary_text = state.get("consolidated_summary", "No disponible").replace("#", "").replace("*", "")
-    pdf.multi_cell(eff_w, 6, clean_text(summary_text))
+    
+    summary_md = state.get("consolidated_summary", "No disponible")
+    
+    # Simple Markdown Parser for PDF
+    for line in summary_md.split("\n"):
+        line = line.strip()
+        if not line:
+            pdf.ln(2)
+            continue
+            
+        # Limpieza básica de negritas Markdown (**) para el PDF simple
+        line = line.replace("**", "")
+
+        if line.startswith("### "):
+            pdf.ln(2)
+            pdf.set_font("Helvetica", "B", 11)
+            pdf.multi_cell(eff_w, 7, clean_text(line.replace("### ", "")))
+            pdf.ln(1)
+        elif line.startswith("## "):
+            pdf.ln(3)
+            pdf.set_font("Helvetica", "B", 12)
+            pdf.multi_cell(eff_w, 8, clean_text(line.replace("## ", "")))
+            pdf.ln(1)
+        elif line.startswith("* ") or line.startswith("- "):
+            pdf.set_font("Helvetica", "", 10)
+            # Indentación para viñetas
+            pdf.set_x(l_margin + 7)
+            # Extraemos el contenido quitando el símbolo de viñeta
+            content = line[2:].strip()
+            pdf.multi_cell(eff_w - 7, 6, f"- {clean_text(content)}")
+        elif any(line.startswith(f"{i}. ") for i in range(1, 20)):
+            # Fallback para listas numeradas si el LLM las genera
+            pdf.set_font("Helvetica", "", 10)
+            pdf.set_x(l_margin + 7)
+            pdf.multi_cell(eff_w - 7, 6, clean_text(line))
+        else:
+            # Texto normal o subtemas que vienen formateados como "1. Titulo"
+            pdf.set_font("Helvetica", "", 10)
+            pdf.multi_cell(eff_w, 6, clean_text(line))
+    
     pdf.ln(5)
 
 
