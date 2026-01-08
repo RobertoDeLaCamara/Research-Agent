@@ -28,8 +28,9 @@ def test_search_web_node_with_config():
 
 def test_search_web_node_ddg(mock_agent_state):
     with patch("langchain_community.tools.DuckDuckGoSearchRun") as mock_ddg, \
-         patch("os.getenv", return_value=None):
+         patch("config.settings") as mock_settings:
         
+        mock_settings.tavily_api_key = None
         mock_instance = mock_ddg.return_value
         mock_instance.run.return_value = "DuckDuckGo Content"
         
