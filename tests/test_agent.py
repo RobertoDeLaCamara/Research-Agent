@@ -1,5 +1,6 @@
 import pytest
-from src.agent import app, initialize_state_node
+from src.agent import app, initialize_state_node, route_chat
+from langchain_core.messages import HumanMessage
 
 def test_agent_graph_compilation():
     """Verifies that the LangGraph workflow compiles correctly."""
@@ -36,3 +37,16 @@ def test_initialize_state_node_preserves_existing():
     assert result["iteration_count"] == 5
     # The node returns a dict based on defaults, but TypedDict might allow extras
     # depending on how it's handled. In our case, defaults only includes known keys.
+
+def test_route_chat_ends_by_default():
+    """Verifies that chat ends if no research keyword is present."""
+    state = {"messages": [HumanMessage(content="Thanks for the info")]}
+    assert route_chat(state) == "END"
+
+def test_route_chat_triggers_research():
+    """Verifies that chat triggers re-planning if research keyword is found."""
+    state = {"messages": [HumanMessage(content="Please investigate more about X")]}
+    assert route_chat(state) == "re_plan"
+    
+    state = {"messages": [HumanMessage(content="INVESTIGACIÓN: more about Y")]}
+    assert route_chat(state) == "re_plan"

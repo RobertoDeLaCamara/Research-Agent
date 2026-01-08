@@ -69,6 +69,10 @@ if "last_topic" not in st.session_state:
     st.session_state.last_topic = ""
 if "report_html" not in st.session_state:
     st.session_state.report_html = ""
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "agent_state" not in st.session_state:
+    st.session_state.agent_state = None
 
 # Auto-detectar reportes existentes al iniciar
 if not st.session_state.investigation_done:
@@ -133,7 +137,59 @@ if st.session_state.investigation_done:
     
     # Mostrar el reporte HTML persistido
     if st.session_state.report_html:
-        components.html(st.session_state.report_html, height=1000, scrolling=True)
+        with st.expander("📄 Ver Reporte Completo", expanded=False):
+            components.html(st.session_state.report_html, height=800, scrolling=True)
+
+    # --- CHAT INTERACTIVO ---
+    st.divider()
+    st.subheader("💬 Chat con tu Investigador")
+    
+    # Display chat messages
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    # Chat input
+    if prompt := st.chat_input("Pregúntame sobre la investigación..."):
+        # Add user message to chat history
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        with st.chat_message("assistant"):
+            with st.spinner("Pensando..."):
+                from langchain_core.messages import HumanMessage, AIMessage
+                
+                # Prepare state for the agent
+                current_state = st.session_state.agent_state or {"topic": st.session_state.last_topic, "messages": []}
+                
+                # Convert session state messages to LangChain objects
+                lc_messages = []
+                for m in st.session_state.messages[:-1]: # All except the last one which is already added
+                     if m["role"] == "user":
+                         lc_messages.append(HumanMessage(content=m["content"]))
+                     else:
+                         lc_messages.append(AIMessage(content=m["content"]))
+                
+                current_state["messages"] = lc_messages + [HumanMessage(content=prompt)]
+                
+                # In a real LangGraph flow, we might want to invoke a specific part of the graph
+                # For now, we'll implement a direct chat response or a specific chat branch
+                try:
+                    # Use the chat_node directly if we just want conversation
+                    from tools.chat_tools import chat_node
+                    response_state = chat_node(current_state)
+                    ai_response = response_state["messages"][0].content
+                    
+                    st.markdown(ai_response)
+                    st.session_state.messages.append({"role": "assistant", "content": ai_response})
+                    
+                    # Update persisted agent state
+                    current_state["messages"].append(AIMessage(content=ai_response))
+                    st.session_state.agent_state = current_state
+                    
+                except Exception as e:
+                    st.error(f"Error en el chat: {e}")
 
 # Footer
 st.divider()

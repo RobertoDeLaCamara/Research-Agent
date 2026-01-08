@@ -9,6 +9,7 @@ from tools.router_tools import plan_research_node, router_node
 from tools.reddit_tools import search_reddit_node
 from tools.research_tools import search_web_node, search_wiki_node, search_arxiv_node, search_scholar_node, search_github_node, search_hn_node, search_so_node
 from tools.synthesis_tools import consolidate_research_node
+from tools.chat_tools import chat_node
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,14 @@ def route_research(state: AgentState):
     
     return mapping.get(current, "consolidate_research")
 
+def route_chat(state: AgentState):
+    """Decide whether to continue chatting or do more research."""
+    # Simple logic: check if the last message contains a research request
+    last_message = state["messages"][-1].content.lower()
+    if any(keyword in last_message for keyword in ["investiga", "busca", "más información", "research", "search"]):
+        return "re_plan"
+    return "END"
+
 # Create workflow graph
 workflow = StateGraph(AgentState)
 
@@ -82,6 +91,7 @@ workflow.add_node("search_reddit", search_reddit_node)
 workflow.add_node("consolidate_research", consolidate_research_node)
 workflow.add_node("generate_report", generate_report_node)
 workflow.add_node("send_email", send_email_node)
+workflow.add_node("chat", chat_node)
 
 # Add edges - define execution flow
 logger.info("Connecting nodes with edges...")
@@ -148,7 +158,17 @@ for node in search_nodes:
 
 workflow.add_edge("consolidate_research", "generate_report")
 workflow.add_edge("generate_report", "send_email")
-workflow.add_edge("send_email", END)
+workflow.add_edge("send_email", "chat")
+
+# Conditional edge from chat back to research or END
+workflow.add_conditional_edges(
+    "chat",
+    route_chat,
+    {
+        "re_plan": "plan_research",
+        "END": END
+    }
+)
 
 # Compile the agent
 logger.info("Compiling agent...")
