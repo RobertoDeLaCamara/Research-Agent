@@ -1,7 +1,8 @@
 # src/tools/research_tools.py
 
 import os
-from typing import List, TypedDict
+import logging
+from typing import List
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_community.document_loaders import WikipediaLoader
@@ -10,52 +11,55 @@ import arxiv
 from semanticscholar import SemanticScholar
 from github import Github
 import re
+from state import AgentState
+from utils import api_call_with_retry
 
-class AgentState(TypedDict):
-    topic: str
-    video_urls: List[str]
-    video_metadata: List[dict]
-    summaries: List[str]
-    web_research: List[dict]
-    wiki_research: List[dict]
-    arxiv_research: List[dict]
-    github_research: List[dict]
-    scholar_research: List[dict]
-    hn_research: List[dict]
-    so_research: List[dict]
-    consolidated_summary: str
-    bibliography: List[str]
-    pdf_path: str
-    report: str
+logger = logging.getLogger(__name__)
 
 def search_web_node(state: AgentState) -> dict:
-    """Busca en la web usando Tavily (si hay API key) o DuckDuckGo."""
-    print("\n--- 🌐 NODO: BUSCANDO EN LA WEB ---")
+    """Search the web using Tavily (if API key available) or DuckDuckGo."""
+    logger.info("Starting web search...")
     topic = state["topic"]
     
-    tavily_key = os.getenv("TAVILY_API_KEY")
+    try:
+        from config import settings
+        tavily_key = settings.tavily_api_key
+        max_results = settings.max_results_per_source
+    except:
+        import os
+        tavily_key = os.getenv("TAVILY_API_KEY")
+        max_results = 3
+    
     results = []
     
     try:
         if tavily_key:
-            print("Usando Tavily para la búsqueda...")
-            search = TavilySearchResults(k=3)
+            logger.debug("Using Tavily for web search")
+            from langchain_community.tools.tavily_search import TavilySearchResults
+            search = TavilySearchResults(k=max_results)
             results = search.run(topic)
         else:
-            print("No se detectó TAVILY_API_KEY. Usando DuckDuckGo...")
+            logger.debug("No TAVILY_API_KEY detected. Using DuckDuckGo")
+            from langchain_community.tools import DuckDuckGoSearchRun
             search = DuckDuckGoSearchRun()
             res_text = search.run(topic)
             results = [{"content": res_text, "url": "DuckDuckGo"}]
             
-        print(f"✅ Búsqueda web completada.")
+        logger.info(f"Web search completed with {len(results)} results")
+        
     except Exception as e:
-        print(f"⚠️ Error en búsqueda web: {e}")
+        logger.error(f"Web search failed: {e}")
+        results = []
         
     return {"web_research": results}
 
 def search_wiki_node(state: AgentState) -> dict:
-    """Busca en Wikipedia para obtener un contexto general. Detecta idioma automáticamente."""
-    print("\n--- 📖 NODO: BUSCANDO EN WIKIPEDIA ---")
+    """Search Wikipedia for general context."""
+    from progress import update_progress
+    from metrics import metrics
+    
+    update_progress("Wikipedia Search")
+    logger.info("Starting Wikipedia search...")
     topic = state["topic"]
     results = []
     

@@ -1,31 +1,14 @@
 import os
-from typing import List, TypedDict
+import logging
 from langchain_ollama import ChatOllama
-from langchain_core.messages import BaseMessage, HumanMessage
+from langchain_core.messages import HumanMessage
+from state import AgentState
 
-class AgentState(TypedDict):
-    topic: str
-    video_urls: List[str]
-    video_metadata: List[dict]
-    summaries: List[str]
-    web_research: List[dict]
-    wiki_research: List[dict]
-    arxiv_research: List[dict]
-    github_research: List[dict]
-    scholar_research: List[dict]
-    hn_research: List[dict]
-    so_research: List[dict]
-    consolidated_summary: str
-    bibliography: List[str]
-    pdf_path: str
-    report: str
-    messages: List[BaseMessage]
+logger = logging.getLogger(__name__)
 
 def consolidate_research_node(state: AgentState) -> dict:
-    """
-    Sintetiza toda la información recolectada en un informe consolidado único.
-    """
-    print("\n--- 🧠 NODO: SINTETIZANDO INVESTIGACIÓN ---")
+    """Synthesize all collected information into a consolidated report."""
+    logger.info("Starting research synthesis...")
     
     topic = state["topic"]
     wiki = state.get("wiki_research", [])
@@ -37,8 +20,8 @@ def consolidate_research_node(state: AgentState) -> dict:
     so = state.get("so_research", [])
     yt_summaries = state.get("summaries", [])
     
-    # Construcción del contexto para el LLM
-    context = f"TEMA DE INVESTIGACIÓN: {topic}\n\n"
+    # Build context for LLM
+    context = f"RESEARCH TOPIC: {topic}\n\n"
     
     if wiki:
         context += "--- INFORMACIÓN DE WIKIPEDIA ---\n"

@@ -2,53 +2,74 @@
 
 import os
 import argparse
+import asyncio
 from dotenv import load_dotenv
-from agent import app  # Importamos la aplicación 'app' desde nuestro archivo agent.py
+from agent import app
+from utils import setup_logging, validate_env_vars
+from validators import validate_topic
+from health import check_dependencies
+from progress import init_progress
+from metrics import metrics
+from config import settings
 
 def parse_args():
-    """
-    Parsea los argumentos de la línea de comandos.
-    """
+    """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Research-Agent: Multi-source AI Researcher")
     parser.add_argument(
         "topic",
         type=str,
         nargs="?",
-        default="Inteligencia Artificial en la Educación",
-        help="El tema a investigar en YouTube (por defecto: 'Inteligencia Artificial en la Educación')"
+        default="Artificial Intelligence in Education",
+        help="Research topic to investigate (default: 'Artificial Intelligence in Education')"
+    )
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default=settings.log_level,
+        help="Set logging level"
+    )
+    parser.add_argument(
+        "--skip-health-check",
+        action="store_true",
+        help="Skip health checks on startup"
     )
     return parser.parse_args()
 
 def run_agent():
-    """
-    Función principal para configurar y ejecutar el agente de resumen de YouTube.
-    """
-    # Carga las variables de entorno (claves de API, configuración de correo) del archivo .env
+    """Main function to configure and run the research agent."""
     load_dotenv()
-
-    # --- CONFIGURACIÓN DEL USUARIO ---
-    # Obtenemos el tema desde los argumentos de la línea de comandos
+    
     args = parse_args()
-    topic_to_research = args.topic
-    # --------------------------------
-
-    print(f"▶️  Iniciando agente para el tema: '{topic_to_research}'")
-
-    # El estado inicial que le pasamos a nuestro agente.
-    # Necesita el 'topic' para empezar y una lista vacía de 'messages'.
-    initial_state = {"topic": topic_to_research, "messages": []}
-
+    logger = setup_logging(args.log_level)
+    
     try:
-        # Invocamos el agente con el estado inicial.
-        # Esto iniciará el flujo de trabajo que definimos en LangGraph.
+        # Validate topic
+        validated_topic = validate_topic(args.topic)
+        
+        # Health checks
+        if not args.skip_health_check:
+            logger.info("Running health checks...")
+            healthy, checks = check_dependencies()
+            if not healthy:
+                logger.warning("Some health checks failed, but continuing...")
+        
+        # Initialize progress tracking (12 total steps)
+        init_progress(12)
+        
+        validate_env_vars()
+        logger.info(f"Starting research agent for topic: '{validated_topic}'")
+        
+        initial_state = {"topic": validated_topic, "messages": []}
         app.invoke(initial_state)
-
-        print("✅  El agente ha finalizado su ejecución con éxito.")
-
+        
+        # Log final metrics
+        metrics.log_stats()
+        logger.info("Agent execution completed successfully")
+        
     except Exception as e:
-        print(f"❌  Ha ocurrido un error durante la ejecución del agente: {e}")
+        logger.error(f"Agent execution failed: {e}")
+        metrics.increment("agent_failures")
+        raise
 
-# Este es el bloque estándar de Python para asegurarse de que el código
-# solo se ejecute cuando el archivo es llamado directamente.
 if __name__ == "__main__":
     run_agent()
