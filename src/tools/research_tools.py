@@ -13,6 +13,7 @@ from github import Github
 import re
 from state import AgentState
 from utils import api_call_with_retry
+from tools.router_tools import update_next_node
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,25 @@ def search_web_node(state: AgentState) -> dict:
             logger.debug("Using Tavily for web search")
             from langchain_community.tools.tavily_search import TavilySearchResults
             search = TavilySearchResults(k=max_results)
-            results = search.run(topic)
+            raw_results = search.run(topic)
+            
+            # Use Jina Reader to enhance results if possible
+            enhanced_results = []
+            import requests
+            for res in raw_results:
+                url = res.get("url")
+                if url and url.startswith("http"):
+                    try:
+                        # Append r.jina.ai/ to the URL for markdown extraction
+                        jina_url = f"https://r.jina.ai/{url}"
+                        jina_res = requests.get(jina_url, timeout=5)
+                        if jina_res.status_code == 200:
+                            res["content"] = jina_res.text[:5000] # Cap content
+                            res["url"] = url # Keep original URL
+                    except Exception as e_jina:
+                        logger.debug(f"Jina extraction failed for {url}: {e_jina}")
+                enhanced_results.append(res)
+            results = enhanced_results
         else:
             logger.debug("No TAVILY_API_KEY detected. Using DuckDuckGo")
             from langchain_community.tools import DuckDuckGoSearchRun
@@ -51,7 +70,7 @@ def search_web_node(state: AgentState) -> dict:
         logger.error(f"Web search failed: {e}")
         results = []
         
-    return {"web_research": results}
+    return {"web_research": results, "next_node": update_next_node(state, "web")}
 
 def search_wiki_node(state: AgentState) -> dict:
     """Search Wikipedia for general context."""
@@ -84,18 +103,36 @@ def search_wiki_node(state: AgentState) -> dict:
     except Exception as e:
         print(f"⚠️ Error en Wikipedia: {e}")
         
-    return {"wiki_research": results}
+    return {"wiki_research": results, "next_node": update_next_node(state, "wiki")}
+
+def translate_to_english(text: str) -> str:
+    """Simple translation to English using LLM for technical queries."""
+    if not re.search(r'[áéíóúÁÉÍÓÚñÑ]', text):
+        return text # Already in English or simple ASCII
+        
+    logger.info(f"Translating query to English: {text}")
+    try:
+        from langchain_ollama import ChatOllama
+        llm = ChatOllama(model=os.getenv("OLLAMA_MODEL", "qwen2.5:14b"), temperature=0)
+        prompt = f"Translate the following research topic to English for a technical search on arXiv/GitHub. respond ONLY with the translation: {text}"
+        return llm.invoke(prompt).content.strip()
+    except:
+        return text
 
 def search_arxiv_node(state: AgentState) -> dict:
     """Busca artículos científicos en arXiv usando la librería arxiv directamente."""
     print("\n--- 📄 NODO: BUSCANDO EN ARXIV ---")
-    topic = state["topic"]
+    
+    # Multilingual strategy: search in English for better density
+    original_topic = state["topic"]
+    search_topic = translate_to_english(original_topic)
+    
     results = []
     
     try:
         client = arxiv.Client()
         search = arxiv.Search(
-            query=topic,
+            query=search_topic,
             max_results=3,
             sort_by=arxiv.SortCriterion.Relevance
         )
@@ -112,7 +149,7 @@ def search_arxiv_node(state: AgentState) -> dict:
     except Exception as e:
         print(f"⚠️ Error en arXiv: {e}")
         
-    return {"arxiv_research": results}
+    return {"arxiv_research": results, "next_node": update_next_node(state, "arxiv")}
 
 def search_scholar_node(state: AgentState) -> dict:
     """Busca artículos académicos en Semantic Scholar usando la librería directamente."""
@@ -144,12 +181,13 @@ def search_scholar_node(state: AgentState) -> dict:
     except Exception as e:
         print(f"⚠️ Error en Semantic Scholar: {e}")
         
-    return {"scholar_research": results}
+    return {"scholar_research": results, "next_node": update_next_node(state, "scholar")}
 
 def search_github_node(state: AgentState) -> dict:
     """Busca repositorios relevantes en GitHub. Intenta búsqueda amplia si la específica falla."""
     print("\n--- 💻 NODO: BUSCANDO EN GITHUB ---")
-    topic = state["topic"]
+    original_topic = state["topic"]
+    topic = translate_to_english(original_topic)
     results = []
     
     token = os.getenv("GITHUB_TOKEN")
@@ -183,7 +221,7 @@ def search_github_node(state: AgentState) -> dict:
     except Exception as e:
         print(f"⚠️ Error en GitHub: {e}")
         
-    return {"github_research": results}
+    return {"github_research": results, "next_node": update_next_node(state, "github")}
 
 def search_hn_node(state: AgentState) -> dict:
     """Busca discusiones relevantes en Hacker News."""
@@ -222,7 +260,7 @@ def search_hn_node(state: AgentState) -> dict:
     except Exception as e:
         print(f"⚠️ Error en Hacker News: {e}")
         
-    return {"hn_research": results}
+    return {"hn_research": results, "next_node": update_next_node(state, "hn")}
 
 def search_so_node(state: AgentState) -> dict:
     """Busca preguntas técnicas en Stack Overflow."""
@@ -251,6 +289,6 @@ def search_so_node(state: AgentState) -> dict:
     except Exception as e:
         print(f"⚠️ Error en Stack Overflow: {e}")
         
-    return {"so_research": results}
+    return {"so_research": results, "next_node": update_next_node(state, "so")}
 
 

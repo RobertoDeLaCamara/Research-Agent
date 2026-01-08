@@ -2,14 +2,32 @@ import pytest
 from unittest.mock import MagicMock, patch
 from src.tools.reporting_tools import generate_report_node
 
-def test_generate_report_node_no_summaries(mock_agent_state):
+def test_generate_report_node_completely_empty(mock_agent_state):
+    """Test when no information at all is found."""
     mock_agent_state["summaries"] = []
+    mock_agent_state["consolidated_summary"] = ""
+    mock_agent_state["wiki_research"] = []
+    # has_content should be False
     result = generate_report_node(mock_agent_state)
     
     assert "report" in result
-    assert "No se encontraron vídeos" in result["report"]
+    assert "No se encontró información relevante" in result["report"]
 
-def test_generate_report_node_with_content(mock_agent_state):
+def test_generate_report_node_only_consolidated(mock_agent_state):
+    """Test when only consolidated summary is found (no videos)."""
+    mock_agent_state["summaries"] = []
+    mock_agent_state["consolidated_summary"] = "This is a great executive summary."
+    
+    result = generate_report_node(mock_agent_state)
+    
+    assert "report" in result
+    assert "💡 Síntesis Ejecutiva Consolidada" in result["report"]
+    assert "This is a great executive summary." in result["report"]
+    # Should NOT have the "No se encontró" message
+    assert "No se encontró información relevante" not in result["report"]
+
+def test_generate_report_node_full(mock_agent_state):
+    """Test a full report scenario."""
     mock_agent_state["summaries"] = ["Summary 1"]
     mock_agent_state["video_metadata"] = [{"title": "Video 1", "url": "http://youtube.com/1", "author": "Author 1"}]
     mock_agent_state["topic"] = "Test Topic"

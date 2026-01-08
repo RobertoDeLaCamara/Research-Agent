@@ -46,13 +46,28 @@ def generate_report_node(state: AgentState) -> dict:
         dict: Un diccionario con la clave 'report' para actualizar el estado del agente.
     """
     print("\n--- 📄 NODO: GENERANDO INFORME ---")
-    summaries = state["summaries"]
-    video_metadata = state["video_metadata"]
-    topic = state["topic"]
+    summaries = state.get("summaries", [])
+    video_metadata = state.get("video_metadata", [])
+    topic = state.get("topic", "Tema desconocido")
+    consolidated = state.get("consolidated_summary", "")
+    
+    # Comprobar si tenemos CUALQUIER tipo de contenido para informar
+    has_content = any([
+        len(summaries) > 0,
+        consolidated,
+        state.get("wiki_research"),
+        state.get("web_research"),
+        state.get("arxiv_research"),
+        state.get("scholar_research"),
+        state.get("github_research"),
+        state.get("hn_research"),
+        state.get("so_research"),
+        state.get("reddit_research")
+    ])
 
-    if not summaries:
-        print("⚠️ No hay resúmenes para generar un informe.")
-        report_html = f"<h1>Informe de Investigación sobre: {topic}</h1><p>No se encontraron vídeos o no se pudieron procesar.</p>"
+    if not has_content:
+        print("⚠️ No se encontró ninguna información para generar un informe.")
+        report_html = f"<h1>Informe de Investigación sobre: {topic}</h1><p>No se encontró información relevante en las fuentes consultadas.</p>"
         return {"report": report_html}
 
     # Usamos f-strings de varias líneas para construir el HTML de manera legible.
@@ -352,62 +367,73 @@ def generate_report_node(state: AgentState) -> dict:
 
     # --- SECCIÓN: BIBLIOGRAFÍA ---
     bibliography = []
-    html_content += "<hr><h2>📚 Bibliografía y Fuentes</h2><div class='section-card'><ul class='bib-list'>"
+    has_bib = any([
+        state.get("wiki_research"),
+        state.get("arxiv_research"),
+        state.get("scholar_research"),
+        state.get("github_research"),
+        state.get("hn_research"),
+        state.get("so_research"),
+        video_metadata
+    ])
     
-    # Wiki
-    for item in state.get("wiki_research", []):
-        url = item.get('url', '#')
-        title = item.get('title', 'Wikipedia')
-        ref = f"Wikipedia: {title} - {url}"
-        bibliography.append(ref)
-        html_content += f"<li>Wikipedia: {title} - <a href='{url}'>{url}</a></li>"
-    # arXiv
-    for item in state.get("arxiv_research", []):
-        url = item.get('url', '#')
-        title = item.get('title', 'Articulo arXiv')
-        authors = item.get('authors', 'Desconocido')
-        ref = f"arXiv: {title} ({authors}) - {url}"
-        bibliography.append(ref)
-        html_content += f"<li>arXiv: {title} ({authors}) - <a href='{url}'>{url}</a></li>"
-    # Scholar
-    for item in state.get("scholar_research", []):
-        url = item.get('url', '#')
-        title = item.get('title', 'Articulo Scholar')
-        year = item.get('year', 'N/A')
-        ref = f"Semantic Scholar: {title} ({year}) - {url}"
-        bibliography.append(ref)
-        html_content += f"<li>Semantic Scholar: {title} ({year}) - <a href='{url}'>{url}</a></li>"
-    # GitHub
-    for item in state.get("github_research", []):
-        url = item.get('url', '#')
-        name = item.get('name', 'Repository')
-        ref = f"GitHub: {name} - {url}"
-        bibliography.append(ref)
-        html_content += f"<li>GitHub: {name} - <a href='{url}'>{url}</a></li>"
-    # Hacker News
-    for item in state.get("hn_research", []):
-        url = item.get('url', '#')
-        title = item.get('title', 'Hacker News')
-        ref = f"Hacker News: {title} - {url}"
-        bibliography.append(ref)
-        html_content += f"<li>Hacker News: {title} - <a href='{url}'>{url}</a></li>"
-    # Stack Overflow
-    for item in state.get("so_research", []):
-        url = item.get('url', '#')
-        title = item.get('title', 'Stack Overflow')
-        ref = f"Stack Overflow: {title} - {url}"
-        bibliography.append(ref)
-        html_content += f"<li>Stack Overflow: {title} - <a href='{url}'>{url}</a></li>"
-    # YouTube
-    for metadata in video_metadata:
-        url = metadata.get('url', '#')
-        title = metadata.get('title', 'Video')
-        author = metadata.get('author', 'Autor')
-        ref = f"YouTube: {title} por {author} - {url}"
-        bibliography.append(ref)
-        html_content += f"<li>YouTube: {title} por {author} - <a href='{url}'>{url}</a></li>"
-    
-    html_content += "</ul></div>"
+    if has_bib:
+        html_content += "<hr><h2>📚 Bibliografía y Fuentes</h2><div class='section-card'><ul class='bib-list'>"
+        
+        # Wiki
+        for item in state.get("wiki_research", []):
+            url = item.get('url', '#')
+            title = item.get('title', 'Wikipedia')
+            ref = f"Wikipedia: {title} - {url}"
+            bibliography.append(ref)
+            html_content += f"<li>Wikipedia: {title} - <a href='{url}'>{url}</a></li>"
+        # arXiv
+        for item in state.get("arxiv_research", []):
+            url = item.get('url', '#')
+            title = item.get('title', 'Articulo arXiv')
+            authors = item.get('authors', 'Desconocido')
+            ref = f"arXiv: {title} ({authors}) - {url}"
+            bibliography.append(ref)
+            html_content += f"<li>arXiv: {title} ({authors}) - <a href='{url}'>{url}</a></li>"
+        # Scholar
+        for item in state.get("scholar_research", []):
+            url = item.get('url', '#')
+            title = item.get('title', 'Articulo Scholar')
+            year = item.get('year', 'N/A')
+            ref = f"Semantic Scholar: {title} ({year}) - {url}"
+            bibliography.append(ref)
+            html_content += f"<li>Semantic Scholar: {title} ({year}) - <a href='{url}'>{url}</a></li>"
+        # GitHub
+        for item in state.get("github_research", []):
+            url = item.get('url', '#')
+            name = item.get('name', 'Repository')
+            ref = f"GitHub: {name} - {url}"
+            bibliography.append(ref)
+            html_content += f"<li>GitHub: {name} - <a href='{url}'>{url}</a></li>"
+        # Hacker News
+        for item in state.get("hn_research", []):
+            url = item.get('url', '#')
+            title = item.get('title', 'Hacker News')
+            ref = f"Hacker News: {title} - {url}"
+            bibliography.append(ref)
+            html_content += f"<li>Hacker News: {title} - <a href='{url}'>{url}</a></li>"
+        # Stack Overflow
+        for item in state.get("so_research", []):
+            url = item.get('url', '#')
+            title = item.get('title', 'Stack Overflow')
+            ref = f"Stack Overflow: {title} - {url}"
+            bibliography.append(ref)
+            html_content += f"<li>Stack Overflow: {title} - <a href='{url}'>{url}</a></li>"
+        # YouTube
+        for metadata in video_metadata:
+            url = metadata.get('url', '#')
+            title = metadata.get('title', 'Video')
+            author = metadata.get('author', 'Autor')
+            ref = f"YouTube: {title} por {author} - {url}"
+            bibliography.append(ref)
+            html_content += f"<li>YouTube: {title} por {author} - <a href='{url}'>{url}</a></li>"
+        
+        html_content += "</ul></div>"
 
     html_content += """
     </div>
@@ -527,8 +553,8 @@ def send_email_node(state: AgentState) -> dict:
         dict: Un diccionario vacío, ya que este es un nodo final que no modifica el estado.
     """
     print("\n--- 📧 NODO: ENVIANDO CORREO ELECTRÓNICO ---")
-    report = state["report"]
-    topic = state["topic"]
+    report = state.get("report", "")
+    topic = state.get("topic", "Investigación")
 
     # Obtenemos la configuración del correo desde las variables de entorno.
     sender_email = os.getenv("EMAIL_USERNAME")

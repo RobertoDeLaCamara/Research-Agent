@@ -1,0 +1,50 @@
+import pytest
+from unittest.mock import MagicMock, patch
+from src.tools.router_tools import plan_research_node, update_next_node, router_node
+
+def test_update_next_node_basic(mock_agent_state):
+    mock_agent_state["research_plan"] = ["wiki", "web", "arxiv"]
+    
+    # Test transition from wiki to web
+    next_node = update_next_node(mock_agent_state, "wiki")
+    assert next_node == "web"
+    
+    # Test transition from web to arxiv
+    next_node = update_next_node(mock_agent_state, "web")
+    assert next_node == "arxiv"
+    
+    # Test last node
+    next_node = update_next_node(mock_agent_state, "arxiv")
+    assert next_node == "END"
+    
+    # Test non-existent node
+    next_node = update_next_node(mock_agent_state, "nonexistent")
+    assert next_node == "END"
+
+@patch("src.tools.router_tools.ChatOllama")
+def test_plan_research_node(mock_ollama, mock_agent_state):
+    mock_llm = mock_ollama.return_value
+    mock_response = MagicMock()
+    mock_response.content = '["wiki", "web"]'
+    mock_llm.invoke.return_value = mock_response
+    
+    result = plan_research_node(mock_agent_state)
+    
+    assert result["research_plan"] == ["wiki", "web"]
+    assert result["next_node"] == "wiki"
+    assert result["iteration_count"] == 0
+
+def test_router_node_mapping(mock_agent_state):
+    mock_agent_state["research_plan"] = ["wiki", "youtube"]
+    
+    # Test mapping for wiki
+    mock_agent_state["next_node"] = "wiki"
+    assert router_node(mock_agent_state) == "search_wiki"
+    
+    # Test mapping for youtube
+    mock_agent_state["next_node"] = "youtube"
+    assert router_node(mock_agent_state) == "search_videos"
+    
+    # Test END
+    mock_agent_state["next_node"] = "END"
+    assert router_node(mock_agent_state) == "consolidate_research"

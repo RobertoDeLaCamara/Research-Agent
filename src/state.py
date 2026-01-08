@@ -14,8 +14,12 @@ class AgentState(TypedDict):
     scholar_research: List[dict]
     hn_research: List[dict]
     so_research: List[dict]
+    reddit_research: List[dict]
     consolidated_summary: str
     bibliography: List[str]
     pdf_path: str
     report: str
     messages: List[BaseMessage]
+    research_plan: List[str]
+    next_node: str
+    iteration_count: int

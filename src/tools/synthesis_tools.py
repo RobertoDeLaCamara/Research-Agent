@@ -18,6 +18,7 @@ def consolidate_research_node(state: AgentState) -> dict:
     github = state.get("github_research", [])
     hn = state.get("hn_research", [])
     so = state.get("so_research", [])
+    reddit = state.get("reddit_research", [])
     yt_summaries = state.get("summaries", [])
     
     # Build context for LLM
@@ -60,6 +61,11 @@ def consolidate_research_node(state: AgentState) -> dict:
         context += "--- PREGUNTAS TÉCNICAS (STACK OVERFLOW) ---\n"
         for item in so:
             context += f"Título: {item.get('title')}\nScore: {item.get('score')}\nResuelta: {item.get('is_answered')}\nURL: {item.get('url')}\n\n"
+            
+    if reddit:
+        context += "--- DISCUSIONES Y OPINIONES (REDDIT) ---\n"
+        for item in reddit:
+            context += f"Contenido: {item.get('content', item.get('snippet', ''))}\nURL: {item.get('url')}\n\n"
             
     if yt_summaries:
         context += "--- RESÚMENES DE YOUTUBE ---\n"

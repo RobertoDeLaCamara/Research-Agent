@@ -19,11 +19,15 @@ def mock_agent_state():
         "scholar_research": [],
         "hn_research": [],
         "so_research": [],
+        "reddit_research": [],
         "consolidated_summary": "",
         "bibliography": [],
         "pdf_path": "",
         "report": "",
-        "messages": []
+        "messages": [],
+        "research_plan": [],
+        "next_node": "",
+        "iteration_count": 0
     }
 
 @pytest.fixture
