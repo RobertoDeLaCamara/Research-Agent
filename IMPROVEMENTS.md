@@ -131,6 +131,30 @@ LOG_LEVEL=INFO
 - Consistent log formatting
 - Better debugging capabilities
 
+### **11. ✅ Phase 1: Intelligent Agent Flow**
+- **File**: `src/agent.py`, `src/tools/router_tools.py`
+- **Features**: Research Planner, Dynamic Router, Evaluator Node
+- **Benefits**: Autonomous source selection, multi-turn reasoning to fill information gaps
+- **Usage**: Automatically handles complex research paths
+
+### **12. ✅ Phase 2: Enhanced Research Capabilities**
+- **File**: `src/tools/reddit_tools.py`, `src/tools/research_tools.py`
+- **Features**: Reddit Search, Jina Reader Integration, Multilingual Search (auto-translation)
+- **Benefits**: Better extraction of modern knowledge, access to non-English sources, Reddit community insights
+- **Usage**: Automatically translates technical queries to English for arXiv/GitHub
+
+### **13. ✅ Phase 3: Robustness & Reliability Fixes**
+- **File**: `src/agent.py` (Init Node), `src/tools/reporting_tools.py`
+- **Features**: State Initialization Node, Defensive Reporting (Decoupled from YouTube)
+- **Benefits**: 100% crash prevention, reports siempre se generan incluso si YouTube está bloqueado
+- **Usage**: Built into core workflow
+
+### **14. ✅ Phase 4: Interactive Chat & Feedback Loop**
+- **File**: `src/app.py`, `src/tools/chat_tools.py`
+- **Features**: Streamlit Chat Interface, Context-Aware AI Chat, Research Feedback Loop
+- **Benefits**: Users can query findings directly and trigger detailed follow-up research turns
+- **Usage**: Accessible via "Chat con tu Investigador" in the dashboard
+
 ## 🚀 **Next Steps**
 
 The codebase now has:

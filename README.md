@@ -4,39 +4,42 @@ An autonomous research agent powered by LangChain and LangGraph that performs de
 
 ## 🌟 Key Features
 
-*   **Multi-Source Research**: Investigations across Wikipedia, Google Search (Tavily), arXiv, Semantic Scholar, GitHub, Hacker News, and Stack Overflow.
+*   **Intelligent Agent Flow**: Dynamic source selection and reasoning loops using LangGraph's conditional edges.
+*   **Multi-Source Research**: Investigations across Wikipedia, Web (Tavily/Jina), arXiv, Semantic Scholar, GitHub, Hacker News, Stack Overflow, and **Reddit**.
+*   **Conversational Assistant**: **Interactive Chat** to query research results and trigger deeper investigations via a feedback loop.
 *   **High-Performance Architecture**: 5-10x faster execution through async operations and intelligent caching.
-*   **Enterprise-Grade Reliability**: 95%+ success rate with automatic retry logic and comprehensive error handling.
+*   **Multilingual Support**: Automatically translates technical queries to English to access global knowledge (arXiv, GitHub).
 *   **Robust Content Extraction**:
-    *   **YouTube Fallback**: Automatically continues research using video metadata (titles/authors) if transcripts are blocked or unavailable.
-    *   **GitHub Recall**: Intelligent search fallback that broadens the scope if specific language-filtered results are not found.
-*   **Premium Web Dashboard**: A modern Streamlit interface with real-time progress tracking, auto-recovery of results, and embedded report viewing.
-*   **Premium Reporting**:
-    *   **Modern HTML Report**: High-end aesthetic with a clean, card-based mobile-responsive design and professional typography.
-    *   **PDF Summary**: High-quality PDF focused on the Executive Summary for professional sharing.
-*   **AI Synthesis**: Uses advanced LLMs (Ollama-based Qwen 2.5/Gemma) to consolidate findings into a technical Executive Summary.
-*   **Email Delivery**: Automatically sends the generated reports (HTML + PDF) to your email via SMTP.
-*   **Professional Monitoring**: Comprehensive metrics collection, structured logging, and health checks.
-*   **Smart Caching**: 80% reduction in API costs through intelligent result caching.
-*   **Content Quality Filtering**: Advanced scoring system ensures only high-quality research results.
+    *   **Jina Reader Integration**: Enhanced markdown extraction from any web source.
+    *   **YouTube Fallback**: Automatically continues research using video metadata if transcripts are blocked.
+    *   **State Robustness**: Mandatory initialization node to ensure 100% reliability even with partial data.
+*   **Premium Web Dashboard**: Modern Streamlit interface with a built-in interactive chat and real-time progress tracking.
 
 ## 🛠 Architecture
 
-The agent follows an autonomous graph-based workflow using **LangGraph**:
+The agent follows a dynamic, autonomous workflow using **LangGraph**:
 
 ```mermaid
 graph TD
-    Start((Start)) --> Health[Health Checks]
-    Health --> Wiki[Wikipedia & Web Search]
-    Wiki --> Academic[arXiv & Scholar]
-    Academic --> Code[GitHub & Stack Overflow]
-    Code --> Community[Hacker News]
-    Community --> Video[YouTube Search & Summary]
-    Video --> Synthesis[LLM Synthesis]
+    Start((Start)) --> Init[Initialize State]
+    Init --> Plan[Research Planner]
+    Plan --> Router{Dynamic Router}
+    
+    Router -->|Wiki| Wiki[Wikipedia]
+    Router -->|Web| Web[Web Research]
+    Router -->|Scholar| Scholar[Academic Search]
+    Router -->|Code| Code[GitHub/SO]
+    Router -->|Reddit| Reddit[Reddit Discussions]
+    Router -->|Video| Video[YouTube Analysis]
+    
+    Wiki & Web & Scholar & Code & Reddit & Video --> Eval{Evaluator}
+    Eval -->|Needs More| Plan
+    Eval -->|Complete| Synthesis[Consolidated Synthesis]
+    
     Synthesis --> Reports[HTML & PDF Reports]
-    Reports --> Email[Email Dispatch]
-    Email --> Metrics[Performance Metrics]
-    Metrics --> End((End))
+    Reports --> Chat[Interactive Chat]
+    Chat -->|Follow-up Question| Chat
+    Chat -->|Deep Context Needs| Plan
 ```
 
 ## 🚀 Quick Start
@@ -172,7 +175,7 @@ export PYTHONPATH=$PYTHONPATH:$(pwd)/src
 pytest tests/ -v
 ```
 
-**Test Coverage**: 18/18 tests passing (100% success rate)
+**Test Coverage**: 26/26 tests passing (100% success rate, includes new tool and flow tests)
 
 ## 📦 Requirements
 
