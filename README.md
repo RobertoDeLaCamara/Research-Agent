@@ -7,6 +7,10 @@ An autonomous research agent powered by LangChain and LangGraph that performs de
 *   **Intelligent Agent Flow**: Dynamic source selection and reasoning loops using LangGraph's conditional edges.
 *   **Multi-Source Research**: Investigations across Wikipedia, Web (Tavily/Jina), arXiv, Semantic Scholar, GitHub, Hacker News, Stack Overflow, and **Reddit**.
 *   **Conversational Assistant**: **Interactive Chat** to query research results and trigger deeper investigations via a feedback loop.
+*   **Manual Source Control**: Take full command by manually selecting research sources (Wikipedia, Reddit, YouTube, etc.) in the GUI.
+*   **Enterprise-Grade Robustness**:
+    *   **Strict Timeouts**: Automatic timeouts on all API calls (Academic, Social, AI) to prevent dashboard freezes.
+    *   **Fail-Soft Strategy**: Gracefully skips failing sources and continues with available data.
 *   **High-Performance Architecture**: 5-10x faster execution through async operations and intelligent caching.
 *   **Multilingual Support**: Automatically translates technical queries to English to access global knowledge (arXiv, GitHub).
 *   **Robust Content Extraction**:
@@ -175,7 +179,7 @@ export PYTHONPATH=$PYTHONPATH:$(pwd)/src
 pytest tests/ -v
 ```
 
-**Test Coverage**: 26/26 tests passing (100% success rate, includes new tool and flow tests)
+**Test Coverage**: 30/30 tests passing (100% success rate, includes dynamic routing, robustness, and chat flow tests)
 
 ## 📦 Requirements
 

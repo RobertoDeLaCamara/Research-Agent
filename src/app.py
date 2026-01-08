@@ -51,16 +51,21 @@ with st.sidebar:
         index=0
     )
     
-    st.divider()
     st.write("### Fuentes Activas")
-    st.checkbox("Wikipedia", value=True, disabled=True)
-    st.checkbox("Web Search (Tavily)", value=True, disabled=True)
-    st.checkbox("arXiv", value=True, disabled=True)
-    st.checkbox("Semantic Scholar", value=True, disabled=True)
-    st.checkbox("GitHub", value=True, disabled=True)
-    st.checkbox("Hacker News", value=True, disabled=True)
-    st.checkbox("Stack Overflow", value=True, disabled=True)
-    st.checkbox("YouTube Summaries", value=True, disabled=True)
+    sources = {
+        "wiki": st.checkbox("Wikipedia", value=True),
+        "web": st.checkbox("Web Search (Tavily)", value=True),
+        "arxiv": st.checkbox("arXiv", value=True),
+        "scholar": st.checkbox("Semantic Scholar", value=True),
+        "github": st.checkbox("GitHub", value=True),
+        "hn": st.checkbox("Hacker News", value=True),
+        "so": st.checkbox("Stack Overflow", value=True),
+        "youtube": st.checkbox("YouTube Summaries", value=True),
+        "reddit": st.checkbox("Reddit", value=True)
+    }
+    
+    # Filter only selected sources
+    selected_sources = [k for k, v in sources.items() if v]
 
 # --- Inicialización de Session State ---
 if "investigation_done" not in st.session_state:
@@ -97,7 +102,14 @@ if st.button("Iniciar Investigación"):
                 # Actualizar variables de entorno para el modelo seleccionado
                 os.environ["OLLAMA_MODEL"] = llm_model
                 
+                # Pass selected sources to the agent if any are selected
                 inputs = {"topic": topic}
+                if selected_sources:
+                    inputs["research_plan"] = selected_sources
+                    # If user manually selected sources, we skip the planning node's logic
+                    # and go straight to the first selected node
+                    inputs["next_node"] = selected_sources[0]
+                
                 st.write(f"🧠 Analizando fuentes para: **{topic}**...")
                 
                 # Ejecución del agente

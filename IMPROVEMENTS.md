@@ -152,8 +152,19 @@ LOG_LEVEL=INFO
 ### **14. ✅ Phase 4: Interactive Chat & Feedback Loop**
 - **File**: `src/app.py`, `src/tools/chat_tools.py`
 - **Features**: Streamlit Chat Interface, Context-Aware AI Chat, Research Feedback Loop
-- **Benefits**: Users can query findings directly and trigger detailed follow-up research turns
-- **Usage**: Accessible via "Chat con tu Investigador" in the dashboard
+- **Benefits**: Users can query findings directly and trigger detailed follow-up research turns. Includes a **Manual Source Control** feature in the GUI.
+- **Usage**: Accessible via "Chat con tu Investigador" in the dashboard.
+
+### **15. ✅ Phase 5: Documentation & Metrics Refresh**
+- **File**: `README.md`, `IMPROVEMENTS.md`, `tests/`
+- **Features**: Complete documentation sync with the new architecture.
+- **Benefits**: Accurate and professional documentation for developers and users.
+
+### **16. ✅ Phase 6: Robustness & GUI Stability**
+- **File**: `src/tools/research_tools.py`, `src/tools/reddit_tools.py`, `src/tools/reporting_tools.py`
+- **Features**: Thread-based timeouts, Fail-Soft strategy, SMTP protections.
+- **Benefits**: Eliminates dashboard hangs. The agent handles slow APIs (like Semantic Scholar) or network delays gracefully.
+- **Usage**: Automatic across the entire workflow.
 
 ## 🚀 **Next Steps**
 

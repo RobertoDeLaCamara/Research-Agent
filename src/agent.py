@@ -58,7 +58,8 @@ def route_research(state: AgentState):
         "github": "search_github",
         "hn": "search_hn",
         "so": "search_so",
-        "youtube": "search_videos"
+        "youtube": "search_videos",
+        "reddit": "search_reddit"
     }
     
     return mapping.get(current, "consolidate_research")
@@ -111,6 +112,7 @@ workflow.add_conditional_edges(
         "search_hn": "search_hn",
         "search_so": "search_so",
         "search_videos": "search_videos",
+        "search_reddit": "search_reddit",
         "consolidate_research": "consolidate_research"
     }
 )

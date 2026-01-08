@@ -23,6 +23,15 @@ def plan_research_node(state: AgentState) -> dict:
     logger.info("Planning research strategy...")
     topic = state["topic"]
     
+    # If a research plan is already provided (e.g., from the GUI), keep it
+    if state.get("research_plan"):
+        logger.info("Using existing research plan provided in state.")
+        return {
+            "research_plan": state["research_plan"],
+            "next_node": state.get("next_node", state["research_plan"][0]),
+            "iteration_count": 0
+        }
+    
     prompt = f"""
     Eres un coordinador de investigación experto. Tu tarea es analizar un tema y decidir qué fuentes de información son las más pertinentes para investigar.
     

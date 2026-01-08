@@ -24,8 +24,22 @@ def search_videos_node(state: AgentState) -> dict:
 
     try:
         max_results = 5
-        results = YoutubeSearch(topic, max_results=max_results).to_dict()
-        
+        import threading
+        results = []
+        def run_search():
+            nonlocal results
+            try:
+                results = YoutubeSearch(topic, max_results=max_results).to_dict()
+            except Exception as e_inner:
+                print(f"❌ YouTubeSearch internal error: {e_inner}")
+
+        thread = threading.Thread(target=run_search)
+        thread.start()
+        thread.join(timeout=15) # 15 seconds for search
+        if thread.is_alive():
+            print("⚠️ YouTube search timed out.")
+            return {"video_urls": [], "video_metadata": []}
+
         video_urls = []
         video_metadata = []
 
@@ -86,27 +100,68 @@ def summarize_videos_node(state: AgentState) -> dict:
         print(f"  - Título: {metadata['title']}")
 
         try:
-            loader = YoutubeLoader.from_youtube_url(url, add_video_info=False, language=["es", "en"])
-            docs = loader.load()
+            import threading
+            docs = []
+            def load_transcript():
+                nonlocal docs
+                try:
+                    loader = YoutubeLoader.from_youtube_url(url, add_video_info=False, language=["es", "en"])
+                    docs = loader.load()
+                except Exception as e_load:
+                    print(f"  - ⚠️ Loader error: {e_load}")
+
+            thread = threading.Thread(target=load_transcript)
+            thread.start()
+            thread.join(timeout=20) # 20 seconds for transcript loading
             
-            if not docs:
+            if thread.is_alive() or not docs:
+                if thread.is_alive():
+                    print("  - ⚠️ Transcript loading timed out.")
                 raise ValueError("No se pudo obtener la transcripción.")
 
-            summary = summarize_chain.run(docs)
+            summary = ""
+            def run_summarize():
+                nonlocal summary
+                try:
+                    summary = summarize_chain.run(docs)
+                except Exception as e_sum:
+                    print(f"  - ⚠️ Summarization error: {e_sum}")
+
+            thread_sum = threading.Thread(target=run_summarize)
+            thread_sum.start()
+            thread_sum.join(timeout=90) # 90 seconds per video (Ollama can be slow)
+            
+            if thread_sum.is_alive() or not summary:
+                if thread_sum.is_alive():
+                    print("  - ⚠️ Video summarization timed out.")
+                raise ValueError("Resumen fallido o lento.")
+
             summaries.append(summary)
             print("  - ✅ Resumen generado desde transcripción.")
 
         except Exception as e:
-            print(f"  - ⚠️ Error al obtener transcripción: {e}")
+            print(f"  - ⚠️ Error al procesar vídeo: {e}")
             print(f"  - 🔄 Usando metadatos como fallback...")
-            
-            fallback_text = f"Título del vídeo: {metadata.get('title')}\nCanal: {metadata.get('author')}\n"
-            fallback_doc = Document(page_content=fallback_text)
             
             try:
                 prompt = f"Genera un breve párrafo explicando de qué trata este vídeo basándote solo en su título: '{metadata.get('title')}'. Menciona que es una fuente audiovisual relevante para el tema {state['topic']}."
-                summary = llm.invoke(prompt).content
-                summaries.append(summary)
+                import threading
+                fallback_summary = ""
+                def run_fallback():
+                    nonlocal fallback_summary
+                    try:
+                        fallback_summary = llm.invoke(prompt).content
+                    except Exception:
+                        pass
+                
+                thread_fb = threading.Thread(target=run_fallback)
+                thread_fb.start()
+                thread_fb.join(timeout=30)
+                
+                if thread_fb.is_alive() or not fallback_summary:
+                    raise ValueError("Fallback timed out.")
+                    
+                summaries.append(fallback_summary)
                 print("  - ✅ Resumen generado desde metadatos.")
             except Exception as e_inner:
                 print(f"  - ❌ Error final en fallback: {e_inner}")

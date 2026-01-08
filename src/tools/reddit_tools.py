@@ -26,18 +26,27 @@ def search_reddit_node(state: AgentState) -> dict:
     results = []
     
     try:
-        if tavily_key:
-            from langchain_community.tools.tavily_search import TavilySearchResults
-            search = TavilySearchResults(k=max_results)
-            res = search.run(f"{topic} site:reddit.com")
-            results = res
-        else:
-            # Fallback to DuckDuckGo
-            from langchain_community.tools import DuckDuckGoSearchRun
-            search = DuckDuckGoSearchRun()
-            res_text = search.run(f"{topic} reddit")
-            results = [{"content": res_text, "url": "Reddit (via DDG)"}]
-            
+        import threading
+        def run_reddit_search():
+            nonlocal results
+            if tavily_key:
+                from langchain_community.tools.tavily_search import TavilySearchResults
+                search = TavilySearchResults(k=max_results)
+                results = search.run(f"{topic} site:reddit.com")
+            else:
+                # Fallback to DuckDuckGo
+                from langchain_community.tools import DuckDuckGoSearchRun
+                search = DuckDuckGoSearchRun()
+                res_text = search.run(f"{topic} reddit")
+                results = [{"content": res_text, "url": "Reddit (via DDG)"}]
+        
+        thread = threading.Thread(target=run_reddit_search)
+        thread.start()
+        thread.join(timeout=15) # 15 seconds timeout
+        if thread.is_alive():
+            logger.warning("Reddit search timed out.")
+            results = []
+        
         logger.info(f"Reddit search completed with {len(results)} results")
         
     except Exception as e:

@@ -2,6 +2,7 @@
 
 import os
 import smtplib
+import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
@@ -9,27 +10,9 @@ from email import encoders
 import markdown
 from fpdf import FPDF
 
-# Importamos la definición de AgentState desde el archivo agent.py
-from typing import TypedDict, List
-from langchain_core.messages import BaseMessage
+logger = logging.getLogger(__name__)
 
-class AgentState(TypedDict):
-    topic: str
-    video_urls: List[str]
-    video_metadata: List[dict]
-    summaries: List[str]
-    web_research: List[dict]
-    wiki_research: List[dict]
-    arxiv_research: List[dict]
-    github_research: List[dict]
-    scholar_research: List[dict]
-    hn_research: List[dict]
-    so_research: List[dict]
-    consolidated_summary: str
-    bibliography: List[str]
-    pdf_path: str
-    report: str
-    messages: List[BaseMessage]
+from state import AgentState
 
 # --------------------------------------------------------------------------
 # NODO 3: GENERACIÓN DEL INFORME EN HTML
@@ -46,6 +29,9 @@ def generate_report_node(state: AgentState) -> dict:
         dict: Un diccionario con la clave 'report' para actualizar el estado del agente.
     """
     print("\n--- 📄 NODO: GENERANDO INFORME ---")
+    logger.info(f"State keys available in reporting: {list(state.keys())}")
+    if "reddit_research" in state:
+        logger.info(f"Reddit research results count: {len(state['reddit_research'])}")
     summaries = state.get("summaries", [])
     video_metadata = state.get("video_metadata", [])
     topic = state.get("topic", "Tema desconocido")
@@ -351,6 +337,21 @@ def generate_report_node(state: AgentState) -> dict:
             </div>
             """
         html_content += "</div>"
+    
+    # --- SECCIÓN: REDDIT ---
+    if state.get("reddit_research"):
+        html_content += "<h2><span class='tag'>REDDIT</span> Discusiones y Opiniones</h2><div class='section-card'>"
+        for item in state["reddit_research"]:
+            content = item.get('content', item.get('snippet', ''))
+            if len(content) > 500:
+                content = content[:500] + "..."
+            html_content += f"""
+            <div class="research-item">
+                <p class="item-content">{content}</p>
+                <a href="{item.get('url')}" class="item-meta">Ver hilo en Reddit &rarr;</a>
+            </div>
+            """
+        html_content += "</div>"
 
     # --- SECCIÓN: YOUTUBE ---
     if summaries:
@@ -374,6 +375,7 @@ def generate_report_node(state: AgentState) -> dict:
         state.get("github_research"),
         state.get("hn_research"),
         state.get("so_research"),
+        state.get("reddit_research"),
         video_metadata
     ])
     
@@ -424,6 +426,13 @@ def generate_report_node(state: AgentState) -> dict:
             ref = f"Stack Overflow: {title} - {url}"
             bibliography.append(ref)
             html_content += f"<li>Stack Overflow: {title} - <a href='{url}'>{url}</a></li>"
+        # Reddit
+        for item in state.get("reddit_research", []):
+            url = item.get('url', '#')
+            title = "Discusion en Reddit"
+            ref = f"Reddit: {title} - {url}"
+            bibliography.append(ref)
+            html_content += f"<li>Reddit: {title} - <a href='{url}'>{url}</a></li>"
         # YouTube
         for metadata in video_metadata:
             url = metadata.get('url', '#')
@@ -595,7 +604,7 @@ def send_email_node(state: AgentState) -> dict:
     try:
         # Iniciamos la conexión con el servidor SMTP.
         print(f"Conectando al servidor SMTP en {host}:{port}...")
-        server = smtplib.SMTP(host, port)
+        server = smtplib.SMTP(host, port, timeout=30)
         server.starttls()  # Habilitamos la seguridad (cifrado)
         server.login(sender_email, password)
         

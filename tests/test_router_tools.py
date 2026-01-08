@@ -45,6 +45,10 @@ def test_router_node_mapping(mock_agent_state):
     mock_agent_state["next_node"] = "youtube"
     assert router_node(mock_agent_state) == "search_videos"
     
+    # Test mapping for reddit
+    mock_agent_state["next_node"] = "reddit"
+    assert router_node(mock_agent_state) == "search_reddit"
+    
     # Test END
     mock_agent_state["next_node"] = "END"
     assert router_node(mock_agent_state) == "consolidate_research"
