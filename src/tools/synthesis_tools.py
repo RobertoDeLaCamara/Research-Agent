@@ -103,6 +103,9 @@ INFORMACIÓN PARA SINTETIZAR:
     """
 
     # Inicialización del LLM
+    from utils import bypass_proxy_for_ollama
+    bypass_proxy_for_ollama()
+    
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
     

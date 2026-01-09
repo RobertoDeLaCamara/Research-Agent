@@ -59,7 +59,6 @@ class Metrics:
     def log_stats(self):
         """Log current statistics."""
         stats = self.get_stats()
-        logger.info("=== Performance Metrics ===")
         
         for operation, timing in stats['timings'].items():
             logger.info(f"{operation}: {timing['count']} calls, avg {timing['avg']:.2f}s")

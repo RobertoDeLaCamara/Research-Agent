@@ -139,6 +139,25 @@ Copy `env.example` to `.env` and configure your credentials:
 - 12-step workflow with clear status messages
 - Web dashboard integration
 
+## 🌐 Network & Proxy Configuration
+
+### **Ollama Network Access**
+By default, Ollama only listens on `localhost`. To access it from Docker or other machines:
+1.  **Set Environment Variable**: `OLLAMA_HOST=0.0.0.0`
+2.  **Linux (systemd)**:
+    ```bash
+    sudo systemctl edit ollama.service
+    # Add:
+    [Service]
+    Environment="OLLAMA_HOST=0.0.0.0"
+    ```
+3.  **Restart**: `sudo systemctl daemon-reload && sudo systemctl restart ollama`
+
+### **Proxy Troubleshooting**
+If you use a corporate proxy (e.g., Squid) and get `403 Forbidden` or `Connection Refused` for Ollama:
+- The agent includes a **Dynamic Proxy Bypass** that automatically excludes the Ollama host from your proxy settings.
+- Ensure your `OLLAMA_BASE_URL` is set to `http://127.0.0.1:11434` for maximum compatibility when running Docker on the same machine.
+
 ## 🛡️ Enterprise Features
 
 ### **Error Recovery**
@@ -159,16 +178,8 @@ Copy `env.example` to `.env` and configure your credentials:
 ### **Metrics & Observability**
 - Operation timing and success rates
 - Error counting and categorization
-- Performance statistics logging
+- Error counting and categorization
 
-## 📊 Performance Metrics
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| **Execution Time** | 30-60s | 5-10s | **5-10x faster** |
-| **Success Rate** | ~70% | 95%+ | **25% improvement** |
-| **API Costs** | 100% | 20% | **80% reduction** |
-| **Error Recovery** | Manual | Automatic | **Fully automated** |
 
 ## 🧪 Testing
 

@@ -123,6 +123,8 @@ def translate_to_english(text: str) -> str:
         
     logger.info(f"Translating query to English: {text}")
     try:
+        from utils import bypass_proxy_for_ollama
+        bypass_proxy_for_ollama()
         from langchain_ollama import ChatOllama
         llm = ChatOllama(model=os.getenv("OLLAMA_MODEL", "qwen2.5:14b"), temperature=0)
         prompt = f"Translate the following research topic to English for a technical search on arXiv/GitHub. respond ONLY with the translation: {text}"

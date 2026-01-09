@@ -38,3 +38,26 @@ def api_call_with_retry(func, *args, **kwargs):
     except Exception as e:
         logger.warning(f"API call failed: {e}, retrying...")
         raise
+def bypass_proxy_for_ollama():
+    """Ensure Ollama host and common local addresses are in NO_PROXY."""
+    ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    try:
+        from urllib.parse import urlparse
+        hostname = urlparse(ollama_url).hostname
+        
+        # Base local addresses to always bypass
+        bypass_hosts = {"localhost", "127.0.0.1"}
+        if hostname:
+            bypass_hosts.add(hostname)
+            
+        no_proxy = os.getenv("NO_PROXY", "")
+        current_no_proxy = set(x.strip() for x in no_proxy.split(",") if x.strip())
+        
+        if not bypass_hosts.issubset(current_no_proxy):
+            current_no_proxy.update(bypass_hosts)
+            new_no_proxy = ",".join(current_no_proxy)
+            os.environ["NO_PROXY"] = new_no_proxy
+            os.environ["no_proxy"] = new_no_proxy
+            logging.debug(f"Updated NO_PROXY to: {new_no_proxy}")
+    except Exception as e:
+        logging.warning(f"Failed to setup proxy bypass: {e}")

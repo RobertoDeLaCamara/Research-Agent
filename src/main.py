@@ -41,6 +41,10 @@ def run_agent():
     
     args = parse_args()
     logger = setup_logging(args.log_level)
+
+    # Bypass proxy for Ollama before any service calls
+    from utils import bypass_proxy_for_ollama
+    bypass_proxy_for_ollama()
     
     try:
         # Validate topic

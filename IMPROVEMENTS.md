@@ -61,14 +61,6 @@
 - **Features**: Health checks, progress tracking, metrics logging
 - **Benefits**: Better error handling, monitoring, user feedback
 
-## 📊 **Performance Improvements**
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| **Execution Time** | 30-60s | 5-10s | **5-10x faster** |
-| **Success Rate** | ~70% | 95%+ | **25% improvement** |
-| **API Costs** | 100% | 20% | **80% reduction** |
-| **Error Recovery** | Manual | Automatic | **Fully automated** |
 
 ## 🔧 **New Features Added**
 
@@ -165,6 +157,12 @@ LOG_LEVEL=INFO
 - **Features**: Thread-based timeouts, Fail-Soft strategy, SMTP protections.
 - **Benefits**: Eliminates dashboard hangs. The agent handles slow APIs (like Semantic Scholar) or network delays gracefully.
 - **Usage**: Automatic across the entire workflow.
+
+### **17. ✅ Phase 7: Proxy & Network Robustness**
+- **File**: `src/utils.py`, `src/main.py`, `src/health.py`
+- **Features**: Dynamic `NO_PROXY` injection, centralized network health checks.
+- **Benefits**: Seamless connectivity in complex network environments (corporate proxies, Docker virtualization).
+- **Usage**: Automatically handles hostname extraction and proxy bypass for Ollama.
 
 ## 🚀 **Next Steps**
 

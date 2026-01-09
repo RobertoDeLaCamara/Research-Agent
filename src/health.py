@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 def check_ollama_connection() -> bool:
     """Check if Ollama service is available."""
     try:
+        from utils import bypass_proxy_for_ollama
+        bypass_proxy_for_ollama()
         response = requests.get(f"{settings.ollama_base_url}/api/tags", timeout=5)
         return response.status_code == 200
     except:

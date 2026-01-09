@@ -79,9 +79,8 @@ def summarize_videos_node(state: AgentState) -> dict:
         from tools.router_tools import update_next_node
         return {"summaries": [], "next_node": update_next_node(state, "youtube")}
 
-    # Aseguramos que las peticiones locales no pasen por un proxy.
-    os.environ["NO_PROXY"] = "localhost,127.0.0.1"
-    os.environ["no_proxy"] = "localhost,127.0.0.1"
+    from utils import bypass_proxy_for_ollama
+    bypass_proxy_for_ollama()
 
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
