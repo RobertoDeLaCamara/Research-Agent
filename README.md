@@ -44,6 +44,8 @@ graph TD
     Reports --> Chat[Interactive Chat]
     Chat -->|Follow-up Question| Chat
     Chat -->|Deep Context Needs| Plan
+    Chat -->|End Conversation| Email[Email Final Report]
+    Email --> End((End))
 ```
 
 ## 🚀 Quick Start

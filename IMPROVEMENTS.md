@@ -164,6 +164,12 @@ LOG_LEVEL=INFO
 - **Benefits**: Seamless connectivity in complex network environments (corporate proxies, Docker virtualization).
 - **Usage**: Automatically handles hostname extraction and proxy bypass for Ollama.
 
+### **18. ✅ Phase 8: Email Optimization & Idempotency**
+- **File**: `src/agent.py`, `src/tools/reporting_tools.py`, `src/state.py`
+- **Features**: Graph-level email postponement, MD5-based content hashing.
+- **Benefits**: Eliminates double emails. The agent now only sends one final report after the chat/feedback phase is completed.
+- **Usage**: Automatically managed by the LangGraph workflow logic.
+
 ## 🚀 **Next Steps**
 
 The codebase now has:
