@@ -23,3 +23,4 @@ class AgentState(TypedDict):
     research_plan: List[str]
     next_node: str
     iteration_count: int
+    last_email_hash: str

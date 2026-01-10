@@ -36,7 +36,8 @@ def initialize_state_node(state: AgentState) -> dict:
         "messages": state.get("messages", []),
         "research_plan": state.get("research_plan", []),
         "next_node": state.get("next_node", ""),
-        "iteration_count": state.get("iteration_count", 0)
+        "iteration_count": state.get("iteration_count", 0),
+        "last_email_hash": state.get("last_email_hash", "")
     }
     return defaults
 
@@ -70,7 +71,7 @@ def route_chat(state: AgentState):
     last_message = state["messages"][-1].content.lower()
     if any(keyword in last_message for keyword in ["investiga", "busca", "más información", "research", "search"]):
         return "re_plan"
-    return "END"
+    return "send_email"
 
 # Create workflow graph
 workflow = StateGraph(AgentState)
@@ -159,18 +160,19 @@ for node in search_nodes:
         )
 
 workflow.add_edge("consolidate_research", "generate_report")
-workflow.add_edge("generate_report", "send_email")
-workflow.add_edge("send_email", "chat")
+workflow.add_edge("generate_report", "chat")
 
-# Conditional edge from chat back to research or END
+# Conditional edge from chat back to research OR send_email
 workflow.add_conditional_edges(
     "chat",
     route_chat,
     {
         "re_plan": "plan_research",
-        "END": END
+        "send_email": "send_email"
     }
 )
+
+workflow.add_edge("send_email", END)
 
 # Compile the agent
 logger.info("Compiling agent...")

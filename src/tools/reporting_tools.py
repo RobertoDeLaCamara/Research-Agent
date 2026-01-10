@@ -9,6 +9,7 @@ from email.mime.base import MIMEBase
 from email import encoders
 import markdown
 from fpdf import FPDF
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -554,23 +555,38 @@ def generate_pdf(state: AgentState, topic: str, output_path: str, bibliography_l
 def send_email_node(state: AgentState) -> dict:
     """
     Envía el informe generado por correo electrónico utilizando las credenciales del archivo .env.
+    Implementa idempotencia para evitar duplicados en la misma sesión/tema.
 
     Args:
         state (AgentState): El estado actual del agente, que contiene el 'report' en HTML.
 
     Returns:
-        dict: Un diccionario vacío, ya que este es un nodo final que no modifica el estado.
+        dict: Un diccionario con una bandera 'email_sent' para evitar re-envíos.
     """
     print("\n--- 📧 NODO: ENVIANDO CORREO ELECTRÓNICO ---")
+    
+    # Verificación de idempotencia
     report = state.get("report", "")
     topic = state.get("topic", "Investigación")
+    
+    if not report:
+        print("⚠️ No hay reporte para enviar.")
+        return {}
+        
+    # Crear un hash del reporte para identificar envíos duplicados
+    report_hash = hashlib.md5(report.encode('utf-8')).hexdigest()
+    
+    # Comprobar si ya enviamos este reporte exacto en esta ejecución
+    if state.get("last_email_hash") == report_hash:
+        print("ℹ️ El correo para este reporte ya ha sido enviado. Omitiendo duplicado.")
+        return {}
 
     # Obtenemos la configuración del correo desde las variables de entorno.
     sender_email = os.getenv("EMAIL_USERNAME")
     receiver_email = os.getenv("EMAIL_RECIPIENT")
     password = os.getenv("EMAIL_PASSWORD")
-    host = os.getenv("EMAIL_HOST", "smtp.gmail.com") # Valor por defecto para Gmail
-    port = int(os.getenv("EMAIL_PORT", 587))         # Puerto estándar
+    host = os.getenv("EMAIL_HOST", "smtp.gmail.com") 
+    port = int(os.getenv("EMAIL_PORT", 587))         
 
     if not all([sender_email, receiver_email, password]):
         print("❌ Faltan credenciales de correo en el archivo .env. No se puede enviar el correo.")
@@ -581,7 +597,7 @@ def send_email_node(state: AgentState) -> dict:
     msg['From'] = sender_email
     msg['To'] = receiver_email
     msg['Subject'] = f"Informe de Investigación: {topic}"
-    msg.attach(MIMEText(state["report"], 'html'))
+    msg.attach(MIMEText(report, 'html'))
 
     # Adjuntamos el PDF si existe
     pdf_path = state.get("pdf_path")
@@ -605,22 +621,22 @@ def send_email_node(state: AgentState) -> dict:
         # Iniciamos la conexión con el servidor SMTP.
         print(f"Conectando al servidor SMTP en {host}:{port}...")
         server = smtplib.SMTP(host, port, timeout=30)
-        server.starttls()  # Habilitamos la seguridad (cifrado)
+        server.starttls()  
         server.login(sender_email, password)
         
         # Enviamos el correo.
         server.sendmail(sender_email, receiver_email, msg.as_string())
         print(f"✅ Correo electrónico enviado con éxito a {receiver_email}.")
         
+        # Devolvemos el hash para evitar envíos futuros del mismo contenido
+        return {"last_email_hash": report_hash}
+        
     except smtplib.SMTPAuthenticationError:
         print("❌ Error de autenticación. Revisa tu EMAIL_USERNAME y EMAIL_PASSWORD.")
-        print("   Recuerda que para Gmail, necesitas una 'Contraseña de Aplicación'.")
+        return {}
     except Exception as e:
         print(f"❌ Error al enviar el correo: {e}")
+        return {}
     finally:
         if 'server' in locals() and server.sock:
-            server.quit() # Cerramos la conexión con el servidor.
-
-    # Este nodo no necesita devolver nada para actualizar el estado,
-    # ya que es el último paso del proceso.
-    return {}
+            server.quit() 

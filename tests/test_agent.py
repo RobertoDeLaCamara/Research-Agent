@@ -18,7 +18,7 @@ def test_initialize_state_node_minimal():
         "github_research", "scholar_research", "hn_research", 
         "so_research", "reddit_research", "consolidated_summary", 
         "bibliography", "pdf_path", "report", "messages", 
-        "research_plan", "next_node", "iteration_count"
+        "research_plan", "next_node", "iteration_count", "last_email_hash"
     ]
     
     for key in mandatory_keys:
@@ -39,9 +39,9 @@ def test_initialize_state_node_preserves_existing():
     # depending on how it's handled. In our case, defaults only includes known keys.
 
 def test_route_chat_ends_by_default():
-    """Verifies that chat ends if no research keyword is present."""
+    """Verifies that chat goes to send_email if no research keyword is present."""
     state = {"messages": [HumanMessage(content="Thanks for the info")]}
-    assert route_chat(state) == "END"
+    assert route_chat(state) == "send_email"
 
 def test_route_chat_triggers_research():
     """Verifies that chat triggers re-planning if research keyword is found."""
