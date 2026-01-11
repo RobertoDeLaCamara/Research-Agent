@@ -1,10 +1,13 @@
 services:
   research-agent:
     build: .
+    restart: unless-stopped
     env_file:
       - .env
     volumes:
       - ./reports:/app/reports
+      - ./research_sessions.db:/app/research_sessions.db
+      - ./knowledge_base:/app/knowledge_base
     network_mode: "host"
     ports:
       - "8501:8501"

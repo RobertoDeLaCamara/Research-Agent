@@ -56,4 +56,8 @@ def local_rag_node(state: AgentState) -> dict:
 
     # For now, we store them in a new state key or append to web_research
     # Let's use a specific key for clarity in synthesis
-    return {"local_research": results, "next_node": update_next_node(state, "local_rag")}
+    return {
+        "local_research": results, 
+        "next_node": update_next_node(state, "local_rag"),
+        "source_metadata": {"local_rag": {"source_type": "user_provided_knowledge", "reliability": 5}}
+    }

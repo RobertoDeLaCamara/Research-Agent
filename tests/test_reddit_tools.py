@@ -4,10 +4,12 @@ import os
 from src.tools.reddit_tools import search_reddit_node
 
 def test_search_reddit_node_tavily(mock_agent_state):
-    # Setup mock for Tavily
-    with patch("langchain_community.tools.tavily_search.TavilySearchResults") as mock_tavily:
-        mock_search = mock_tavily.return_value
-        mock_search.run.return_value = [{"content": "Reddit content", "url": "reddit.com/r/test"}]
+    # Setup mock for TavilyClient
+    with patch("tavily.TavilyClient") as mock_client_class:
+        mock_client = mock_client_class.return_value
+        mock_client.search.return_value = {
+            "results": [{"content": "Reddit content", "url": "reddit.com/r/test", "title": "Test Thread"}]
+        }
         
         # Run node
         result = search_reddit_node(mock_agent_state)

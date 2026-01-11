@@ -85,7 +85,7 @@ def summarize_videos_node(state: AgentState) -> dict:
     bypass_proxy_for_ollama()
 
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
+    ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
     
     llm = ChatOllama(
         base_url=ollama_base_url,
@@ -137,7 +137,7 @@ def summarize_videos_node(state: AgentState) -> dict:
                     print("  - ⚠️ Video summarization timed out.")
                 raise ValueError("Resumen fallido o lento.")
 
-            summaries.append(summary)
+            summaries.append(summary.strip())
             print("  - ✅ Resumen generado desde transcripción.")
 
         except Exception as e:
@@ -145,13 +145,21 @@ def summarize_videos_node(state: AgentState) -> dict:
             print(f"  - 🔄 Usando metadatos como fallback...")
             
             try:
-                prompt = f"Genera un breve párrafo explicando de qué trata este vídeo basándote solo en su título: '{metadata.get('title')}'. Menciona que es una fuente audiovisual relevante para el tema {state['topic']}."
+                # Use a more forceful prompt with XML tags and SystemMessage
+                system_rules = "Eres un asistente de investigación experto. Tu tarea es generar UN solo párrafo conciso. REGLA ESTRICTA: NO incluyas preámbulos, razonamientos ni introducciones. SOLO entrega el párrafo final envuelto en etiquetas <summary> y </summary>."
+                human_prompt = f"Genera un breve párrafo explicando de qué trata este vídeo basándote solo en su título: '{metadata.get('title')}'. Menciona que es una fuente audiovisual relevante para el tema {state.get('original_topic', state.get('topic', ''))}."
+                
                 import threading
-                fallback_summary = ""
+                raw_fallback = ""
                 def run_fallback():
-                    nonlocal fallback_summary
+                    nonlocal raw_fallback
                     try:
-                        fallback_summary = llm.invoke(prompt).content
+                        from langchain_core.messages import SystemMessage, HumanMessage
+                        response = llm.invoke([
+                            SystemMessage(content=system_rules),
+                            HumanMessage(content=human_prompt)
+                        ])
+                        raw_fallback = response.content.strip()
                     except Exception:
                         pass
                 
@@ -159,11 +167,28 @@ def summarize_videos_node(state: AgentState) -> dict:
                 thread_fb.start()
                 thread_fb.join(timeout=30)
                 
-                if thread_fb.is_alive() or not fallback_summary:
+                if thread_fb.is_alive() or not raw_fallback:
                     raise ValueError("Fallback timed out.")
+                
+                # Blinded extraction with Regex
+                import re
+                match = re.search(r'<summary>(.*?)</summary>', raw_fallback, re.DOTALL)
+                
+                if match:
+                    fallback_summary = match.group(1).strip()
+                elif "<summary>" in raw_fallback:
+                    fallback_summary = raw_fallback.split("<summary>")[1].strip()
+                else:
+                    # Defensive cleaning for Qwen 3 if tags are missing
+                    reasoning_prefixes = ["okay", "entendido", "primero", "voy a", "analizando", "basado en el"]
+                    lines = raw_fallback.split('\n')
+                    if lines and any(lines[0].lower().startswith(p) for p in reasoning_prefixes):
+                        fallback_summary = "\n".join(lines[1:]).strip()
+                    else:
+                        fallback_summary = raw_fallback
                     
                 summaries.append(fallback_summary)
-                print("  - ✅ Resumen generado desde metadatos.")
+                print("  - ✅ Resumen generado desde metadatos (Blindado).")
             except Exception as e_inner:
                 print(f"  - ❌ Error final en fallback: {e_inner}")
                 summaries.append(f"Vídeo titulado '{metadata.get('title')}' por {metadata.get('author')}. No fue posible extraer el contenido detallado debido a restricciones de YouTube.")

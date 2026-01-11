@@ -45,11 +45,11 @@ def expand_queries_multilingual(topic: str, target_languages: List[str] = ["en",
     """
     
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
+    ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
     
     from langchain_ollama import ChatOllama
     bypass_proxy_for_ollama()
-    llm = ChatOllama(base_url=ollama_base_url, model=ollama_model, temperature=0.1)
+    llm = ChatOllama(base_url=ollama_base_url, model=ollama_model, temperature=0.1, request_timeout=45)
     
     expanded = {lang: topic for lang in target_languages} # Fallback to original
     

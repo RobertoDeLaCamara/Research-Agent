@@ -5,6 +5,7 @@ langchain-openai>=0.1.8
 langchain-ollama
 langchain-community
 langchain-tavily
+tavily-python
 langgraph>=0.0.68
 
 # Async and Performance

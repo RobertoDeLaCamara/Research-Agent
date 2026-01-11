@@ -34,18 +34,20 @@ def chat_node(state: AgentState) -> dict:
        Ejemplo: "INVESTIGACIÓN: Profundizar en los algoritmos de consenso de Solana."
     4. El sistema detectará automáticamente si necesitas realizar más investigación basado en tu respuesta.
     5. Usa Markdown para formatear tus respuestas.
+    6. REGLA ESTRICTA DE SALIDA: Responde DIRECTAMENTE al usuario. NO incluyas introducciones como "Okay", "Analizando el contexto...", ni ningún tipo de razonamiento interno antes de tu respuesta.
     """
     
     from utils import bypass_proxy_for_ollama
     bypass_proxy_for_ollama()
     
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
+    ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
     
     llm = ChatOllama(
         base_url=ollama_base_url,
         model=ollama_model,
-        temperature=0.7
+        temperature=0.7,
+        request_timeout=90 # 90s for chat response
     )
     
     # Convert state messages to LangChain format if they aren't already
@@ -55,11 +57,21 @@ def chat_node(state: AgentState) -> dict:
         
     try:
         response = llm.invoke(chat_history)
+        content = response.content.strip()
+        
+        # Blindaje: Eliminar etiquetas <think>...</think> y su contenido
+        import re
+        content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
+        
+        # Eliminar etiquetas huérfanas o incompletas (defensivo)
+        content = content.replace("<think>", "").replace("</think>", "").strip()
+
+        # Actualizar el contenido del mensaje de respuesta
+        response.content = content
         
         # Check if the AI itself suggests more research
-        if "INVESTIGACIÓN:" in response.content:
+        if "INVESTIGACIÓN:" in content:
             logger.info("Chat suggested more research. Updating next_node triggers.")
-            # We don't change next_node here, route_chat in agent.py will handle it
             
         return {"messages": [response]}
     except Exception as e:

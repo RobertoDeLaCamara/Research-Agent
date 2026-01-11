@@ -11,6 +11,7 @@ import arxiv
 from semanticscholar import SemanticScholar
 from github import Github
 import re
+import datetime
 from state import AgentState
 from utils import api_call_with_retry, get_max_results
 from tools.router_tools import update_next_node
@@ -37,44 +38,62 @@ def search_web_node(state: AgentState) -> dict:
     queries = state.get("queries", {})
     search_topic = queries.get("en", queries.get("es", topic))
     
-    try:
-        if tavily_key:
-            logger.debug(f"Using Tavily for web search with query: {search_topic}")
-            from langchain_community.tools.tavily_search import TavilySearchResults
-            search = TavilySearchResults(k=max_results)
-            raw_results = search.run(search_topic)
-            
-            # Use Jina Reader to enhance results if possible
-            enhanced_results = []
-            import requests
-            for res in raw_results:
-                url = res.get("url")
-                if url and url.startswith("http"):
-                    try:
-                        # Append r.jina.ai/ to the URL for markdown extraction
-                        jina_url = f"https://r.jina.ai/{url}"
-                        jina_res = requests.get(jina_url, timeout=5)
-                        if jina_res.status_code == 200:
-                            res["content"] = jina_res.text[:5000] # Cap content
-                            res["url"] = url # Keep original URL
-                    except Exception as e_jina:
-                        logger.debug(f"Jina extraction failed for {url}: {e_jina}")
-                enhanced_results.append(res)
-            results = enhanced_results
-        else:
-            logger.debug(f"No TAVILY_API_KEY detected. Using DuckDuckGo with query: {search_topic}")
-            from langchain_community.tools import DuckDuckGoSearchRun
-            search = DuckDuckGoSearchRun()
-            res_text = search.run(search_topic)
-            results = [{"content": res_text, "url": "DuckDuckGo"}]
-            
-        logger.info(f"Web search completed with {len(results)} results")
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    
+    # Inject date for timeliness if the user didn't provide one
+    if not re.search(r'\b(20\d{2}|19\d{2})\b', search_topic): # Check for a 4-digit year
+        search_topic = f"{search_topic} {current_date}"
         
-    except Exception as e:
-        logger.error(f"Web search failed: {e}")
-        results = []
+    print(f"Buscando en la web (Tavily) para: {search_topic}")
+    
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+    import requests
+    
+    def run_web_search():
+        nonlocal results
+        try:
+            if tavily_key:
+                logger.debug(f"Using Tavily for web search with query: {search_topic}")
+                from langchain_community.tools.tavily_search import TavilySearchResults
+                search = TavilySearchResults(k=max_results)
+                raw_results = search.run(search_topic)
+                
+                # Use ThreadPoolExecutor to parallelize Jina Reader calls
+                def enhance_result(res):
+                    url = res.get("url")
+                    if url and url.startswith("http"):
+                        try:
+                            # Append r.jina.ai/ to the URL for markdown extraction
+                            jina_url = f"https://r.jina.ai/{url}"
+                            jina_res = requests.get(jina_url, timeout=3) # Slower timeout for individual requests
+                            if jina_res.status_code == 200:
+                                res["content"] = jina_res.text[:5000] # Cap content
+                        except Exception:
+                            pass
+                    return res
+
+                with ThreadPoolExecutor(max_workers=5) as executor:
+                    results = list(executor.map(enhance_result, raw_results))
+            else:
+                logger.debug(f"No TAVILY_API_KEY detected. Using DuckDuckGo with query: {search_topic}")
+                from langchain_community.tools import DuckDuckGoSearchRun
+                search = DuckDuckGoSearchRun()
+                res_text = search.run(search_topic)
+                results = [{"content": res_text, "url": "DuckDuckGo"}]
+        except Exception as e_inner:
+            logger.error(f"Inner web search failed: {e_inner}")
+
+    thread = threading.Thread(target=run_web_search)
+    thread.start()
+    thread.join(timeout=45) # 45 seconds master timeout for web search
+    
+    if thread.is_alive():
+        logger.warning("Web search timed out after 45 seconds.")
+        # Proceed with empty results if timed out
         
-    return {"web_research": results, "next_node": update_next_node(state, "web")}
+    logger.info(f"Web search completed with {len(results)} results")
+    return {"web_research": results, "next_node": update_next_node(state, "web"), "source_metadata": {"web": {"source_type": "web", "reliability": 3}}}
 
 def search_wiki_node(state: AgentState) -> dict:
     """Search Wikipedia for general context."""
@@ -122,7 +141,7 @@ def search_wiki_node(state: AgentState) -> dict:
     except Exception as e:
         print(f"⚠️ Error en Wikipedia: {e}")
         
-    return {"wiki_research": results, "next_node": update_next_node(state, "wiki")}
+    return {"wiki_research": results, "next_node": update_next_node(state, "wiki"), "source_metadata": {"wiki": {"source_type": "official", "reliability": 5}}}
 
 def translate_to_english(text: str) -> str:
     """Simple translation to English using LLM for technical queries."""
@@ -134,7 +153,7 @@ def translate_to_english(text: str) -> str:
         from utils import bypass_proxy_for_ollama
         bypass_proxy_for_ollama()
         from langchain_ollama import ChatOllama
-        llm = ChatOllama(model=os.getenv("OLLAMA_MODEL", "qwen2.5:14b"), temperature=0)
+        llm = ChatOllama(model=os.getenv("OLLAMA_MODEL", "qwen3:14b"), temperature=0, request_timeout=30)
         prompt = f"Translate the following research topic to English for a technical search on arXiv/GitHub. respond ONLY with the translation: {text}"
         return llm.invoke(prompt).content.strip()
     except:
@@ -145,45 +164,47 @@ def search_arxiv_node(state: AgentState) -> dict:
     print("\n--- 📄 NODO: BUSCANDO EN ARXIV ---")
     
     topic = state.get("topic", "")
-    # Multilingual strategy: use pre-translated English query
     queries = state.get("queries", {})
     search_topic = queries.get("en", topic)
-    
     results = []
     
-    try:
-        client = arxiv.Client()
-        max_results = get_max_results(state)
-        search = arxiv.Search(
-            query=search_topic,
-            max_results=max_results,
-            sort_by=arxiv.SortCriterion.Relevance
-        )
-        
-        # Limit result iteration to avoid long hangs
-        import timeout_decorator # If available or use manual loop
-        results_iter = client.results(search)
-        for i in range(max_results):
-            try:
-                # Use a manual check or small batch if possible
-                result = next(results_iter)
-                results.append({
-                    "title": result.title,
-                    "summary": result.summary[:1000] + "...",
-                    "authors": ", ".join(author.name for author in result.authors),
-                    "url": result.entry_id
-                })
-            except StopIteration:
-                break
-            except Exception as e_inner:
-                logger.warning(f"Error fetching arXiv result {i}: {e_inner}")
-                break
+    import threading
+    def run_arxiv_search():
+        nonlocal results
+        try:
+            client = arxiv.Client()
+            max_results = get_max_results(state)
+            search = arxiv.Search(
+                query=search_topic,
+                max_results=max_results,
+                sort_by=arxiv.SortCriterion.Relevance
+            )
             
-        print(f"✅ Búsqueda en arXiv completada. Se encontraron {len(results)} artículos.")
-    except Exception as e:
-        print(f"⚠️ Error en arXiv: {e}")
+            results_iter = client.results(search)
+            for i in range(max_results):
+                try:
+                    result = next(results_iter)
+                    results.append({
+                        "title": result.title,
+                        "summary": result.summary[:1000] + "...",
+                        "authors": ", ".join(author.name for author in result.authors),
+                        "url": result.entry_id
+                    })
+                except StopIteration:
+                    break
+        except Exception as e_inner:
+            logger.error(f"ArXiv inner search failed: {e_inner}")
+
+    thread = threading.Thread(target=run_arxiv_search)
+    thread.start()
+    thread.join(timeout=25) # Increased to 25s for better coverage
+    
+    if thread.is_alive():
+        logger.warning("ArXiv search timed out. Moving on with partial or empty results.")
+        # Proceed with what we have
         
-    return {"arxiv_research": results, "next_node": update_next_node(state, "arxiv")}
+    print(f"✅ Búsqueda en arXiv completada. Se encontraron {len(results)} artículos.")
+    return {"arxiv_research": results, "next_node": update_next_node(state, "arxiv"), "source_metadata": {"arxiv": {"source_type": "scientific", "reliability": 5}}}
 
 def search_scholar_node(state: AgentState) -> dict:
     """Busca artículos académicos en Semantic Scholar usando la librería directamente."""
@@ -191,51 +212,45 @@ def search_scholar_node(state: AgentState) -> dict:
     topic = state["topic"]
     results = []
     
-    try:
-        sch = SemanticScholar()
-        # SemanticScholar library can be slow, we add a manual timeout check
-        import threading
-        def run_search():
-            nonlocal search_results
-            try:
-                # Specify fields to minimize data transfer
-                max_results = get_max_results(state)
-                queries = state.get("queries", {})
-                search_topic = queries.get("en", topic)
-                search_results = sch.search_paper(search_topic, limit=max_results, fields=['title', 'abstract', 'url', 'year', 'authors'])
-            except Exception as e_sch:
-                logger.error(f"SemanticScholar API error: {e_sch}")
+    sch = SemanticScholar()
+    max_results = get_max_results(state)
+    queries = state.get("queries", {})
+    search_topic = queries.get("en", topic)
 
-        search_results = None
-        thread = threading.Thread(target=run_search)
-        thread.start()
-        thread.join(timeout=15) # 15 seconds timeout
-        
-        if thread.is_alive() or search_results is None:
-            logger.warning("Semantic Scholar search timed out or failed.")
-            return {"scholar_research": [], "next_node": update_next_node(state, "scholar")}
-
-        max_results = get_max_results(state)
-        # Iteramos con un contador para evitar quedarnos atrapados en PaginatedResults si algo falla
-        count = 0
-        for paper in search_results:
-            if count >= max_results:
-                break
-            authors_list = [author['name'] for author in paper.authors] if paper.authors else []
-            results.append({
-                "title": paper.title,
-                "content": paper.abstract if paper.abstract else "Sin resumen disponible.",
-                "url": paper.url,
-                "authors": ", ".join(authors_list) if authors_list else "Autor desconocido",
-                "year": paper.year
-            })
-            count += 1
+    import threading
+    def run_scholar_search():
+        nonlocal results
+        try:
+            # SemanticScholar library uses lazy loading. 
+            # We MUST iterate INSIDE the thread to stay protected by the timeout.
+            search_results = sch.search_paper(search_topic, limit=max_results, fields=['title', 'abstract', 'url', 'year', 'authors'])
             
-        print(f"✅ Búsqueda en Semantic Scholar completada. Se encontraron {len(results)} resultados.")
-    except Exception as e:
-        print(f"⚠️ Error en Semantic Scholar: {e}")
+            count = 0
+            for paper in search_results:
+                if count >= max_results:
+                    break
+                
+                authors_list = [author['name'] for author in paper.authors] if paper.authors else []
+                results.append({
+                    "title": paper.title,
+                    "content": paper.abstract if paper.abstract else "Sin resumen disponible.",
+                    "url": paper.url,
+                    "authors": ", ".join(authors_list) if authors_list else "Autor desconocido",
+                    "year": paper.year
+                })
+                count += 1
+        except Exception as e_sch:
+            logger.error(f"SemanticScholar API error: {e_sch}")
+
+    thread = threading.Thread(target=run_scholar_search)
+    thread.start()
+    thread.join(timeout=25) # 25 seconds hard timeout for Scholar
+    
+    if thread.is_alive():
+        logger.warning("Semantic Scholar search timed out. Proceeding with collected results so far.")
         
-    return {"scholar_research": results, "next_node": update_next_node(state, "scholar")}
+    print(f"✅ Búsqueda en Semantic Scholar completada. Se encontraron {len(results)} resultados.")
+    return {"scholar_research": results, "next_node": update_next_node(state, "scholar"), "source_metadata": {"scholar": {"source_type": "scientific", "reliability": 5}}}
 
 def search_github_node(state: AgentState) -> dict:
     """Busca repositorios relevantes en GitHub. Intenta búsqueda amplia si la específica falla."""
@@ -265,16 +280,37 @@ def search_github_node(state: AgentState) -> dict:
                     print("No se encontraron repositorios de Python. Intentando búsqueda global...")
                     repositories = g.search_repositories(query=topic, sort="stars", order="desc")
                     
-                max_results = get_max_results(state)
-                for i, repo in enumerate(repositories):
-                    if i >= max_results:
-                        break
-                    results.append({
+                from concurrent.futures import ThreadPoolExecutor
+                
+                def fetch_repo_content(repo):
+                    repo_data = {
                         "name": repo.full_name,
                         "description": repo.description,
                         "url": repo.html_url,
                         "stars": repo.stargazers_count
-                    })
+                    }
+                    persona = state.get("persona", "general")
+                    if persona in ["tech", "pm", "arquitecto", "architect"]:
+                        try:
+                            readme = repo.get_readme().decoded_content.decode('utf-8')
+                            repo_data["content"] = readme[:1500]
+                        except:
+                            repo_data["content"] = "README no disponible."
+                    else:
+                        repo_data["content"] = repo.description or "No description."
+                    return repo_data
+
+                # Fetch repositories list
+                repo_list = []
+                for i, repo in enumerate(repositories):
+                    if i >= max_results:
+                        break
+                    repo_list.append(repo)
+                
+                # Parallel fetch READMEs
+                with ThreadPoolExecutor(max_workers=5) as executor:
+                    results = list(executor.map(fetch_repo_content, repo_list))
+
             except Exception as e_inner:
                 logger.error(f"GitHub inner search failed: {e_inner}")
 
@@ -289,7 +325,7 @@ def search_github_node(state: AgentState) -> dict:
     except Exception as e:
         print(f"⚠️ Error en GitHub: {e}")
         
-    return {"github_research": results, "next_node": update_next_node(state, "github")}
+    return {"github_research": results, "next_node": update_next_node(state, "github"), "source_metadata": {"github": {"source_type": "tech", "reliability": 4}}}
 
 def search_hn_node(state: AgentState) -> dict:
     """Busca discusiones relevantes en Hacker News."""
@@ -330,7 +366,7 @@ def search_hn_node(state: AgentState) -> dict:
     except Exception as e:
         print(f"⚠️ Error en Hacker News: {e}")
         
-    return {"hn_research": results, "next_node": update_next_node(state, "hn")}
+    return {"hn_research": results, "next_node": update_next_node(state, "hn"), "source_metadata": {"hn": {"source_type": "tech_community", "reliability": 4}}}
 
 def search_so_node(state: AgentState) -> dict:
     """Busca preguntas técnicas en Stack Overflow."""
@@ -348,18 +384,28 @@ def search_so_node(state: AgentState) -> dict:
             nonlocal results
             try:
                 # Buscamos preguntas relacionadas con el tema
-                questions = SITE.fetch('search/advanced', q=search_topic, sort='relevance', order='desc')
+                questions = SITE.fetch('search/advanced', q=search_topic, sort='relevance', order='desc', filter='withbody')
                 
                 max_results = get_max_results(state)
                 for i, item in enumerate(questions.get('items', [])):
                     if i >= max_results:
                         break
+                    
+                    # Phase 6: Deep content for SO only if relevant
+                    persona = state.get("persona", "general")
+                    body = item.get('body', '')
+                    if persona in ["tech", "pm", "arquitecto", "architect"]:
+                        content = body[:1000] # Reduced from 2000
+                    else:
+                        content = item.get('title') # Just the title as summary
+                        
                     results.append({
                         "title": item.get('title'),
                         "url": item.get('link'),
                         "score": item.get('score'),
                         "is_answered": item.get('is_answered'),
-                        "tags": ", ".join(item.get('tags', []))
+                        "tags": ", ".join(item.get('tags', [])),
+                        "content": content
                     })
             except Exception as e_inner:
                 logger.error(f"StackOverflow inner search failed: {e_inner}")
@@ -375,6 +421,6 @@ def search_so_node(state: AgentState) -> dict:
     except Exception as e:
         print(f"⚠️ Error en Stack Overflow: {e}")
         
-    return {"so_research": results, "next_node": update_next_node(state, "so")}
+    return {"so_research": results, "next_node": update_next_node(state, "so"), "source_metadata": {"so": {"source_type": "tech_qa", "reliability": 4}}}
 
 

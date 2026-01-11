@@ -37,7 +37,7 @@ def generate_report_node(state: AgentState) -> dict:
         logger.info(f"Reddit research results count: {len(state['reddit_research'])}")
     summaries = state.get("summaries", [])
     video_metadata = state.get("video_metadata", [])
-    topic = state.get("topic", "Tema desconocido")
+    topic = state.get("original_topic", state.get("topic", "Tema desconocido"))
     consolidated = state.get("consolidated_summary", "")
     
     # Comprobar si tenemos CUALQUIER tipo de contenido para informar
@@ -492,7 +492,9 @@ def generate_report_node(state: AgentState) -> dict:
         f.write(html_content)
     
     # Guardamos el Markdown
-    md_path = "reporte_final.md"
+    # Sanitize topic for filename (prevent path injection / Errno 2)
+    safe_topic = topic.replace(" ", "_").replace("/", "_").replace("\\", "_")[:30]
+    md_path = f"reporte_{safe_topic}.md"
     with open(md_path, "w", encoding="utf-8") as f:
         f.write(markdown_text)
     
@@ -513,6 +515,14 @@ def generate_report_node(state: AgentState) -> dict:
     except Exception as e:
         print(f"⚠️ Error al generar PDF: {e}")
         pdf_path = None
+
+    # Phase 6: Save finalized research state to database for persistence
+    try:
+        from db_manager import save_session
+        save_session(topic, state.get("persona", "general"), state)
+        logger.info(f"✅ Research session persisted for: {topic}")
+    except Exception as e_db:
+        logger.error(f"Failed to persist research session: {e_db}")
 
     print("✅ Informe HTML generado con éxito.")
     return {
@@ -637,8 +647,8 @@ def send_email_node(state: AgentState) -> dict:
     
     # Verificación de idempotencia
     report = state.get("report", "")
-    topic = state.get("topic", "Investigación")
-    
+    topic = state.get("original_topic", state.get("topic", "Informe-Investigacion"))
+    file_topic = topic.replace(" ", "_")[:50]
     if not report:
         print("⚠️ No hay reporte para enviar.")
         return {}

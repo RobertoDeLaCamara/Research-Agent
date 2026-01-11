@@ -10,7 +10,7 @@ def consolidate_research_node(state: AgentState) -> dict:
     """Synthesize all collected information into a consolidated report."""
     logger.info("Starting research synthesis...")
     
-    topic = state["topic"]
+    topic = state.get("original_topic", state.get("topic", ""))
     wiki = state.get("wiki_research", [])
     web = state.get("web_research", [])
     arxiv = state.get("arxiv_research", [])
@@ -24,7 +24,12 @@ def consolidate_research_node(state: AgentState) -> dict:
     persona = state.get("persona", "general")
     
     # Build context for LLM
+    source_meta = state.get("source_metadata", {})
     context = f"RESEARCH TOPIC: {topic}\n\n"
+    context += "--- METADATOS DE FIABILIDAD POR FUENTE ---\n"
+    for src, meta in source_meta.items():
+        context += f"Fuente: {src} | Confianza: {meta.get('reliability', 'N/A')}/5 | Tipo: {meta.get('source_type', 'N/A')}\n"
+    context += "\n"
     
     if wiki:
         context += "--- INFORMACIÓN DE WIKIPEDIA ---\n"
@@ -79,65 +84,115 @@ def consolidate_research_node(state: AgentState) -> dict:
         for i, summary in enumerate(yt_summaries):
             context += f"Video {i+1}: {summary}\n\n"
 
+    # Context safety truncation for local LLMs
+    MAX_CHARS = 25000 # Roughly 6k-8k tokens, safe for most local setups
+    if len(context) > MAX_CHARS:
+        logger.warning(f"Context too large ({len(context)} chars). Pruning...")
+        context = context[:MAX_CHARS] + "\n\n[... CONTENIDO TRUNCADO POR EXCESO DE VOLUMEN ...]"
+
     # Persona-based context for synthesis
     persona_configs = {
         "general": "un experto analista de investigación senior. Tu tono es profesional, equilibrado y objetivo.",
         "business": "un consultor estratégico de negocios. Tu enfoque es el ROI, la viabilidad comercial y el impacto estratégico.",
         "tech": "un arquitecto de software senior (CTO). Tu tono es altamente técnico, preciso y enfocado en la implementación.",
-        "academic": "un investigador académico senior. Tu tono es formal, riguroso y enfocado en la metodología y evidencia científica.",
-        "pm": "un Product Manager senior. Tu enfoque es la propuesta de valor, el user journey y la hoja de ruta del producto."
+        "academic": "un revisor científico que busca rigor, artículos peer-reviewed y metodología clara. Prioriza arXiv y Scholar.",
+        "pm": "un Product Manager enfocado en necesidades del usuario, viabilidad y priorización de funciones.",
+        "news_editor": "un Editor de Noticias de última hora. Tu objetivo es la inmediatez, el impacto y la claridad. Estructura el informe como un 'Daily Digest' con Titulares, Resumen Ejecutivo (TL;DR) y contexto de las últimas 24-48 horas."
     }
     persona_context = persona_configs.get(persona, persona_configs["general"])
 
-    prompt = f"""
-Eres {persona_context} Tu tarea es producir una SÍNTESIS EJECUTIVA CONSOLIDADA, PROFESIONAL Y PERFECTAMENTE FORMATEADA.
+    system_rules = f"""
+Eres {persona_context} Tu tarea es producir una SINTESIS EJECUTIVA CONSOLIDADA, PROFESIONAL Y CRÍTICA.
 
 REGLAS DE FORMATO MANDATORIAS:
 1. ESTRUCTURA HIERÁRQUICA: Divide el informe en Secciones (H2) y Subtemas (H3).
 2. PROHIBIDO ENUMERAR ESTRUCTURA: NO uses números (1., 2., 3.) para los títulos de secciones ni para los subtemas.
 3. INDENTACIÓN DE DETALLES: Los detalles bajo cada subtema DEBEN usar viñetas (*) y estar indentados.
 
-EJEMPLO DE ESTRUCTURA CORRECTA (BIEN):
-## Tendencias Clave
-### Avances en IA Generativa
-* Se ha observado un incremento en la eficiencia de los modelos...
-* Los nuevos algoritmos permiten una mayor precisión en...
+REGLAS DE SEGURIDAD Y LIMPIEZA (CRÍTICO):
+1. **SOLO EL RESULTADO FINAL**: NO incluyas razonamientos, introducciones ("Okay", "Entiendo"), ni saludos.
+2. **SIN PENSAMIENTOS**: Si tu sistema de razonamiento genera pasos intermedios, ELIMÍNALOS. Solo entrega el Markdown final.
+3. **ETIQUETAS REQUERIDAS**: Debes envolver el informe final EXACTAMENTE entre las etiquetas `<report>` y `</report>`. Todo lo que esté fuera de estas etiquetas será ignorado.
 
-EJEMPLO DE ESTRUCTURA ERRÓNEA (MAL) - NO HACER ESTO:
-## 1. Tendencias Clave
-## 2. Avances en IA Generativa
-3. Se ha observado un incremento...
-4. Los nuevos algoritmos...
+INSTRUCCIONES DE ANÁLISIS ESPECIALISTA (PHASE 6 & 7):
+3. PESO DE AUTORIDAD: Prioriza la información oficial de fuentes académicas y, MUY ESPECIALMENTE, del **CONOCIMIENTO LOCAL (RAG)** proporcionado por el usuario.
+4. CITAS OBLIGATORIAS: Si usas información de archivos locales, cítalos explícitamente como [Nombre del archivo](file://...).
+5. IDENTIFICACIÓN DE AFIRMACIONES CLAVE: Al final del informe, añade una sección "## Verificación de Datos" con una lista de las 3 afirmaciones más críticas.
 
-Instrucciones de Contenido:
-- Análisis Exhaustivo: Desarrolla cada sección con profundidad técnica (Introducción, Tendencias Clave, Tecnologías Emergentes, Implementaciones de Código, Conclusiones).
-- Integración Multifuente: Conecta hallazgos de todas las fuentes (GitHub, arXiv, Conocimiento Local/RAG, etc.) con referencias [Nombre](URL).
-- Pertenencia Local: Si hay información en el 'CONOCIMIENTO LOCAL', asegúrate de integrarla como una prioridad, ya que representa datos internos o específicos del usuario.
+FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
+"""
 
-FORMATO DE SALIDA: Solo Markdown puro. Sin introducciones ni comentarios adicionales.
-
-INFORMACIÓN PARA SINTETIZAR:
-{context}
-    """
+    human_query = f"INFORMACIÓN PARA SINTETIZAR:\n{context}"
 
     # Inicialización del LLM
     from utils import bypass_proxy_for_ollama
     bypass_proxy_for_ollama()
     
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
+    ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
     
     llm = ChatOllama(
         base_url=ollama_base_url,
         model=ollama_model,
-        temperature=0.3
+        temperature=0.3,
+        request_timeout=240 # 4 minutes timeout for synthesis
     )
 
     try:
         print("Generando síntesis consolidada...")
-        response = llm.invoke([HumanMessage(content=prompt)])
-        consolidated_text = response.content
-        print("✅ Síntesis completada.")
+        from langchain_core.messages import SystemMessage, HumanMessage
+        response = llm.invoke([
+            SystemMessage(content=system_rules),
+            HumanMessage(content=human_query)
+        ])
+        raw_text = response.content.strip()
+        
+        import re
+        
+        # 1. ELIMINACIÓN DE BLOQUES <think> (DeepSeek/Qwen Reasoning)
+        processed_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
+        
+        # 2. EXTRACCIÓN POR ETIQUETAS <report>
+        match = re.search(r'<report>(.*?)</report>', processed_text, re.DOTALL)
+        if match:
+            consolidated_text = match.group(1).strip()
+        elif "<report>" in processed_text:
+            consolidated_text = processed_text.split("<report>")[1].strip()
+        else:
+            # 3. FALLBACK: BÚSQUEDA POR ANCLAS ESTRUCTURALES
+            # Buscamos encabezados Markdown o palabras clave comunes de inicio de informe
+            anchors = [r'##\s+', r'Resumen:', r'SÍNTESIS:', r'Sintesis:', r'Informe:', r'Resumen ejecutivo:']
+            earliest_pos = len(processed_text)
+            found_anchor = False
+            
+            for anchor in anchors:
+                a_match = re.search(anchor, processed_text, re.IGNORECASE)
+                if a_match and a_match.start() < earliest_pos:
+                    earliest_pos = a_match.start()
+                    found_anchor = True
+            
+            if found_anchor:
+                consolidated_text = processed_text[earliest_pos:].strip()
+            else:
+                # 4. LIMPIEZA HEURÍSTICA DE PREÁMBULOS (Último recurso)
+                # Si no hay anclas, eliminamos líneas que parezcan razonamiento
+                reasoning_patterns = [
+                    r'^okay,?\s.*', r'^entendido,?\s.*', r'^analizando,?\s.*', 
+                    r'^aquí tienes,?\s.*', r'^primero,?\s.*', r'^según el texto,?\s.*',
+                    r'^voy a,?\s.*', r'^veamos,?\s.*', r'^the user provided,?\s.*'
+                ]
+                lines = processed_text.split('\n')
+                start_idx = 0
+                for i, line in enumerate(lines[:10]): # Solo miramos las primeras 10 líneas
+                    if any(re.match(p, line.strip().lower()) for p in reasoning_patterns) or len(line.strip()) < 5:
+                        start_idx = i + 1
+                    else:
+                        break # Encontramos la primera línea que NO parece ruido
+                
+                consolidated_text = "\n".join(lines[start_idx:]).strip()
+
+        print("✅ Síntesis completada (Nuclear Cleaning).")
+        
         return {"consolidated_summary": consolidated_text}
     except Exception as e:
         print(f"❌ Error durante la síntesis: {e}")

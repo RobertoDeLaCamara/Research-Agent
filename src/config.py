@@ -4,7 +4,7 @@ from typing import Optional
 class Settings(BaseSettings):
     # AI Configuration
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "qwen2.5:14b"
+    ollama_model: str = "qwen3:14b"
     
     # API Keys
     tavily_api_key: Optional[str] = None

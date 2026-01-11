@@ -4,6 +4,7 @@ import subprocess
 import time
 from agent import app
 import streamlit.components.v1 as components
+from db_manager import get_recent_sessions, load_session, clear_history
 
 # Configuración de la página
 st.set_page_config(
@@ -47,7 +48,7 @@ with st.sidebar:
     
     llm_model = st.selectbox(
         "Modelo LLM (Ollama)",
-        ["qwen2.5:14b", "gemma3:12b", "llama3:8b"],
+        ["qwen3:14b", "qwen2.5:14b", "gemma3:12b", "llama3:8b"],
         index=0
     )
     
@@ -85,7 +86,7 @@ with st.sidebar:
     st.write("### 🧠 Perfil de Investigador")
     persona_mode = st.selectbox(
         "Persona del agente:",
-        ["Generalista", "Analista de Mercado", "Arquitecto de Software", "Revisor Científico", "Product Manager"],
+        ["Generalista", "Analista de Mercado", "Arquitecto de Software", "Revisor Científico", "Product Manager", "Editor de Noticias"],
         index=0,
         help="Ajusta el tono de la síntesis y la prioridad de las fuentes."
     )
@@ -95,9 +96,14 @@ with st.sidebar:
         "Analista de Mercado": "business",
         "Arquitecto de Software": "tech",
         "Revisor Científico": "academic",
-        "Product Manager": "pm"
+        "Product Manager": "pm",
+        "Editor de Noticias": "news_editor"
     }
     persona = persona_mapping[persona_mode]
+
+    st.write("### ⏱️ Filtro Temporal")
+    last_24h = st.checkbox("Filtrar por últimas 24h", value=False, help="Solo para web y Reddit. Útil para noticias de última hora.")
+    time_range = "d" if last_24h else None
 
     st.write("### 📁 Conocimiento Local")
     use_rag = st.checkbox("Incluir base de conocimientos local", value=False, help="Busca en archivos locales (.pdf, .txt) en ./knowledge_base")
@@ -111,6 +117,34 @@ with st.sidebar:
             with open(os.path.join(kb_path, uploaded_file.name), "wb") as f:
                 f.write(uploaded_file.getbuffer())
         st.success(f"✅ {len(uploaded_files)} archivos listos.")
+
+    st.divider()
+    st.write("### 📂 Historial")
+    recent_sessions = get_recent_sessions(limit=10)
+    if recent_sessions:
+        session_options = ["Seleccionar..."] + [f"{s[3][:16]} | {s[1]}" for s in recent_sessions]
+        selected_session_label = st.selectbox("Cargar investigación previa:", session_options)
+        
+        if selected_session_label != "Seleccionar...":
+            if st.button("📂 Cargar Sesión"):
+                session_idx = session_options.index(selected_session_label) - 1
+                session_id = recent_sessions[session_idx][0]
+                loaded_state = load_session(session_id)
+                if loaded_state:
+                    st.session_state.agent_state = loaded_state
+                    st.session_state.last_topic = loaded_state.get("topic", "Cargado")
+                    # Map 'report' from state to 'report_html' for UI
+                    st.session_state.report_html = loaded_state.get("report", "")
+                    st.session_state.investigation_done = True
+                    st.success(f"Cargado: {st.session_state.last_topic}")
+                    st.rerun()
+    else:
+        st.write("No hay sesiones previas.")
+        
+    if st.button("🗑️ Limpiar Historial", type="secondary", use_container_width=True):
+        if clear_history():
+            st.success("Historial borrado correctamente.")
+            st.rerun()
 
 # --- Inicialización de Session State ---
 if "investigation_done" not in st.session_state:
@@ -142,6 +176,11 @@ if st.button("Iniciar Investigación"):
     if not topic:
         st.warning("Por favor, introduce un tema.")
     else:
+        # Clear previous state to ensure clean start
+        st.session_state.investigation_done = False
+        st.session_state.report_html = ""
+        st.session_state.agent_state = None
+        
         with st.status("🚀 Procesando investigación...", expanded=True) as status:
             try:
                 # Actualizar variables de entorno para el modelo seleccionado
@@ -150,8 +189,10 @@ if st.button("Iniciar Investigación"):
                 # Pass selected sources and depth to the agent
                 inputs = {
                     "topic": topic,
+                    "original_topic": topic, # Preserve original for titles
                     "research_depth": research_depth,
-                    "persona": persona
+                    "persona": persona,
+                    "time_range": time_range
                 }
                 
                 plan = selected_sources.copy()
@@ -162,10 +203,51 @@ if st.button("Iniciar Investigación"):
                     inputs["research_plan"] = plan
                     inputs["next_node"] = plan[0]
                 
-                st.write(f"🧠 Analizando fuentes para: **{topic}**...")
+                # Use a dict for node description mappings
+                node_messages = {
+                    "initialize_state": "⚙️ Inicializando estado...",
+                    "plan_research": "🗺️ Planificando estrategia de búsqueda...",
+                    "search_videos": "📺 Buscando vídeos en YouTube...",
+                    "summarize_videos": "📝 Resumiendo contenido audiovisual...",
+                    "search_web": "🌐 Explorando la web...",
+                    "search_wiki": "📚 Consultando Wikipedia...",
+                    "search_arxiv": "🎓 Buscando artículos en arXiv...",
+                    "search_scholar": "🔬 Investigando en Semantic Scholar...",
+                    "search_github": "💻 Explorando repositorios en GitHub...",
+                    "search_hn": "🧡 Buscando discusiones en Hacker News...",
+                    "search_so": "💙 Consultando Stack Overflow...",
+                    "search_reddit": "🤖 Analizando opiniones en Reddit...",
+                    "local_rag": "📁 Analizando conocimiento local (RAG)...",
+                    "consolidate_research": "🧠 Sintetizando toda la información...",
+                    "evaluate_research": "⚖️ Evaluando calidad y buscando vacíos...",
+                    "generate_report": "📄 Generando informe final...",
+                    "send_email": "📧 Enviando reporte por correo..."
+                }
+
+                # Streaming execution to show progress (Improved Reactive Logic)
+                final_state = inputs.copy()
                 
-                # Ejecución del agente con límite de recursión aumentado
-                final_state = app.invoke(inputs, config={"recursion_limit": 100})
+                # Container to keep track of the current status message
+                status_container = st.empty()
+                
+                for chunk in app.stream(inputs, config={"recursion_limit": 100}):
+                    for node_name, state_update in chunk.items():
+                        # Aggregately update final_state (defensive check)
+                        if isinstance(state_update, dict):
+                            final_state.update(state_update)
+                        
+                        # Mark current node as COMPLETED
+                        completed_msg = node_messages.get(node_name, f"Ejecutando {node_name}...")
+                        st.write(f"✅ {completed_msg}")
+                        
+                        # Guess the NEXT node from state_update or original plan
+                        next_node = state_update.get("next_node")
+                        if next_node and next_node != "END":
+                            next_msg = node_messages.get(next_node, f"Iniciando {next_node}...")
+                            status_container.info(f"⏳ {next_msg}")
+                        else:
+                            status_container.empty()
+                
                 st.session_state.agent_state = final_state
                 
                 # Guardar resultados en session_state para persistencia
@@ -226,7 +308,7 @@ if st.session_state.investigation_done:
         sources_list = []
         
         # Collect all sources with content
-        for key in ["wiki_research", "web_research", "arxiv_research", "scholar_research", "github_research", "reddit_research"]:
+        for key in ["wiki_research", "web_research", "arxiv_research", "scholar_research", "github_research", "reddit_research", "local_research"]:
             if state.get(key):
                 for item in state[key]:
                     sources_list.append({
@@ -243,7 +325,7 @@ if st.session_state.investigation_done:
             
             src = sources_list[selected_source_idx]
             st.info(f"**Fuente:** [{src['type']}] {src['title']}")
-            st.write(src['content'])
+            st.markdown(src['content'])
             if src['url']:
                 st.link_button("🔗 Abrir fuente original", src['url'])
         else:

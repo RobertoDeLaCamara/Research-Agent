@@ -34,9 +34,27 @@ def search_reddit_node(state: AgentState) -> dict:
         def run_reddit_search():
             nonlocal results
             if tavily_key:
-                from langchain_community.tools.tavily_search import TavilySearchResults
-                search = TavilySearchResults(k=max_results)
-                results = search.run(f"{search_topic} site:reddit.com")
+                from tavily import TavilyClient
+                tavily = TavilyClient(api_key=tavily_key)
+                
+                # Phase 7: Support for temporal filtering in Reddit
+                time_range = state.get("time_range", None)
+                if state.get("persona") == "news_editor" and not time_range:
+                    time_range = "d"
+                    
+                search_params = {
+                    "query": f"{search_topic} site:reddit.com",
+                    "search_depth": "advanced",
+                    "max_results": max_results
+                }
+                if time_range:
+                    search_params["time_range"] = time_range
+                    
+                search_result = tavily.search(**search_params)
+                tavily_results = search_result.get("results", [])
+                
+                # Re-format for the node
+                results = [{"content": r.get("content"), "url": r.get("url"), "title": r.get("title")} for r in tavily_results]
             else:
                 # Fallback to DuckDuckGo
                 from langchain_community.tools import DuckDuckGoSearchRun
@@ -57,4 +75,4 @@ def search_reddit_node(state: AgentState) -> dict:
         logger.error(f"Reddit search failed: {e}")
         results = []
         
-    return {"reddit_research": results, "next_node": update_next_node(state, "reddit")}
+    return {"reddit_research": results, "next_node": update_next_node(state, "reddit"), "source_metadata": {"reddit": {"source_type": "community", "reliability": 2}}}

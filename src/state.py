@@ -4,6 +4,7 @@ from langchain_core.messages import BaseMessage
 class AgentState(TypedDict):
     """Shared state definition for the research agent."""
     topic: str
+    original_topic: str  # Added to preserve original request during iterative loops
     video_urls: List[str]
     video_metadata: List[dict]
     summaries: List[str]
@@ -29,3 +30,4 @@ class AgentState(TypedDict):
     evaluation_report: str
     last_email_hash: str
     queries: Dict[str, str]
+    source_metadata: Dict[str, dict]

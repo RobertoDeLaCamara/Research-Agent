@@ -59,6 +59,7 @@ def plan_research_node(state: AgentState) -> dict:
     - so: Para problemas técnicos específicos y soluciones de programación.
     - youtube: Para explicaciones visuales, tutoriales y comparativas.
     - reddit: Para opiniones de la comunidad, experiencias reales y discusiones informales.
+    - local_rag: Para consultar la base de conocimientos local y archivos proporcionados por el usuario.
     
     INSTRUCCIONES:
     1. Responde ÚNICAMENTE con una lista JSON de las fuentes que deben ser consultadas.
@@ -73,12 +74,13 @@ def plan_research_node(state: AgentState) -> dict:
     """
     
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
+    ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
     
     llm = ChatOllama(
         base_url=ollama_base_url,
         model=ollama_model,
-        temperature=0.1
+        temperature=0.1,
+        request_timeout=60 # 60s timeout for planning
     )
     
     try:
@@ -98,7 +100,7 @@ def plan_research_node(state: AgentState) -> dict:
         return {
             "research_plan": selected_sources,
             "next_node": first_node,
-            "iteration_count": 0,
+            "iteration_count": state.get("iteration_count", 0),
             "queries": expanded_queries
         }
     except Exception as e:
@@ -106,7 +108,7 @@ def plan_research_node(state: AgentState) -> dict:
         return {
             "research_plan": ["wiki", "web"],
             "next_node": "wiki",
-            "iteration_count": 0
+            "iteration_count": state.get("iteration_count", 0)
         }
 
 def evaluate_research_node(state: AgentState) -> dict:
@@ -117,38 +119,43 @@ def evaluate_research_node(state: AgentState) -> dict:
     topic = state["topic"]
     summary = state.get("consolidated_summary", "")
     
+    # Phase 7: News Digest should be fast. Skip refinement loops for News Editor.
+    if state.get("persona") == "news_editor":
+        logger.info("News Editor persona detected. Skipping refinement loops for speed.")
+        return {"next_node": "END", "evaluation_report": "Salto de evaluación para modo noticias."}
+
     # Safety: Hard limit on iterations to avoid infinite loops
     if iteration >= 2:
         logger.info("Maximum iterations reached. Finalizing.")
-        return {"next_node": "END", "evaluation_report": "Límite de iteraciones alcanzado."}
+        return {"next_node": "END", "evaluation_report": "Límite de 2 iteraciones alcanzado."}
     
     prompt = f"""
-    Eres un Crítico de Investigación experto. Tu tarea es evaluar si la siguiente síntesis de investigación es completa, 
-    precisa y responde totalmente al tema propuesto, o si existen vacíos de información importantes.
+    Eres un Crítico de Investigación y Fact-Checker experto. Tu tarea es evaluar si la siguiente síntesis es completa y, sobre todo, si las afirmaciones críticas están debidamente verificadas.
 
     TEMA ORIGINAL: {topic}
     SÍNTESIS ACTUAL:
     {summary}
 
-    INSTRUCCIONES:
-    1. Analiza si faltan aspectos críticos del tema.
-    2. Responde en formato JSON con dos campos:
-       - "sufficient": booleano (true si es suficiente, false si faltan datos críticos).
-       - "gaps": lista de strings con los temas específicos que aún faltan por investigar.
-       - "reasoning": breve explicación de tu decisión.
+    INSTRUCCIONES DE EVALUACIÓN (PHASE 5):
+    1. Revisa la sección "## Verificación de Datos" de la síntesis (si existe).
+    2. Identifica si hay afirmaciones de ALTO IMPACTO que parezcan dudosas o solo tengan una fuente informal.
+    3. Responde en formato JSON:
+       - "sufficient": booleano (true si es sólido, false si falta verificación).
+       - "gaps": lista de temas a profundizar (opcional).
+       - "fact_check_queries": lista de consultas específicas para VERIFICAR las dudas encontradas.
+       - "reasoning": explicación breve.
 
-    Si la información es razonablemente completa para un informe ejecutivo, marca "sufficient": true.
-    Solo pide más investigación si faltan pilares fundamentales.
+    Si no hay dudas críticas, marca "sufficient": true.
 
     EJEMPLO:
-    {{"sufficient": false, "gaps": ["Especificaciones técnicas del motor", "Comparativa de precios actual"], "reasoning": "Falta detalle técnico y económico."}}
+    {{"sufficient": false, "gaps": [], "fact_check_queries": ["¿Es cierto que X soporta Y?"], "reasoning": "Duda sobre compatibilidad."}}
     """
     
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
+    ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
     
     from langchain_ollama import ChatOllama
-    llm = ChatOllama(base_url=ollama_base_url, model=ollama_model, temperature=0.1)
+    llm = ChatOllama(base_url=ollama_base_url, model=ollama_model, temperature=0.1, request_timeout=90) # 90s for evaluation
     
     try:
         response = llm.invoke([HumanMessage(content=prompt)])
@@ -159,22 +166,27 @@ def evaluate_research_node(state: AgentState) -> dict:
         evaluation = json.loads(content)
         sufficient = evaluation.get("sufficient", True)
         gaps = evaluation.get("gaps", [])
+        fact_check_queries = evaluation.get("fact_check_queries", [])
         reasoning = evaluation.get("reasoning", "")
         
-        if not sufficient and gaps:
-            logger.info(f"Research insufficient. Gaps identified: {gaps}")
-            # We trigger a RE-PLAN with the identified gaps
-            gap_topic = f"PROFUNDIZAR en {topic}. Específicamente: {', '.join(gaps)}"
+        if not sufficient and (gaps or fact_check_queries):
+            logger.info(f"Fact-checking required. Queries: {fact_check_queries}")
+            # Trigger RE-PLAN with gaps and queries
+            combined_gap = f"VERIFICAR Y PROFUNDIZAR: {', '.join(gaps + fact_check_queries)}"
             return {
                 "next_node": "plan_research", 
-                "topic": gap_topic,
+                "topic": combined_gap,
                 "iteration_count": iteration + 1,
                 "evaluation_report": reasoning
             }
     except Exception as e:
         logger.error(f"Evaluation failed: {e}")
     
-    return {"next_node": "END", "evaluation_report": "Investigación considerada suficiente o error en evaluación."}
+    return {
+        "next_node": "END", 
+        "topic": state.get("original_topic", state.get("topic", "")), # Reset to original if sufficient
+        "evaluation_report": "Investigación considerada suficiente o error en evaluación."
+    }
 
 def router_node(state: AgentState):
     """Router function to decide the next step in LangGraph."""

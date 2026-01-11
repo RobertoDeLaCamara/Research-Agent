@@ -20,8 +20,14 @@ logger = logging.getLogger(__name__)
 def initialize_state_node(state: AgentState) -> dict:
     """Ensure all state fields are initialized with default values."""
     logger.info("Initializing agent state...")
+    
+    # Initialize DB for Phase 6
+    from db_manager import init_db, save_session
+    init_db()
+    
     defaults = {
         "topic": state.get("topic", ""),
+        "original_topic": state.get("original_topic", state.get("topic", "")),
         "video_urls": state.get("video_urls", []),
         "video_metadata": state.get("video_metadata", []),
         "summaries": state.get("summaries", []),
@@ -46,8 +52,13 @@ def initialize_state_node(state: AgentState) -> dict:
         "research_depth": state.get("research_depth", "standard"),
         "persona": state.get("persona", "general"),
         "evaluation_report": state.get("evaluation_report", ""),
-        "queries": state.get("queries", {})
+        "queries": state.get("queries", {}),
+        "source_metadata": state.get("source_metadata", {})
     }
+    
+    # Optional: Save initial state as start of session
+    # save_session(defaults["topic"], defaults["persona"], defaults)
+    
     return defaults
 
 # Helper for conditional routing
@@ -77,10 +88,26 @@ def route_research(state: AgentState):
 
 def route_chat(state: AgentState):
     """Decide whether to continue chatting or do more research."""
-    # Simple logic: check if the last message contains a research request
-    last_message = state["messages"][-1].content.lower()
-    if any(keyword in last_message for keyword in ["investiga", "busca", "más información", "research", "search"]):
+    if not state["messages"]:
+        return "send_email"
+        
+    last_msg = state["messages"][-1]
+    last_content = last_msg.content
+    
+    # 1. If it's a HumanMessage, search for research intent
+    from langchain_core.messages import HumanMessage
+    if isinstance(last_msg, HumanMessage):
+        text = last_content.lower()
+        if any(kw in text for kw in ["investiga", "busca", "más información", "research", "search"]):
+            return "re_plan"
+            
+    # 2. If it's an AIMessage, ONLY loop back if it explicitly has the trigger tag
+    # This prevents loops from the AI saying "I finished the investigation"
+    if "INVESTIGACIÓN:" in last_content:
+        # Check that it's actually proposing new research, not just using the word
+        # In chat_node, we prompt the AI to use "INVESTIGACIÓN: [topic]"
         return "re_plan"
+        
     return "send_email"
 
 # Create workflow graph
@@ -156,9 +183,10 @@ workflow.add_conditional_edges(
     }
 )
 
-workflow.add_edge("generate_report", "chat")
+workflow.add_edge("generate_report", "send_email")
 
-# Conditional edge from chat back to research OR send_email
+# Chat node is kept for manual interaction, but not as part of the automated sequence
+# We can still have edges FROM chat back to research if we decide to re-invoke the graph
 workflow.add_conditional_edges(
     "chat",
     route_chat,
