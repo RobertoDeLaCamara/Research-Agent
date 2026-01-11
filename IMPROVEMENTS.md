@@ -185,6 +185,24 @@ LOG_LEVEL=INFO
 - **Features**: Multi-format generation (PDF, DOCX, Markdown, HTML).
 - **Benefits**: Ready-to-use reports for professional environments.
 
+### **22. ✅ Phase 12: Extreme Hang Prevention (Academic)**
+- **File**: `src/tools/research_tools.py`
+- **Features**: Threading guards with result-iteration protection for Scholar & ArXiv.
+- **Benefits**: Eliminates 5-minute stalls caused by lazy-loading academic APIs.
+- **Usage**: Hard 25s timeout for scientific sources.
+
+### **23. ✅ Phase 13: Local Knowledge Visibility & Planning**
+- **File**: `src/tools/router_tools.py`, `src/app.py`
+- **Features**: Integrated `local_rag` into LLM planning and UI progress tracking.
+- **Benefits**: The agent now purposefully selects local knowledge during refinements.
+- **Usage**: Configured via the sidebar and planning prompt.
+
+### **24. ✅ Phase 14: Automated History Retention**
+- **File**: `src/db_manager.py`
+- **Features**: 30-day session retention policy with automatic SQLite cleanup.
+- **Benefits**: Zero maintenance required to keep the database small and relevant.
+- **Usage**: Runs automatically on setiap startup.
+
 ## 🚀 **Next Steps**
 
 The codebase now has a world-class autonomous research architecture with multi-source RAG and specialized personas. All improvements are throroughly tested (33/33 tests passing).

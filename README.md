@@ -16,6 +16,9 @@ An autonomous research agent powered by LangChain and LangGraph that performs de
 *   **Multilingual Expansion**: Automatically expands technical queries to English to access global academic and technical sources.
 *   **Premium Export Center**: One-click professional reports in **PDF, Word, Markdown, and HTML**.
 *   **Multi-Source Depth**: Configurable research depth (Quick/Standard/Deep) across Wikipedia, Web, arXiv, Semantic Scholar, GitHub, Hacker News, Stack Overflow, Reddit, and YouTube.
+*   **Hang Prevention Level 2 🛡️**: Global threading timeouts (25-45s) for all search nodes and parallelized Jina Reader extraction to eliminate UI stalls.
+*   **History Retention Policy 📅**: Automatic cleanup of research sessions older than 30 days to keep the database lean.
+*   **Nuclear Reasoning Suppression 🧠**: Advanced XML tag filtering and regex cleaning to ensure zero "thinking" leaks in final reports.
 *   **Robust Enterprise Features**: 100+ step recursion limit, fail-soft API strategies, and dynamic proxy bypass for Ollama.
 
 ## � Use Cases
@@ -63,13 +66,14 @@ graph TD
     end
     
     RAG & Wiki & Web & Scholar & Code & Reddit & Video --> Sync[Synthesis Engine]
-    Sync --> Eval{Self-Correction}
+    Sync --> Eval{Evaluation & Refinement}
     
     Eval -->|Gaps Detected| Plan
     Eval -->|Complete| Report[Report Generator]
     
     Report --> Chat[Interactive Assistant]
     Chat -->|Follow-up| Plan
+    Chat -->|History Save| DB[(SQLite 30d)]
     Chat -->|Finalize| End((End))
 ```
 
@@ -96,18 +100,19 @@ You can include your own documents in the research:
 
 ## ⚙️ Configuration
 
-| Variable | Description |
-| :--- | :--- |
-| `OLLAMA_MODEL` | qwen2.5:14b (Default) |
-| `TAVILY_API_KEY` | For high-quality web search |
-| `GITHUB_TOKEN` | For deep technical research |
+| Variable | Description | Default/Value |
+| :--- | :--- | :--- |
+| `OLLAMA_MODEL` | Deep Knowledge Engine | **qwen3:14b** |
+| `TAVILY_API_KEY` | Web Search Engine | Required |
+| `GITHUB_TOKEN` | Technical Research | Optional |
+| `RESTART_POLICY` | Docker Auto-Start | unless-stopped |
 
 ## 🧪 Testing
 
 ```bash
 pytest tests/ -v
 ```
-**Coverage**: 30+ tests passing (100% success rate), including RAG, Personas, and Routing.
+**Coverage**: 40+ tests passing (100% success rate), including RAG, Personas, Routing, and Multi-Source Synthesis.
 
 ---
 **Built with ❤️ for professional researchers and power users**

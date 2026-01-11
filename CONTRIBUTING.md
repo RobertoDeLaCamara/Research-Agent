@@ -5,7 +5,7 @@ Thank you for your interest in contributing to Research-Agent! This document pro
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.10+
+- Python 3.11+
 - Git
 - Docker (optional but recommended)
 
@@ -126,7 +126,12 @@ src/
     ├── research_tools.py
     ├── synthesis_tools.py
     ├── reporting_tools.py
-    └── youtube_tools.py
+    ├── youtube_tools.py
+    ├── reddit_tools.py
+    ├── rag_tools.py
+    ├── router_tools.py
+    ├── translation_tools.py
+    └── chat_tools.py
 ```
 
 ### Design Principles

@@ -99,6 +99,13 @@ def search_arxiv_node(state: AgentState) -> dict:
 def search_scholar_node(state: AgentState) -> dict:
     """Search Semantic Scholar for academic papers."""
     # Returns: {"scholar_research": [results]}
+
+### Local Knowledge (RAG)
+```python
+def local_rag_node(state: AgentState) -> dict:
+    """Analyze files in ./knowledge_base."""
+    # Returns: {"local_research": [results]}
+```
 ```
 
 ### Code Search
@@ -125,11 +132,19 @@ class AgentState(TypedDict):
     scholar_research: List[dict]
     hn_research: List[dict]
     so_research: List[dict]
+    reddit_research: List[dict]
+    local_research: List[dict]
     consolidated_summary: str
     bibliography: List[str]
     pdf_path: str
     report: str
     messages: List[BaseMessage]
+    research_plan: List[str]
+    next_node: str
+    iteration_count: int
+    persona: str
+    research_depth: str
+    source_metadata: dict
 ```
 
 ## Configuration Options
@@ -139,7 +154,7 @@ class AgentState(TypedDict):
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
 | `OLLAMA_BASE_URL` | str | "http://localhost:11434" | Ollama service URL |
-| `OLLAMA_MODEL` | str | "qwen2.5:14b" | LLM model to use |
+| `OLLAMA_MODEL` | str | "qwen3:14b" | LLM model to use |
 | `TAVILY_API_KEY` | str | None | Tavily search API key |
 | `GITHUB_TOKEN` | str | None | GitHub API token |
 | `LOG_LEVEL` | str | "INFO" | Logging level |
