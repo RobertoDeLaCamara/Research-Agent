@@ -3,6 +3,7 @@ import logging
 import json
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage
+from tools.translation_tools import expand_queries_multilingual
 from state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,8 @@ def plan_research_node(state: AgentState) -> dict:
     topic = state["topic"]
     
     # If a research plan is already provided (e.g., from the GUI), keep it
-    if state.get("research_plan"):
+    # BUT if we are in a re-planning loop (iteration > 0), we want the LLM to DECIDE new sources
+    if state.get("research_plan") and state.get("iteration_count", 0) == 0:
         logger.info("Using existing research plan provided in state.")
         return {
             "research_plan": state["research_plan"],
@@ -32,8 +34,18 @@ def plan_research_node(state: AgentState) -> dict:
             "iteration_count": 0
         }
     
+    persona = state.get("persona", "general")
+    persona_configs = {
+        "general": "un coordinador de investigación generalista, equilibrado y objetivo.",
+        "business": "un analista de mercado con enfoque en ROI, tendencias comerciales y competencia.",
+        "tech": "un arquitecto de software interesado en especificaciones técnicas, escalabilidad y arquitecturas.",
+        "academic": "un revisor científico que busca rigor, artículos de investigación peer-reviewed y metodología.",
+        "pm": "un Product Manager enfocado en necesidades del usuario, viabilidad del producto y priorización de funcionalidades."
+    }
+    persona_context = persona_configs.get(persona, persona_configs["general"])
+    
     prompt = f"""
-    Eres un coordinador de investigación experto. Tu tarea es analizar un tema y decidir qué fuentes de información son las más pertinentes para investigar.
+    Eres {persona_context} Tu tarea es analizar un tema y decidir qué fuentes de información son las más pertinentes para investigar.
     
     TEMA DE INVESTIGACIÓN: {topic}
     
@@ -78,12 +90,16 @@ def plan_research_node(state: AgentState) -> dict:
         selected_sources = json.loads(content)
         logger.info(f"Sources selected: {selected_sources}")
         
+        # Multilingual expansion
+        expanded_queries = expand_queries_multilingual(topic)
+        
         first_node = selected_sources[0] if selected_sources else "generate_report"
         
         return {
             "research_plan": selected_sources,
             "next_node": first_node,
-            "iteration_count": 0
+            "iteration_count": 0,
+            "queries": expanded_queries
         }
     except Exception as e:
         logger.error(f"Error in planning: {e}")
@@ -95,20 +111,70 @@ def plan_research_node(state: AgentState) -> dict:
 
 def evaluate_research_node(state: AgentState) -> dict:
     """Evaluate if the gathered research is sufficient or if more is needed."""
-    logger.info("Evaluating research sufficiency...")
+    logger.info("Evaluating research sufficiency with LLM...")
     
     iteration = state.get("iteration_count", 0)
     topic = state["topic"]
+    summary = state.get("consolidated_summary", "")
     
-    # Simple logic for now: only one reasoning loop allowed to avoid infinite loops
-    if iteration >= 1:
-        logger.info("Maximum iterations reached. Proceeding to final synthesis.")
-        return {"next_node": "END"}
+    # Safety: Hard limit on iterations to avoid infinite loops
+    if iteration >= 2:
+        logger.info("Maximum iterations reached. Finalizing.")
+        return {"next_node": "END", "evaluation_report": "Límite de iteraciones alcanzado."}
+    
+    prompt = f"""
+    Eres un Crítico de Investigación experto. Tu tarea es evaluar si la siguiente síntesis de investigación es completa, 
+    precisa y responde totalmente al tema propuesto, o si existen vacíos de información importantes.
+
+    TEMA ORIGINAL: {topic}
+    SÍNTESIS ACTUAL:
+    {summary}
+
+    INSTRUCCIONES:
+    1. Analiza si faltan aspectos críticos del tema.
+    2. Responde en formato JSON con dos campos:
+       - "sufficient": booleano (true si es suficiente, false si faltan datos críticos).
+       - "gaps": lista de strings con los temas específicos que aún faltan por investigar.
+       - "reasoning": breve explicación de tu decisión.
+
+    Si la información es razonablemente completa para un informe ejecutivo, marca "sufficient": true.
+    Solo pide más investigación si faltan pilares fundamentales.
+
+    EJEMPLO:
+    {{"sufficient": false, "gaps": ["Especificaciones técnicas del motor", "Comparativa de precios actual"], "reasoning": "Falta detalle técnico y económico."}}
+    """
+    
+    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
+    
+    from langchain_ollama import ChatOllama
+    llm = ChatOllama(base_url=ollama_base_url, model=ollama_model, temperature=0.1)
+    
+    try:
+        response = llm.invoke([HumanMessage(content=prompt)])
+        content = response.content.strip()
+        if "{" in content and "}" in content:
+            content = content[content.find("{"):content.rfind("}")+1]
         
-    # In a real scenario, we would use an LLM here to check for gaps in the consolidated_summary
-    # For now, let's keep it simple to verify the flow works.
+        evaluation = json.loads(content)
+        sufficient = evaluation.get("sufficient", True)
+        gaps = evaluation.get("gaps", [])
+        reasoning = evaluation.get("reasoning", "")
+        
+        if not sufficient and gaps:
+            logger.info(f"Research insufficient. Gaps identified: {gaps}")
+            # We trigger a RE-PLAN with the identified gaps
+            gap_topic = f"PROFUNDIZAR en {topic}. Específicamente: {', '.join(gaps)}"
+            return {
+                "next_node": "plan_research", 
+                "topic": gap_topic,
+                "iteration_count": iteration + 1,
+                "evaluation_report": reasoning
+            }
+    except Exception as e:
+        logger.error(f"Evaluation failed: {e}")
     
-    return {"next_node": "END"}
+    return {"next_node": "END", "evaluation_report": "Investigación considerada suficiente o error en evaluación."}
 
 def router_node(state: AgentState):
     """Router function to decide the next step in LangGraph."""
@@ -127,7 +193,8 @@ def router_node(state: AgentState):
         "hn": "search_hn",
         "so": "search_so",
         "youtube": "search_videos",
-        "reddit": "search_reddit"
+        "reddit": "search_reddit",
+        "local_rag": "local_rag"
     }
     
     return mapping.get(current_node, "consolidate_research")

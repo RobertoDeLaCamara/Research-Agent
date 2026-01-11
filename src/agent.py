@@ -5,11 +5,15 @@ from langgraph.graph import StateGraph, END
 from state import AgentState
 from tools.youtube_tools import search_videos_node, summarize_videos_node
 from tools.reporting_tools import generate_report_node, send_email_node
-from tools.router_tools import plan_research_node, router_node
+from tools.router_tools import plan_research_node, router_node, evaluate_research_node
 from tools.reddit_tools import search_reddit_node
-from tools.research_tools import search_web_node, search_wiki_node, search_arxiv_node, search_scholar_node, search_github_node, search_hn_node, search_so_node
+from tools.research_tools import (
+    search_web_node, search_wiki_node, search_arxiv_node, 
+    search_scholar_node, search_github_node, search_hn_node, search_so_node
+)
 from tools.synthesis_tools import consolidate_research_node
 from tools.chat_tools import chat_node
+from tools.rag_tools import local_rag_node
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +33,7 @@ def initialize_state_node(state: AgentState) -> dict:
         "hn_research": state.get("hn_research", []),
         "so_research": state.get("so_research", []),
         "reddit_research": state.get("reddit_research", []),
+        "local_research": state.get("local_research", []),
         "consolidated_summary": state.get("consolidated_summary", ""),
         "bibliography": state.get("bibliography", []),
         "pdf_path": state.get("pdf_path", ""),
@@ -37,7 +42,11 @@ def initialize_state_node(state: AgentState) -> dict:
         "research_plan": state.get("research_plan", []),
         "next_node": state.get("next_node", ""),
         "iteration_count": state.get("iteration_count", 0),
-        "last_email_hash": state.get("last_email_hash", "")
+        "last_email_hash": state.get("last_email_hash", ""),
+        "research_depth": state.get("research_depth", "standard"),
+        "persona": state.get("persona", "general"),
+        "evaluation_report": state.get("evaluation_report", ""),
+        "queries": state.get("queries", {})
     }
     return defaults
 
@@ -60,7 +69,8 @@ def route_research(state: AgentState):
         "hn": "search_hn",
         "so": "search_so",
         "youtube": "search_videos",
-        "reddit": "search_reddit"
+        "reddit": "search_reddit",
+        "local_rag": "local_rag"
     }
     
     return mapping.get(current, "consolidate_research")
@@ -94,72 +104,58 @@ workflow.add_node("consolidate_research", consolidate_research_node)
 workflow.add_node("generate_report", generate_report_node)
 workflow.add_node("send_email", send_email_node)
 workflow.add_node("chat", chat_node)
+workflow.add_node("evaluate_research", evaluate_research_node)
+workflow.add_node("local_rag", local_rag_node)
 
 # Add edges - define execution flow
 logger.info("Connecting nodes with edges...")
 workflow.set_entry_point("initialize_state")
 workflow.add_edge("initialize_state", "plan_research")
 
+# Dynamic navigation destinations
+destinations = {
+    "search_wiki": "search_wiki",
+    "search_web": "search_web",
+    "search_arxiv": "search_arxiv",
+    "search_scholar": "search_scholar",
+    "search_github": "search_github",
+    "search_hn": "search_hn",
+    "search_so": "search_so",
+    "search_videos": "search_videos",
+    "search_reddit": "search_reddit",
+    "local_rag": "local_rag",
+    "consolidate_research": "consolidate_research"
+}
+
 # Dynamic navigation after planning
-workflow.add_conditional_edges(
-    "plan_research", 
-    route_research,
-    {
-        "search_wiki": "search_wiki",
-        "search_web": "search_web",
-        "search_arxiv": "search_arxiv",
-        "search_scholar": "search_scholar",
-        "search_github": "search_github",
-        "search_hn": "search_hn",
-        "search_so": "search_so",
-        "search_videos": "search_videos",
-        "search_reddit": "search_reddit",
-        "consolidate_research": "consolidate_research"
-    }
-)
+workflow.add_conditional_edges("plan_research", route_research, destinations)
 
 # Every search node needs to update the state and go to the next node
-search_nodes = ["search_wiki", "search_web", "search_arxiv", "search_scholar", "search_github", "search_hn", "search_so", "search_videos", "search_reddit"]
+search_nodes = ["search_wiki", "search_web", "search_arxiv", "search_scholar", "search_github", "search_hn", "search_so", "search_videos", "search_reddit", "local_rag"]
 
 for node in search_nodes:
     if node == "search_videos":
         # Special case: search_videos goes to summarize_videos first
         workflow.add_edge("search_videos", "summarize_videos")
-        workflow.add_conditional_edges(
-            "summarize_videos", 
-            route_research,
-            {
-                "search_wiki": "search_wiki",
-                "search_web": "search_web",
-                "search_arxiv": "search_arxiv",
-                "search_scholar": "search_scholar",
-                "search_github": "search_github",
-                "search_hn": "search_hn",
-                "search_so": "search_so",
-                "search_videos": "search_videos",
-                "search_reddit": "search_reddit",
-                "consolidate_research": "consolidate_research"
-            }
-        )
+        workflow.add_conditional_edges("summarize_videos", route_research, destinations)
     else:
-        workflow.add_conditional_edges(
-            node, 
-            route_research,
-            {
-                "search_wiki": "search_wiki",
-                "search_web": "search_web",
-                "search_arxiv": "search_arxiv",
-                "search_scholar": "search_scholar",
-                "search_github": "search_github",
-                "search_hn": "search_hn",
-                "search_so": "search_so",
-                "search_videos": "search_videos",
-                "search_reddit": "search_reddit",
-                "consolidate_research": "consolidate_research"
-            }
-        )
+        workflow.add_conditional_edges(node, route_research, destinations)
 
-workflow.add_edge("consolidate_research", "generate_report")
+workflow.add_edge("consolidate_research", "evaluate_research")
+
+def route_evaluation(state: AgentState):
+    """Route based on evaluation result."""
+    return state.get("next_node", "END")
+
+workflow.add_conditional_edges(
+    "evaluate_research",
+    route_evaluation,
+    {
+        "plan_research": "plan_research",
+        "END": "generate_report"
+    }
+)
+
 workflow.add_edge("generate_report", "chat")
 
 # Conditional edge from chat back to research OR send_email

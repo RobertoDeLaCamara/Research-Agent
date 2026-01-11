@@ -19,17 +19,19 @@ def search_videos_node(state: AgentState) -> dict:
     Busca vídeos en YouTube y extrae sus metadatos (título, autor, URL).
     """
     print("\n--- 🔎 NODO: BUSCANDO VÍDEOS ---")
-    topic = state["topic"]
-    print(f"Tema de búsqueda: {topic}")
+    queries = state.get("queries", {})
+    search_topic = queries.get("es", state["topic"])
+    print(f"Tema de búsqueda: {search_topic}")
 
     try:
-        max_results = 5
+        from utils import get_max_results
+        max_results = get_max_results(state)
         import threading
         results = []
         def run_search():
             nonlocal results
             try:
-                results = YoutubeSearch(topic, max_results=max_results).to_dict()
+                results = YoutubeSearch(search_topic, max_results=max_results).to_dict()
             except Exception as e_inner:
                 print(f"❌ YouTubeSearch internal error: {e_inner}")
 

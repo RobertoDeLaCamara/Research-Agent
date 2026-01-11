@@ -61,3 +61,13 @@ def bypass_proxy_for_ollama():
             logging.debug(f"Updated NO_PROXY to: {new_no_proxy}")
     except Exception as e:
         logging.warning(f"Failed to setup proxy bypass: {e}")
+
+def get_max_results(state: dict) -> int:
+    """Determine max results based on research depth from state."""
+    depth = state.get("research_depth", "standard")
+    mapping = {
+        "quick": 2,
+        "standard": 5,
+        "deep": 10
+    }
+    return mapping.get(depth, 5)

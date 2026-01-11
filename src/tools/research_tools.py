@@ -12,7 +12,7 @@ from semanticscholar import SemanticScholar
 from github import Github
 import re
 from state import AgentState
-from utils import api_call_with_retry
+from utils import api_call_with_retry, get_max_results
 from tools.router_tools import update_next_node
 
 logger = logging.getLogger(__name__)
@@ -22,23 +22,27 @@ def search_web_node(state: AgentState) -> dict:
     logger.info("Starting web search...")
     topic = state["topic"]
     
+    max_results = get_max_results(state)
+    
     try:
         from config import settings
         tavily_key = settings.tavily_api_key
-        max_results = settings.max_results_per_source
     except:
         import os
         tavily_key = os.getenv("TAVILY_API_KEY")
-        max_results = 3
-    
+
     results = []
+    
+    topic = state.get("topic", "")
+    queries = state.get("queries", {})
+    search_topic = queries.get("en", queries.get("es", topic))
     
     try:
         if tavily_key:
-            logger.debug("Using Tavily for web search")
+            logger.debug(f"Using Tavily for web search with query: {search_topic}")
             from langchain_community.tools.tavily_search import TavilySearchResults
             search = TavilySearchResults(k=max_results)
-            raw_results = search.run(topic)
+            raw_results = search.run(search_topic)
             
             # Use Jina Reader to enhance results if possible
             enhanced_results = []
@@ -58,10 +62,10 @@ def search_web_node(state: AgentState) -> dict:
                 enhanced_results.append(res)
             results = enhanced_results
         else:
-            logger.debug("No TAVILY_API_KEY detected. Using DuckDuckGo")
+            logger.debug(f"No TAVILY_API_KEY detected. Using DuckDuckGo with query: {search_topic}")
             from langchain_community.tools import DuckDuckGoSearchRun
             search = DuckDuckGoSearchRun()
-            res_text = search.run(topic)
+            res_text = search.run(search_topic)
             results = [{"content": res_text, "url": "DuckDuckGo"}]
             
         logger.info(f"Web search completed with {len(results)} results")
@@ -90,8 +94,12 @@ def search_wiki_node(state: AgentState) -> dict:
         print("Detectado posible idioma español por caracteres especiales.")
     
     try:
-        print(f"Buscando en Wikipedia ({lang})...")
-        loader = WikipediaLoader(query=topic, load_max_docs=1, lang=lang)
+        queries = state.get("queries", {})
+        search_topic = queries.get(lang, topic)
+        
+        max_docs = 1 if state.get("research_depth") != "deep" else 3
+        print(f"Buscando en Wikipedia ({lang}) con query: {search_topic}...")
+        loader = WikipediaLoader(query=search_topic, load_max_docs=max_docs, lang=lang)
         # WikipediaLoader doesn't have a direct timeout, but we can wrap the load
         import threading
         def load_with_timeout():
@@ -136,24 +144,26 @@ def search_arxiv_node(state: AgentState) -> dict:
     """Busca artículos científicos en arXiv usando la librería arxiv directamente."""
     print("\n--- 📄 NODO: BUSCANDO EN ARXIV ---")
     
-    # Multilingual strategy: search in English for better density
-    original_topic = state["topic"]
-    search_topic = translate_to_english(original_topic)
+    topic = state.get("topic", "")
+    # Multilingual strategy: use pre-translated English query
+    queries = state.get("queries", {})
+    search_topic = queries.get("en", topic)
     
     results = []
     
     try:
         client = arxiv.Client()
+        max_results = get_max_results(state)
         search = arxiv.Search(
             query=search_topic,
-            max_results=3,
+            max_results=max_results,
             sort_by=arxiv.SortCriterion.Relevance
         )
         
         # Limit result iteration to avoid long hangs
         import timeout_decorator # If available or use manual loop
         results_iter = client.results(search)
-        for i in range(3):
+        for i in range(max_results):
             try:
                 # Use a manual check or small batch if possible
                 result = next(results_iter)
@@ -189,7 +199,10 @@ def search_scholar_node(state: AgentState) -> dict:
             nonlocal search_results
             try:
                 # Specify fields to minimize data transfer
-                search_results = sch.search_paper(topic, limit=3, fields=['title', 'abstract', 'url', 'year', 'authors'])
+                max_results = get_max_results(state)
+                queries = state.get("queries", {})
+                search_topic = queries.get("en", topic)
+                search_results = sch.search_paper(search_topic, limit=max_results, fields=['title', 'abstract', 'url', 'year', 'authors'])
             except Exception as e_sch:
                 logger.error(f"SemanticScholar API error: {e_sch}")
 
@@ -202,10 +215,11 @@ def search_scholar_node(state: AgentState) -> dict:
             logger.warning("Semantic Scholar search timed out or failed.")
             return {"scholar_research": [], "next_node": update_next_node(state, "scholar")}
 
+        max_results = get_max_results(state)
         # Iteramos con un contador para evitar quedarnos atrapados en PaginatedResults si algo falla
         count = 0
         for paper in search_results:
-            if count >= 3:
+            if count >= max_results:
                 break
             authors_list = [author['name'] for author in paper.authors] if paper.authors else []
             results.append({
@@ -226,8 +240,8 @@ def search_scholar_node(state: AgentState) -> dict:
 def search_github_node(state: AgentState) -> dict:
     """Busca repositorios relevantes en GitHub. Intenta búsqueda amplia si la específica falla."""
     print("\n--- 💻 NODO: BUSCANDO EN GITHUB ---")
-    original_topic = state["topic"]
-    topic = translate_to_english(original_topic)
+    queries = state.get("queries", {})
+    topic = queries.get("en", state["topic"])
     results = []
     
     token = os.getenv("GITHUB_TOKEN")
@@ -251,8 +265,9 @@ def search_github_node(state: AgentState) -> dict:
                     print("No se encontraron repositorios de Python. Intentando búsqueda global...")
                     repositories = g.search_repositories(query=topic, sort="stars", order="desc")
                     
+                max_results = get_max_results(state)
                 for i, repo in enumerate(repositories):
-                    if i >= 5:
+                    if i >= max_results:
                         break
                     results.append({
                         "name": repo.full_name,
@@ -279,7 +294,8 @@ def search_github_node(state: AgentState) -> dict:
 def search_hn_node(state: AgentState) -> dict:
     """Busca discusiones relevantes en Hacker News."""
     print("\n--- 🧡 NODO: BUSCANDO EN HACKER NEWS ---")
-    topic = state["topic"]
+    queries = state.get("queries", {})
+    search_topic = queries.get("en", state["topic"])
     results = []
     
     try:
@@ -288,7 +304,7 @@ def search_hn_node(state: AgentState) -> dict:
         # o simulamos la búsqueda de historias populares.
         # El HNLoader de LangChain suele cargar por ID o por "new", "top", etc.
         # Para temas específicos, usaremos una aproximación de búsqueda.
-        query = topic.replace(" ", "+")
+        query = search_topic.replace(" ", "+")
         search_url = f"https://news.ycombinator.com/item?id=" # Solo base
         
         # Como HNLoader no tiene búsqueda directa por query en la versión estándar de LC,
@@ -298,8 +314,9 @@ def search_hn_node(state: AgentState) -> dict:
         response = requests.get(search_api, timeout=10)
         data = response.json()
         
+        max_results = get_max_results(state)
         for i, hit in enumerate(data.get('hits', [])):
-            if i >= 5:
+            if i >= max_results:
                 break
             results.append({
                 "title": hit.get('title'),
@@ -318,7 +335,8 @@ def search_hn_node(state: AgentState) -> dict:
 def search_so_node(state: AgentState) -> dict:
     """Busca preguntas técnicas en Stack Overflow."""
     print("\n--- 💙 NODO: BUSCANDO EN STACK OVERFLOW ---")
-    topic = state["topic"]
+    queries = state.get("queries", {})
+    search_topic = queries.get("en", state["topic"])
     results = []
     
     try:
@@ -330,10 +348,11 @@ def search_so_node(state: AgentState) -> dict:
             nonlocal results
             try:
                 # Buscamos preguntas relacionadas con el tema
-                questions = SITE.fetch('search/advanced', q=topic, sort='relevance', order='desc')
+                questions = SITE.fetch('search/advanced', q=search_topic, sort='relevance', order='desc')
                 
+                max_results = get_max_results(state)
                 for i, item in enumerate(questions.get('items', [])):
-                    if i >= 5:
+                    if i >= max_results:
                         break
                     results.append({
                         "title": item.get('title'),

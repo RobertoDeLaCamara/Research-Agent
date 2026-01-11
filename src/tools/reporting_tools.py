@@ -10,6 +10,8 @@ from email import encoders
 import markdown
 from fpdf import FPDF
 import hashlib
+from docx import Document
+from docx.shared import Pt
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +216,7 @@ def generate_report_node(state: AgentState) -> dict:
     </head>
     <body>
         <div class="container">
-            <header>
+            <header id="top">
                 <h1>Investigación Inteligente</h1>
                 <div class="subtitle">{topic}</div>
             </header>
@@ -246,7 +248,7 @@ def generate_report_node(state: AgentState) -> dict:
 
     # --- SECCIÓN: WIKIPEDIA ---
     if state.get("wiki_research"):
-        html_content += "<h2><span class='tag'>WIKIPEDIA</span> Contexto General</h2><div class='section-card'>"
+        html_content += "<h2 id='wiki'><span class='tag'>WIKIPEDIA</span> Contexto General</h2><div class='section-card'>"
         for item in state["wiki_research"]:
             summary = item.get('summary', '')
             if len(summary) > 500:
@@ -257,11 +259,11 @@ def generate_report_node(state: AgentState) -> dict:
                 <p class="item-content">{summary}</p>
             </div>
             """
-        html_content += "</div>"
+        html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
 
     # --- SECCIÓN: WEB RESEARCH ---
     if state.get("web_research"):
-        html_content += "<h2><span class='tag'>WEB</span> Investigación Ampliada</h2><div class='section-card'>"
+        html_content += "<h2 id='web'><span class='tag'>WEB</span> Investigación Ampliada</h2><div class='section-card'>"
         for item in state["web_research"]:
             content = item.get('content', item.get('snippet', ''))
             if len(content) > 500:
@@ -272,11 +274,11 @@ def generate_report_node(state: AgentState) -> dict:
                 <a href="{item.get('url')}" class="item-meta">Ver fuente original &rarr;</a>
             </div>
             """
-        html_content += "</div>"
+        html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
 
     # --- SECCIÓN: ARXIV ---
     if state.get("arxiv_research"):
-        html_content += "<h2><span class='tag'>ACADÉMICO</span> Artículos en arXiv</h2><div class='section-card'>"
+        html_content += "<h2 id='arxiv'><span class='tag'>ACADÉMICO</span> Artículos en arXiv</h2><div class='section-card'>"
         for item in state["arxiv_research"]:
             html_content += f"""
             <div class="research-item">
@@ -285,11 +287,11 @@ def generate_report_node(state: AgentState) -> dict:
                 <p class="item-content">{item.get('summary')}</p>
             </div>
             """
-        html_content += "</div>"
+        html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
 
     # --- SECCIÓN: SEMANTIC SCHOLAR ---
     if state.get("scholar_research"):
-        html_content += "<h2><span class='tag'>CIENCIA</span> Semantic Scholar</h2><div class='section-card'>"
+        html_content += "<h2 id='scholar'><span class='tag'>CIENCIA</span> Semantic Scholar</h2><div class='section-card'>"
         for item in state["scholar_research"]:
             html_content += f"""
             <div class="research-item">
@@ -298,11 +300,11 @@ def generate_report_node(state: AgentState) -> dict:
                 <p class="item-content">{item.get('content')}</p>
             </div>
             """
-        html_content += "</div>"
+        html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
 
     # --- SECCIÓN: GITHUB ---
     if state.get("github_research"):
-        html_content += "<h2><span class='tag'>CÓDIGO</span> Repositorios Destacados</h2><div class='section-card'>"
+        html_content += "<h2 id='github'><span class='tag'>CÓDIGO</span> Repositorios Destacados</h2><div class='section-card'>"
         for item in state["github_research"]:
             html_content += f"""
             <div class="research-item">
@@ -310,11 +312,11 @@ def generate_report_node(state: AgentState) -> dict:
                 <p class="item-content">{item.get('description')}</p>
             </div>
             """
-        html_content += "</div>"
+        html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
 
     # --- SECCIÓN: HACKER NEWS ---
     if state.get("hn_research"):
-        html_content += "<h2><span class='tag'>HACKER NEWS</span> Discusiones</h2><div class='section-card'>"
+        html_content += "<h2 id='hn'><span class='tag'>HACKER NEWS</span> Discusiones</h2><div class='section-card'>"
         for item in state["hn_research"]:
             html_content += f"""
             <div class="research-item">
@@ -322,11 +324,11 @@ def generate_report_node(state: AgentState) -> dict:
                 <div class="item-meta">Autor: {item.get('author')} | Puntos: {item.get('points')}</div>
             </div>
             """
-        html_content += "</div>"
+        html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
 
     # --- SECCIÓN: STACK OVERFLOW ---
     if state.get("so_research"):
-        html_content += "<h2><span class='tag'>STACK OVERFLOW</span> Soporte Técnico</h2><div class='section-card'>"
+        html_content += "<h2 id='so'><span class='tag'>STACK OVERFLOW</span> Soporte Técnico</h2><div class='section-card'>"
         for item in state["so_research"]:
             html_content += f"""
             <div class="research-item">
@@ -337,11 +339,11 @@ def generate_report_node(state: AgentState) -> dict:
                 </div>
             </div>
             """
-        html_content += "</div>"
+        html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
     
     # --- SECCIÓN: REDDIT ---
     if state.get("reddit_research"):
-        html_content += "<h2><span class='tag'>REDDIT</span> Discusiones y Opiniones</h2><div class='section-card'>"
+        html_content += "<h2 id='reddit'><span class='tag'>REDDIT</span> Discusiones y Opiniones</h2><div class='section-card'>"
         for item in state["reddit_research"]:
             content = item.get('content', item.get('snippet', ''))
             if len(content) > 500:
@@ -352,11 +354,26 @@ def generate_report_node(state: AgentState) -> dict:
                 <a href="{item.get('url')}" class="item-meta">Ver hilo en Reddit &rarr;</a>
             </div>
             """
-        html_content += "</div>"
+        html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
 
     # --- SECCIÓN: YOUTUBE ---
+    if state.get("local_research"):
+        html_content += "<h2 id='local'><span class='tag'>LOCAL</span> Conocimiento Interno</h2><div class='section-card'>"
+        for item in state["local_research"]:
+            content = item.get('content', '')
+            if len(content) > 500:
+                content = content[:500] + "..."
+            html_content += f"""
+            <div class="research-item">
+                <div class="item-title">{item.get('title')}</div>
+                <p class="item-content">{content}</p>
+                <a href="{item.get('url')}" class="item-meta">Ver archivo local &rarr;</a>
+            </div>
+            """
+        html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
+
     if summaries:
-        html_content += "<h2><span class='tag'>MULTIMEDIA</span> Análisis de YouTube</h2><div class='section-card'>"
+        html_content += "<h2 id='youtube'><span class='tag'>MULTIMEDIA</span> Análisis de YouTube</h2><div class='section-card'>"
         for i, (summary, metadata) in enumerate(zip(summaries, video_metadata)):
             html_content += f"""
             <div class="research-item">
@@ -365,7 +382,7 @@ def generate_report_node(state: AgentState) -> dict:
                 <div class="item-content summary-text">{summary}</div>
             </div>
             """
-        html_content += "</div>"
+        html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
 
     # --- SECCIÓN: BIBLIOGRAFÍA ---
     bibliography = []
@@ -377,6 +394,7 @@ def generate_report_node(state: AgentState) -> dict:
         state.get("hn_research"),
         state.get("so_research"),
         state.get("reddit_research"),
+        state.get("local_research"),
         video_metadata
     ])
     
@@ -443,6 +461,14 @@ def generate_report_node(state: AgentState) -> dict:
             bibliography.append(ref)
             html_content += f"<li>YouTube: {title} por {author} - <a href='{url}'>{url}</a></li>"
         
+        # Local knowledge
+        for item in state.get("local_research", []):
+            url = item.get('url', '#')
+            title = item.get('title', 'Archivo Local')
+            ref = f"Local: {title} - {url}"
+            bibliography.append(ref)
+            html_content += f"<li>Local: {title} - <a href='{url}'>{url}</a></li>"
+        
         html_content += "</ul></div>"
 
     html_content += """
@@ -451,22 +477,66 @@ def generate_report_node(state: AgentState) -> dict:
     </html>
     """
     
+    # Preparamos los textos para otros formatos
+    markdown_text = f"# Informe de Investigación: {topic}\n\n"
+    if consolidated:
+        markdown_text += f"## Síntesis Ejecutiva\n{consolidated}\n\n"
+    
+    markdown_text += "## Bibliografía\n"
+    for ref in bibliography:
+        markdown_text += f"- {ref}\n"
+
     # Guardamos el HTML
     report_path = "reporte_final.html"
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(html_content)
     
+    # Guardamos el Markdown
+    md_path = "reporte_final.md"
+    with open(md_path, "w", encoding="utf-8") as f:
+        f.write(markdown_text)
+    
+    # Generamos el DOCX
+    docx_path = "reporte_final.docx"
+    try:
+        generate_docx(state, topic, docx_path, bibliography)
+        print("✅ DOCX generado con éxito.")
+    except Exception as e:
+        print(f"⚠️ Error al generar DOCX: {e}")
+        docx_path = None
+
     # --- GENERACIÓN DE PDF ---
     pdf_path = "reporte_investigacion.pdf"
     try:
-        generate_pdf(state, topic, pdf_path, bibliography) # <--- Pasamos la bibliografía local
+        generate_pdf(state, topic, pdf_path, bibliography) 
         print("✅ PDF generado con éxito.")
     except Exception as e:
         print(f"⚠️ Error al generar PDF: {e}")
         pdf_path = None
 
     print("✅ Informe HTML generado con éxito.")
-    return {"report": html_content, "bibliography": bibliography, "pdf_path": pdf_path}
+    return {
+        "report": html_content, 
+        "bibliography": bibliography, 
+        "pdf_path": pdf_path,
+        "md_path": md_path,
+        "docx_path": docx_path
+    }
+
+def generate_docx(state: AgentState, topic: str, output_path: str, bibliography: list):
+    """Genera un archivo Word (.docx) profesional."""
+    doc = Document()
+    doc.add_heading(f'Informe de Investigación: {topic}', 0)
+    
+    if state.get("consolidated_summary"):
+        doc.add_heading('Síntesis Ejecutiva', level=1)
+        doc.add_paragraph(state["consolidated_summary"])
+        
+    doc.add_heading('Bibliografía', level=1)
+    for ref in bibliography:
+        doc.add_paragraph(ref, style='List Bullet')
+        
+    doc.save(output_path)
 
 def generate_pdf(state: AgentState, topic: str, output_path: str, bibliography_list: list = None):
     """Genera un archivo PDF profesional usando fpdf2 con todas las secciones."""

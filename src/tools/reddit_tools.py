@@ -9,16 +9,20 @@ logger = logging.getLogger(__name__)
 def search_reddit_node(state: AgentState) -> dict:
     """Search Reddit for community discussions and opinions."""
     logger.info("Starting Reddit search...")
-    topic = state["topic"]
+    topic = state.get("topic", "")
+    queries = state.get("queries", {})
+    search_topic = queries.get("en", queries.get("es", topic))
     
-    # Prioritize config from settings, fallback to env
+    # Use depth-aware max results
+    from utils import get_max_results
+    max_results = get_max_results(state)
+    
+    # Prioritize config from settings for API key
     try:
         from config import settings
         tavily_key = settings.tavily_api_key
-        max_results = settings.max_results_per_source
     except:
         tavily_key = None
-        max_results = 3
         
     if not tavily_key:
         tavily_key = os.getenv("TAVILY_API_KEY")
@@ -32,12 +36,12 @@ def search_reddit_node(state: AgentState) -> dict:
             if tavily_key:
                 from langchain_community.tools.tavily_search import TavilySearchResults
                 search = TavilySearchResults(k=max_results)
-                results = search.run(f"{topic} site:reddit.com")
+                results = search.run(f"{search_topic} site:reddit.com")
             else:
                 # Fallback to DuckDuckGo
                 from langchain_community.tools import DuckDuckGoSearchRun
                 search = DuckDuckGoSearchRun()
-                res_text = search.run(f"{topic} reddit")
+                res_text = search.run(f"{search_topic} reddit")
                 results = [{"content": res_text, "url": "Reddit (via DDG)"}]
         
         thread = threading.Thread(target=run_reddit_search)

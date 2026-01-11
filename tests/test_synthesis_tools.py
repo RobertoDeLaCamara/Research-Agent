@@ -21,12 +21,23 @@ def test_consolidate_research_node_success(mock_chat_ollama, mock_agent_state):
     assert mock_llm.invoke.called
 
 @patch("src.tools.synthesis_tools.ChatOllama")
-def test_consolidate_research_node_error(mock_chat_ollama, mock_agent_state):
-    # Setup mocks to raise an error
+def test_consolidate_research_node_persona(mock_chat_ollama, mock_agent_state):
+    # Setup mocks
     mock_llm = mock_chat_ollama.return_value
-    mock_llm.invoke.side_effect = Exception("LLM Error")
+    mock_response = MagicMock()
+    mock_response.content = "PM style summary."
+    mock_llm.invoke.return_value = mock_response
+    
+    # Test PM persona
+    mock_agent_state["persona"] = "pm"
+    mock_agent_state["local_research"] = [{"title": "Internal docs", "content": "Our strategy is..."}]
     
     result = consolidate_research_node(mock_agent_state)
     
-    assert "consolidated_summary" in result
-    assert "No fue posible generar" in result["consolidated_summary"]
+    assert result["consolidated_summary"] == "PM style summary."
+    assert mock_llm.invoke.called
+    
+    # Check prompt contents
+    prompt = mock_chat_ollama.return_value.invoke.call_args[0][0][0].content
+    assert "Product Manager" in prompt
+    assert "CONOCIMIENTO LOCAL" in prompt

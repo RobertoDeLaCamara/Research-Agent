@@ -66,6 +66,51 @@ with st.sidebar:
     
     # Filter only selected sources
     selected_sources = [k for k, v in sources.items() if v]
+    
+    st.write("### 📏 Profundidad")
+    depth_mode = st.radio(
+        "Modo de investigación:",
+        ["Rápido", "Estándar", "Profundo"],
+        index=1,
+        help="Afecta al número de resultados y a la exhaustividad del análisis."
+    )
+    
+    depth_mapping = {
+        "Rápido": "quick",
+        "Estándar": "standard",
+        "Profundo": "deep"
+    }
+    research_depth = depth_mapping[depth_mode]
+
+    st.write("### 🧠 Perfil de Investigador")
+    persona_mode = st.selectbox(
+        "Persona del agente:",
+        ["Generalista", "Analista de Mercado", "Arquitecto de Software", "Revisor Científico", "Product Manager"],
+        index=0,
+        help="Ajusta el tono de la síntesis y la prioridad de las fuentes."
+    )
+    
+    persona_mapping = {
+        "Generalista": "general",
+        "Analista de Mercado": "business",
+        "Arquitecto de Software": "tech",
+        "Revisor Científico": "academic",
+        "Product Manager": "pm"
+    }
+    persona = persona_mapping[persona_mode]
+
+    st.write("### 📁 Conocimiento Local")
+    use_rag = st.checkbox("Incluir base de conocimientos local", value=False, help="Busca en archivos locales (.pdf, .txt) en ./knowledge_base")
+    
+    uploaded_files = st.file_uploader("Subir archivos para investigar", type=["pdf", "txt"], accept_multiple_files=True)
+    if uploaded_files:
+        kb_path = "./knowledge_base"
+        if not os.path.exists(kb_path):
+            os.makedirs(kb_path)
+        for uploaded_file in uploaded_files:
+            with open(os.path.join(kb_path, uploaded_file.name), "wb") as f:
+                f.write(uploaded_file.getbuffer())
+        st.success(f"✅ {len(uploaded_files)} archivos listos.")
 
 # --- Inicialización de Session State ---
 if "investigation_done" not in st.session_state:
@@ -102,18 +147,26 @@ if st.button("Iniciar Investigación"):
                 # Actualizar variables de entorno para el modelo seleccionado
                 os.environ["OLLAMA_MODEL"] = llm_model
                 
-                # Pass selected sources to the agent if any are selected
-                inputs = {"topic": topic}
-                if selected_sources:
-                    inputs["research_plan"] = selected_sources
-                    # If user manually selected sources, we skip the planning node's logic
-                    # and go straight to the first selected node
-                    inputs["next_node"] = selected_sources[0]
+                # Pass selected sources and depth to the agent
+                inputs = {
+                    "topic": topic,
+                    "research_depth": research_depth,
+                    "persona": persona
+                }
+                
+                plan = selected_sources.copy()
+                if use_rag:
+                    plan.insert(0, "local_rag")
+                
+                if plan:
+                    inputs["research_plan"] = plan
+                    inputs["next_node"] = plan[0]
                 
                 st.write(f"🧠 Analizando fuentes para: **{topic}**...")
                 
-                # Ejecución del agente
-                final_state = app.invoke(inputs)
+                # Ejecución del agente con límite de recursión aumentado
+                final_state = app.invoke(inputs, config={"recursion_limit": 100})
+                st.session_state.agent_state = final_state
                 
                 # Guardar resultados en session_state para persistencia
                 if os.path.exists("reporte_final.html"):
@@ -135,22 +188,66 @@ if st.session_state.investigation_done:
     st.divider()
     st.subheader(f"📄 Resultado: {st.session_state.last_topic}")
     
-    # Botón de Descarga PDF (con corrección de lectura de datos)
-    if os.path.exists("reporte_investigacion.pdf"):
-        with open("reporte_investigacion.pdf", "rb") as f:
-            pdf_bytes = f.read()
-            st.download_button(
-                label="📥 Descargar Reporte (PDF)",
-                data=pdf_bytes,
-                file_name=f"reporte_{st.session_state.last_topic.replace(' ', '_')}.pdf",
-                mime="application/pdf",
-                key="download_pdf_btn"
-            )
+    # Multi-format Download Center
+    st.write("### 📥 Centro de Descargas")
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if os.path.exists("reporte_investigacion.pdf"):
+            with open("reporte_investigacion.pdf", "rb") as f:
+                st.download_button("📕 PDF", f, "reporte.pdf", "application/pdf")
+    
+    with col2:
+        if os.path.exists("reporte_final.docx"):
+            with open("reporte_final.docx", "rb") as f:
+                st.download_button("📘 Word", f, "reporte.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                
+    with col3:
+        if os.path.exists("reporte_final.md"):
+            with open("reporte_final.md", "rb") as f:
+                st.download_button("📝 Markdown", f, "reporte.md", "text/markdown")
+                
+    with col4:
+        if os.path.exists("reporte_final.html"):
+            with open("reporte_final.html", "rb") as f:
+                st.download_button("🌐 HTML", f, "reporte.html", "text/html")
     
     # Mostrar el reporte HTML persistido
     if st.session_state.report_html:
         with st.expander("📄 Ver Reporte Completo", expanded=False):
             components.html(st.session_state.report_html, height=800, scrolling=True)
+
+    # --- EXPLORADOR DE FUENTES (Source Explorer) ---
+    st.divider()
+    st.subheader("🔍 Explorador de Fuentes")
+    
+    if st.session_state.agent_state:
+        state = st.session_state.agent_state
+        sources_list = []
+        
+        # Collect all sources with content
+        for key in ["wiki_research", "web_research", "arxiv_research", "scholar_research", "github_research", "reddit_research"]:
+            if state.get(key):
+                for item in state[key]:
+                    sources_list.append({
+                        "type": key.split("_")[0].upper(),
+                        "title": item.get("title") or item.get("name") or "Sin título",
+                        "content": item.get("content") or item.get("summary") or item.get("description") or "Sin contenido",
+                        "url": item.get("url")
+                    })
+                    
+        if sources_list:
+            selected_source_idx = st.selectbox("Selecciona una fuente para explorar el fragmento original:", 
+                                             range(len(sources_list)), 
+                                             format_func=lambda x: f"[{sources_list[x]['type']}] {sources_list[x]['title']}")
+            
+            src = sources_list[selected_source_idx]
+            st.info(f"**Fuente:** [{src['type']}] {src['title']}")
+            st.write(src['content'])
+            if src['url']:
+                st.link_button("🔗 Abrir fuente original", src['url'])
+        else:
+            st.info("No hay fuentes detalladas disponibles para este reporte.")
 
     # --- CHAT INTERACTIVO ---
     st.divider()

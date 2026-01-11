@@ -19,7 +19,9 @@ def consolidate_research_node(state: AgentState) -> dict:
     hn = state.get("hn_research", [])
     so = state.get("so_research", [])
     reddit = state.get("reddit_research", [])
+    local = state.get("local_research", [])
     yt_summaries = state.get("summaries", [])
+    persona = state.get("persona", "general")
     
     # Build context for LLM
     context = f"RESEARCH TOPIC: {topic}\n\n"
@@ -67,13 +69,28 @@ def consolidate_research_node(state: AgentState) -> dict:
         for item in reddit:
             context += f"Contenido: {item.get('content', item.get('snippet', ''))}\nURL: {item.get('url')}\n\n"
             
+    if local:
+        context += "--- CONOCIMIENTO LOCAL (RAG) ---\n"
+        for item in local:
+            context += f"Fuente: {item.get('title')}\nContenido: {item.get('content')}\n\n"
+
     if yt_summaries:
         context += "--- RESÚMENES DE YOUTUBE ---\n"
         for i, summary in enumerate(yt_summaries):
             context += f"Video {i+1}: {summary}\n\n"
 
+    # Persona-based context for synthesis
+    persona_configs = {
+        "general": "un experto analista de investigación senior. Tu tono es profesional, equilibrado y objetivo.",
+        "business": "un consultor estratégico de negocios. Tu enfoque es el ROI, la viabilidad comercial y el impacto estratégico.",
+        "tech": "un arquitecto de software senior (CTO). Tu tono es altamente técnico, preciso y enfocado en la implementación.",
+        "academic": "un investigador académico senior. Tu tono es formal, riguroso y enfocado en la metodología y evidencia científica.",
+        "pm": "un Product Manager senior. Tu enfoque es la propuesta de valor, el user journey y la hoja de ruta del producto."
+    }
+    persona_context = persona_configs.get(persona, persona_configs["general"])
+
     prompt = f"""
-Eres un experto analista de investigación senior. Tu tarea es producir una SÍNTESIS EJECUTIVA CONSOLIDADA, PROFESIONAL Y PERFECTAMENTE FORMATEADA.
+Eres {persona_context} Tu tarea es producir una SÍNTESIS EJECUTIVA CONSOLIDADA, PROFESIONAL Y PERFECTAMENTE FORMATEADA.
 
 REGLAS DE FORMATO MANDATORIAS:
 1. ESTRUCTURA HIERÁRQUICA: Divide el informe en Secciones (H2) y Subtemas (H3).
@@ -94,7 +111,8 @@ EJEMPLO DE ESTRUCTURA ERRÓNEA (MAL) - NO HACER ESTO:
 
 Instrucciones de Contenido:
 - Análisis Exhaustivo: Desarrolla cada sección con profundidad técnica (Introducción, Tendencias Clave, Tecnologías Emergentes, Implementaciones de Código, Conclusiones).
-- Integración Multifuente: Conecta hallazgos de todas las fuentes (GitHub, arXiv, etc.) con referencias [Nombre](URL).
+- Integración Multifuente: Conecta hallazgos de todas las fuentes (GitHub, arXiv, Conocimiento Local/RAG, etc.) con referencias [Nombre](URL).
+- Pertenencia Local: Si hay información en el 'CONOCIMIENTO LOCAL', asegúrate de integrarla como una prioridad, ya que representa datos internos o específicos del usuario.
 
 FORMATO DE SALIDA: Solo Markdown puro. Sin introducciones ni comentarios adicionales.
 
