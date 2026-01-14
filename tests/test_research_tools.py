@@ -45,6 +45,9 @@ def test_search_web_node_ddg(mock_agent_state):
          patch("src.config.settings") as mock_settings:
         
         mock_settings.tavily_api_key = None
+        mock_settings.web_search_timeout = 45
+        mock_settings.content_fetch_timeout = 3
+        mock_settings.max_content_preview_chars = 5000
         mock_instance = mock_ddg.return_value
         mock_instance.run.return_value = "DuckDuckGo Content"
         

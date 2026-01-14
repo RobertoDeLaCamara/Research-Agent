@@ -76,11 +76,12 @@ def plan_research_node(state: AgentState) -> dict:
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
     
+    from ..config import settings
     llm = ChatOllama(
         base_url=ollama_base_url,
         model=ollama_model,
         temperature=0.1,
-        request_timeout=60 # 60s timeout for planning
+        request_timeout=settings.llm_request_timeout
     )
     
     try:
@@ -155,7 +156,8 @@ def evaluate_research_node(state: AgentState) -> dict:
     ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
     
     from langchain_ollama import ChatOllama
-    llm = ChatOllama(base_url=ollama_base_url, model=ollama_model, temperature=0.1, request_timeout=90) # 90s for evaluation
+    from ..config import settings
+    llm = ChatOllama(base_url=ollama_base_url, model=ollama_model, temperature=0.1, request_timeout=settings.llm_request_timeout)
     
     try:
         response = llm.invoke([HumanMessage(content=prompt)])
