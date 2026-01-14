@@ -44,7 +44,7 @@ def search_web_node(state: AgentState) -> dict:
     if not re.search(r'\b(20\d{2}|19\d{2})\b', search_topic): # Check for a 4-digit year
         search_topic = f"{search_topic} {current_date}"
         
-    print(f"Buscando en la web (Tavily) para: {search_topic}")
+    logger.info(f"Searching web (Tavily) for: {search_topic}")
     
     import threading
     from concurrent.futures import ThreadPoolExecutor
@@ -111,14 +111,14 @@ def search_wiki_node(state: AgentState) -> dict:
     lang = "en"
     if re.search(r'[áéíóúÁÉÍÓÚñÑ]', topic):
         lang = "es"
-        print("Detectado posible idioma español por caracteres especiales.")
+        logger.debug("Detected possible Spanish language by special characters.")
     
     try:
         queries = state.get("queries", {})
         search_topic = queries.get(lang, topic)
         
         max_docs = 1 if state.get("research_depth") != "deep" else 3
-        print(f"Buscando en Wikipedia ({lang}) con query: {search_topic}...")
+        logger.info(f"Searching Wikipedia ({lang}) with query: {search_topic}...")
         loader = WikipediaLoader(query=search_topic, load_max_docs=max_docs, lang=lang)
         # WikipediaLoader doesn't have a direct timeout, but we can wrap the load
         import threading
@@ -136,9 +136,9 @@ def search_wiki_node(state: AgentState) -> dict:
         thread.start()
         thread.join(timeout=10) # 10 seconds timeout
         if thread.is_alive():
-            print("⚠️ Wikipedia search timed out.")
+            logger.warning("Wikipedia search timed out.")
         else:
-            print(f"✅ Búsqueda en Wikipedia completada.")
+            logger.info("Wikipedia search completed.")
     except Exception as e:
         print(f"⚠️ Error en Wikipedia: {e}")
         
@@ -157,7 +157,8 @@ def translate_to_english(text: str) -> str:
         llm = ChatOllama(model=os.getenv("OLLAMA_MODEL", "qwen3:14b"), temperature=0, request_timeout=30)
         prompt = f"Translate the following research topic to English for a technical search on arXiv/GitHub. respond ONLY with the translation: {text}"
         return llm.invoke(prompt).content.strip()
-    except:
+    except Exception as e:
+        logger.warning(f"Translation failed: {e}, using original text")
         return text
 
 def search_arxiv_node(state: AgentState) -> dict:
@@ -295,7 +296,8 @@ def search_github_node(state: AgentState) -> dict:
                         try:
                             readme = repo.get_readme().decoded_content.decode('utf-8')
                             repo_data["content"] = readme[:1500]
-                        except:
+                        except Exception as e:
+                            logger.debug(f"README not available for {repo.full_name}: {e}")
                             repo_data["content"] = "README no disponible."
                     else:
                         repo_data["content"] = repo.description or "No description."
