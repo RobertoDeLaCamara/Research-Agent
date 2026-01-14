@@ -31,7 +31,7 @@ def generate_report_node(state: AgentState) -> dict:
     Returns:
         dict: Un diccionario con la clave 'report' para actualizar el estado del agente.
     """
-    print("\n--- 📄 NODO: GENERANDO INFORME ---")
+    logger.info("Generating report...")
     logger.info(f"State keys available in reporting: {list(state.keys())}")
     if "reddit_research" in state:
         logger.info(f"Reddit research results count: {len(state['reddit_research'])}")
@@ -55,7 +55,7 @@ def generate_report_node(state: AgentState) -> dict:
     ])
 
     if not has_content:
-        print("⚠️ No se encontró ninguna información para generar un informe.")
+        logger.warning("No information found to generate report.")
         report_html = f"<h1>Informe de Investigación sobre: {topic}</h1><p>No se encontró información relevante en las fuentes consultadas.</p>"
         return {"report": report_html}
 
@@ -502,7 +502,7 @@ def generate_report_node(state: AgentState) -> dict:
     docx_path = "reporte_final.docx"
     try:
         generate_docx(state, topic, docx_path, bibliography)
-        print("✅ DOCX generado con éxito.")
+        logger.info("DOCX generated successfully.")
     except Exception as e:
         print(f"⚠️ Error al generar DOCX: {e}")
         docx_path = None
