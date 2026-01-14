@@ -85,7 +85,8 @@ def consolidate_research_node(state: AgentState) -> dict:
             context += f"Video {i+1}: {summary}\n\n"
 
     # Context safety truncation for local LLMs
-    MAX_CHARS = 25000 # Roughly 6k-8k tokens, safe for most local setups
+    from ..config import settings
+    MAX_CHARS = settings.max_synthesis_context_chars
     if len(context) > MAX_CHARS:
         logger.warning(f"Context too large ({len(context)} chars). Pruning...")
         context = context[:MAX_CHARS] + "\n\n[... CONTENIDO TRUNCADO POR EXCESO DE VOLUMEN ...]"

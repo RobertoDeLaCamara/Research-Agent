@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, List
 
 class Settings(BaseSettings):
     # AI Configuration
@@ -25,6 +25,26 @@ class Settings(BaseSettings):
     max_content_length: int = 50000
     request_timeout: int = 30
     cache_expiry_hours: int = 24
+    
+    # Timeout Configuration
+    web_search_timeout: int = 45
+    llm_request_timeout: int = 60
+    content_fetch_timeout: int = 3
+    thread_execution_timeout: int = 30
+    
+    # Content Limits
+    max_synthesis_context_chars: int = 25000
+    max_content_preview_chars: int = 5000
+    
+    # File Upload Limits
+    max_file_size_mb: int = 10
+    allowed_file_extensions: List[str] = ['.pdf', '.txt', '.md']
+    
+    # Research Keywords
+    research_trigger_keywords: List[str] = [
+        "investiga", "busca", "más información",
+        "research", "search", "investigate"
+    ]
     
     # Logging
     log_level: str = "INFO"

@@ -97,8 +97,9 @@ def route_chat(state: AgentState):
     # 1. If it's a HumanMessage, search for research intent
     from langchain_core.messages import HumanMessage
     if isinstance(last_msg, HumanMessage):
+        from .config import settings
         text = last_content.lower()
-        if any(kw in text for kw in ["investiga", "busca", "más información", "research", "search"]):
+        if any(kw in text for kw in settings.research_trigger_keywords):
             return "re_plan"
             
     # 2. If it's an AIMessage, ONLY loop back if it explicitly has the trigger tag
