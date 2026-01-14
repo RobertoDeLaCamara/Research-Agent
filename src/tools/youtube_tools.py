@@ -1,5 +1,6 @@
 # src/tools/youtube_tools.py
 
+import logging
 from langchain_ollama import ChatOllama
 import os
 from youtube_search import YoutubeSearch
@@ -11,6 +12,8 @@ from langchain_core.messages import BaseMessage
 from langchain_core.documents import Document
 from ..state import AgentState
 
+logger = logging.getLogger(__name__)
+
 # --------------------------------------------------------------------------
 # NODO 1: BÚSQUEDA DE VÍDEOS EN YOUTUBE
 # --------------------------------------------------------------------------
@@ -18,10 +21,10 @@ def search_videos_node(state: AgentState) -> dict:
     """
     Busca vídeos en YouTube y extrae sus metadatos (título, autor, URL).
     """
-    print("\n--- 🔎 NODO: BUSCANDO VÍDEOS ---")
+    logger.info("Searching YouTube videos...")
     queries = state.get("queries", {})
     search_topic = queries.get("es", state["topic"])
-    print(f"Tema de búsqueda: {search_topic}")
+    logger.debug(f"Search topic: {search_topic}")
 
     try:
         from ..utils import get_max_results
@@ -33,13 +36,13 @@ def search_videos_node(state: AgentState) -> dict:
             try:
                 results = YoutubeSearch(search_topic, max_results=max_results).to_dict()
             except Exception as e_inner:
-                print(f"❌ YouTubeSearch internal error: {e_inner}")
+                logger.error(f"YouTubeSearch error: {e_inner}")
 
         thread = threading.Thread(target=run_search)
         thread.start()
         thread.join(timeout=15) # 15 seconds for search
         if thread.is_alive():
-            print("⚠️ YouTube search timed out.")
+            logger.warning("YouTube search timed out.")
             return {"video_urls": [], "video_metadata": []}
 
         video_urls = []
@@ -56,7 +59,7 @@ def search_videos_node(state: AgentState) -> dict:
                 "url": url
             })
 
-        print(f"✅ Se encontraron {len(video_urls)} vídeos con sus metadatos.")
+        logger.info(f"Found {len(video_urls)} videos with metadata.")
         return {"video_urls": video_urls, "video_metadata": video_metadata}
 
     except Exception as e:
@@ -71,13 +74,13 @@ def summarize_videos_node(state: AgentState) -> dict:
     """
     Genera resúmenes para los vídeos usando las transcripciones.
     """
-    print("\n--- 📝 NODO: EXTRAYENDO Y RESUMIENDO VÍDEOS ---")
+    logger.info("Extracting and summarizing videos...")
     video_urls = state["video_urls"]
     video_metadata = state["video_metadata"]
     summaries = []
 
     if not video_urls:
-        print("⚠️ No se encontraron vídeos para resumir. Saltando este paso.")
+        logger.warning("No videos found to summarize. Skipping.")
         from .router_tools import update_next_node
         return {"summaries": [], "next_node": update_next_node(state, "youtube")}
 

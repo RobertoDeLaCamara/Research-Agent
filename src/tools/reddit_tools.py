@@ -21,7 +21,8 @@ def search_reddit_node(state: AgentState) -> dict:
     try:
         from ..config import settings
         tavily_key = settings.tavily_api_key
-    except:
+    except (ImportError, AttributeError) as e:
+        logger.debug(f"Could not load tavily_api_key from settings: {e}")
         tavily_key = None
         
     if not tavily_key:
