@@ -64,11 +64,11 @@ def search_web_node(state: AgentState) -> dict:
                     url = res.get("url")
                     if url and url.startswith("http"):
                         try:
-                            # Append r.jina.ai/ to the URL for markdown extraction
+                            from ..config import settings
                             jina_url = f"https://r.jina.ai/{url}"
-                            jina_res = requests.get(jina_url, timeout=3) # Slower timeout for individual requests
+                            jina_res = requests.get(jina_url, timeout=settings.content_fetch_timeout)
                             if jina_res.status_code == 200:
-                                res["content"] = jina_res.text[:5000] # Cap content
+                                res["content"] = jina_res.text[:settings.max_content_preview_chars]
                         except Exception:
                             pass
                     return res
@@ -86,10 +86,11 @@ def search_web_node(state: AgentState) -> dict:
 
     thread = threading.Thread(target=run_web_search)
     thread.start()
-    thread.join(timeout=45) # 45 seconds master timeout for web search
+    from ..config import settings
+    thread.join(timeout=settings.web_search_timeout)
     
     if thread.is_alive():
-        logger.warning("Web search timed out after 45 seconds.")
+        logger.warning(f"Web search timed out after {settings.web_search_timeout} seconds.")
         # Proceed with empty results if timed out
         
     logger.info(f"Web search completed with {len(results)} results")
