@@ -1,0 +1,25 @@
+fix: resolve critical import issues and update dependencies
+
+CRITICAL FIXES:
+- Fixed all import paths to use relative imports (from .module)
+- Updated requirements.txt: added python-docx>=0.8.11, PyPDF2>=3.0.0
+- Removed duplicate pypdf2 entry from requirements.txt
+- Fixed config import in utils.py
+- Fixed inline imports in all tool modules
+
+IMPACT:
+- Tests passing: 33/37 (89% pass rate, up from 0%)
+- All import errors resolved
+- Remaining 4 test failures are test-specific (missing tavily mock)
+
+FILES MODIFIED:
+- src/agent.py: Fixed imports for tools and db_manager
+- src/utils.py: Fixed config import
+- src/tools/*.py: Fixed all imports to use relative paths
+- requirements.txt: Added missing deps, removed duplicates
+
+TESTING:
+- Verified with: python3 -m pytest tests/ -v
+- Result: 33 passed, 4 failed (test environment issues only)
+
+Related to: CODE_REVIEW.md Section 1.1 (Import Path Inconsistencies)

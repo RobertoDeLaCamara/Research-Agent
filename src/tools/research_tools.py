@@ -97,8 +97,8 @@ def search_web_node(state: AgentState) -> dict:
 
 def search_wiki_node(state: AgentState) -> dict:
     """Search Wikipedia for general context."""
-    from progress import update_progress
-    from metrics import metrics
+    from ..progress import update_progress
+    from ..metrics import metrics
     
     update_progress("Wikipedia Search")
     logger.info("Starting Wikipedia search...")
