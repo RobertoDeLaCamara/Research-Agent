@@ -2,7 +2,7 @@ import os
 import logging
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage
-from state import AgentState
+from ..state import AgentState
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +125,7 @@ FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
     human_query = f"INFORMACIÓN PARA SINTETIZAR:\n{context}"
 
     # Inicialización del LLM
-    from utils import bypass_proxy_for_ollama
+    from ..utils import bypass_proxy_for_ollama
     bypass_proxy_for_ollama()
     
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")

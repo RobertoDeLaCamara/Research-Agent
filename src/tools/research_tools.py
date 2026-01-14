@@ -12,9 +12,9 @@ from semanticscholar import SemanticScholar
 from github import Github
 import re
 import datetime
-from state import AgentState
-from utils import api_call_with_retry, get_max_results
-from tools.router_tools import update_next_node
+from ..state import AgentState
+from ..utils import api_call_with_retry, get_max_results
+from .router_tools import update_next_node
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +26,9 @@ def search_web_node(state: AgentState) -> dict:
     max_results = get_max_results(state)
     
     try:
-        from config import settings
+        from ..config import settings
         tavily_key = settings.tavily_api_key
-    except:
+    except (ImportError, AttributeError):
         import os
         tavily_key = os.getenv("TAVILY_API_KEY")
 
@@ -150,7 +150,7 @@ def translate_to_english(text: str) -> str:
         
     logger.info(f"Translating query to English: {text}")
     try:
-        from utils import bypass_proxy_for_ollama
+        from ..utils import bypass_proxy_for_ollama
         bypass_proxy_for_ollama()
         from langchain_ollama import ChatOllama
         llm = ChatOllama(model=os.getenv("OLLAMA_MODEL", "qwen3:14b"), temperature=0, request_timeout=30)

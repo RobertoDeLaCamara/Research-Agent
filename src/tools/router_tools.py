@@ -3,8 +3,8 @@ import logging
 import json
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage
-from tools.translation_tools import expand_queries_multilingual
-from state import AgentState
+from .translation_tools import expand_queries_multilingual
+from ..state import AgentState
 
 logger = logging.getLogger(__name__)
 

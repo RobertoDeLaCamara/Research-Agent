@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Optional
 from tenacity import retry, stop_after_attempt, wait_exponential
-from config import settings
+from .config import settings
 
 def setup_logging(level: str = None) -> logging.Logger:
     """Setup logging configuration."""

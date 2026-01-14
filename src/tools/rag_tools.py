@@ -4,8 +4,8 @@ import os
 import logging
 from typing import List
 import PyPDF2
-from state import AgentState
-from tools.research_tools import update_next_node
+from ..state import AgentState
+from .router_tools import update_next_node
 
 logger = logging.getLogger(__name__)
 

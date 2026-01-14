@@ -15,7 +15,7 @@ from docx.shared import Pt
 
 logger = logging.getLogger(__name__)
 
-from state import AgentState
+from ..state import AgentState
 
 # --------------------------------------------------------------------------
 # NODO 3: GENERACIÓN DEL INFORME EN HTML

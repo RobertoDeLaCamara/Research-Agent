@@ -36,5 +36,5 @@ streamlit-extras
 pytest
 pytest-mock
 pytest-asyncio
-python-docx
-PyPDF2
+python-docx>=0.8.11
+PyPDF2>=3.0.0

@@ -9,7 +9,7 @@ from langchain_community.document_loaders import YoutubeLoader
 from typing import TypedDict, List
 from langchain_core.messages import BaseMessage
 from langchain_core.documents import Document
-from state import AgentState
+from ..state import AgentState
 
 # --------------------------------------------------------------------------
 # NODO 1: BÚSQUEDA DE VÍDEOS EN YOUTUBE
@@ -24,7 +24,7 @@ def search_videos_node(state: AgentState) -> dict:
     print(f"Tema de búsqueda: {search_topic}")
 
     try:
-        from utils import get_max_results
+        from ..utils import get_max_results
         max_results = get_max_results(state)
         import threading
         results = []
@@ -78,10 +78,10 @@ def summarize_videos_node(state: AgentState) -> dict:
 
     if not video_urls:
         print("⚠️ No se encontraron vídeos para resumir. Saltando este paso.")
-        from tools.router_tools import update_next_node
+        from .router_tools import update_next_node
         return {"summaries": [], "next_node": update_next_node(state, "youtube")}
 
-    from utils import bypass_proxy_for_ollama
+    from ..utils import bypass_proxy_for_ollama
     bypass_proxy_for_ollama()
 
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
@@ -193,5 +193,5 @@ def summarize_videos_node(state: AgentState) -> dict:
                 print(f"  - ❌ Error final en fallback: {e_inner}")
                 summaries.append(f"Vídeo titulado '{metadata.get('title')}' por {metadata.get('author')}. No fue posible extraer el contenido detallado debido a restricciones de YouTube.")
 
-    from tools.router_tools import update_next_node
+    from .router_tools import update_next_node
     return {"summaries": summaries, "next_node": update_next_node(state, "youtube")}

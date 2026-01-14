@@ -3,7 +3,7 @@ import os
 import re
 from typing import List, Dict
 from langchain_core.messages import HumanMessage
-from utils import bypass_proxy_for_ollama
+from ..utils import bypass_proxy_for_ollama
 
 logger = logging.getLogger(__name__)
 

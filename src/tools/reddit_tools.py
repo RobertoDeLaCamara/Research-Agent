@@ -1,8 +1,8 @@
 import os
 import logging
 from typing import List
-from state import AgentState
-from tools.router_tools import update_next_node
+from ..state import AgentState
+from .router_tools import update_next_node
 
 logger = logging.getLogger(__name__)
 
@@ -14,12 +14,12 @@ def search_reddit_node(state: AgentState) -> dict:
     search_topic = queries.get("en", queries.get("es", topic))
     
     # Use depth-aware max results
-    from utils import get_max_results
+    from ..utils import get_max_results
     max_results = get_max_results(state)
     
     # Prioritize config from settings for API key
     try:
-        from config import settings
+        from ..config import settings
         tavily_key = settings.tavily_api_key
     except:
         tavily_key = None

@@ -2,18 +2,18 @@
 
 import logging
 from langgraph.graph import StateGraph, END
-from state import AgentState
-from tools.youtube_tools import search_videos_node, summarize_videos_node
-from tools.reporting_tools import generate_report_node, send_email_node
-from tools.router_tools import plan_research_node, router_node, evaluate_research_node
-from tools.reddit_tools import search_reddit_node
-from tools.research_tools import (
+from .state import AgentState
+from .tools.youtube_tools import search_videos_node, summarize_videos_node
+from .tools.reporting_tools import generate_report_node, send_email_node
+from .tools.router_tools import plan_research_node, router_node, evaluate_research_node
+from .tools.reddit_tools import search_reddit_node
+from .tools.research_tools import (
     search_web_node, search_wiki_node, search_arxiv_node, 
     search_scholar_node, search_github_node, search_hn_node, search_so_node
 )
-from tools.synthesis_tools import consolidate_research_node
-from tools.chat_tools import chat_node
-from tools.rag_tools import local_rag_node
+from .tools.synthesis_tools import consolidate_research_node
+from .tools.chat_tools import chat_node
+from .tools.rag_tools import local_rag_node
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ def initialize_state_node(state: AgentState) -> dict:
     logger.info("Initializing agent state...")
     
     # Initialize DB for Phase 6
-    from db_manager import init_db, save_session
+    from .db_manager import init_db, save_session
     init_db()
     
     defaults = {
