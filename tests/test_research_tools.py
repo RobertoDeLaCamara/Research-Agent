@@ -42,7 +42,7 @@ def test_search_web_node_tavily(mock_get, mock_agent_state):
 def test_search_web_node_ddg(mock_agent_state):
     # Mock settings and DDG
     with patch("langchain_community.tools.DuckDuckGoSearchRun") as mock_ddg, \
-         patch("config.settings") as mock_settings:
+         patch("src.config.settings") as mock_settings:
         
         mock_settings.tavily_api_key = None
         mock_instance = mock_ddg.return_value
