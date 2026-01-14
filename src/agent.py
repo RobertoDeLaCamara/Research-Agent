@@ -62,7 +62,7 @@ def initialize_state_node(state: AgentState) -> dict:
     return defaults
 
 # Helper for conditional routing
-def route_research(state: AgentState):
+def route_research(state: AgentState) -> str:
     """LangGraph conditional edge to determine where to go next."""
     plan = state.get("research_plan", [])
     current = state.get("next_node")
@@ -86,7 +86,7 @@ def route_research(state: AgentState):
     
     return mapping.get(current, "consolidate_research")
 
-def route_chat(state: AgentState):
+def route_chat(state: AgentState) -> str:
     """Decide whether to continue chatting or do more research."""
     if not state["messages"]:
         return "send_email"

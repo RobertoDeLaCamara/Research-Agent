@@ -1,10 +1,10 @@
 import logging
 import os
-from typing import Optional
+from typing import Optional, Any, Callable
 from tenacity import retry, stop_after_attempt, wait_exponential
 from .config import settings
 
-def setup_logging(level: str = None) -> logging.Logger:
+def setup_logging(level: Optional[str] = None) -> logging.Logger:
     """Setup logging configuration."""
     log_level = level or settings.log_level
     logging.basicConfig(
@@ -30,7 +30,7 @@ def validate_env_vars() -> bool:
     return True
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-def api_call_with_retry(func, *args, **kwargs):
+def api_call_with_retry(func: Callable, *args: Any, **kwargs: Any) -> Any:
     """Retry failed API calls with exponential backoff."""
     logger = logging.getLogger(__name__)
     try:
@@ -38,7 +38,8 @@ def api_call_with_retry(func, *args, **kwargs):
     except Exception as e:
         logger.warning(f"API call failed: {e}, retrying...")
         raise
-def bypass_proxy_for_ollama():
+
+def bypass_proxy_for_ollama() -> None:
     """Ensure Ollama host and common local addresses are in NO_PROXY."""
     ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     try:
