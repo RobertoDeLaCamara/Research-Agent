@@ -3,12 +3,13 @@ import json
 import os
 import logging
 from datetime import datetime
+from typing import Optional, List, Tuple, Dict, Any
 
 logger = logging.getLogger(__name__)
 
 DB_PATH = "research_sessions.db"
 
-def init_db():
+def init_db() -> None:
     """Initialize the SQLite database and create necessary tables."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -31,7 +32,7 @@ def init_db():
     # Trigger automatic cleanup of old sessions
     cleanup_old_sessions()
 
-def save_session(topic, persona, state):
+def save_session(topic: str, persona: str, state: Dict[str, Any]) -> None:
     """Save a research state to the database."""
     try:
         # Avoid saving large binary blobs if they exist (though AgentState should be JSON-serializable)
@@ -58,7 +59,7 @@ def save_session(topic, persona, state):
     except Exception as e:
         logger.error(f"Failed to save session: {e}")
 
-def get_recent_sessions(limit=10):
+def get_recent_sessions(limit: int = 10) -> List[Tuple]:
     """Retrieve the most recent research sessions."""
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -71,7 +72,7 @@ def get_recent_sessions(limit=10):
         logger.error(f"Failed to get sessions: {e}")
         return []
 
-def load_session(session_id):
+def load_session(session_id: int) -> Optional[Dict[str, Any]]:
     """Load a full research state from the database."""
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -85,7 +86,8 @@ def load_session(session_id):
     except Exception as e:
         logger.error(f"Failed to load session {session_id}: {e}")
         return None
-def clear_history():
+
+def clear_history() -> bool:
     """Delete all research sessions from the database."""
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -98,7 +100,8 @@ def clear_history():
     except Exception as e:
         logger.error(f"Failed to clear history: {e}")
         return False
-def cleanup_old_sessions(days=30):
+
+def cleanup_old_sessions(days: int = 30) -> int:
     """Delete research sessions older than a certain number of days."""
     try:
         conn = sqlite3.connect(DB_PATH)
