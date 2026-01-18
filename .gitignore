@@ -190,3 +190,10 @@ ipython_config.py
 
 youtube_summarizer/
 
+
+# Generated reports
+reporte_*
+
+# Local data and knowledge base
+data/
+knowledge_base/

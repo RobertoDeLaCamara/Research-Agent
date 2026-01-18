@@ -59,7 +59,17 @@ def plan_research_node(state: AgentState) -> dict:
     - so: Para problemas técnicos específicos y soluciones de programación.
     - youtube: Para explicaciones visuales, tutoriales y comparativas.
     - reddit: Para opiniones de la comunidad, experiencias reales y discusiones informales.
-    - local_rag: Para consultar la base de conocimientos local y archivos proporcionados por el usuario.
+    - reddit: Para opiniones de la comunidad, experiencias reales y discusiones informales.
+    """
+    
+    # Conditionally add local_rag if files exist
+    kb_path = "./knowledge_base"
+    has_local_files = False
+    if os.path.exists(kb_path) and any(f for f in os.listdir(kb_path) if not f.startswith('.')):
+        has_local_files = True
+        prompt += "\n    - local_rag: Para consultar la base de conocimientos local y archivos proporcionados por el usuario."
+    
+    prompt += """
     
     INSTRUCCIONES:
     1. Responde ÚNICAMENTE con una lista JSON de las fuentes que deben ser consultadas.
@@ -125,10 +135,15 @@ def evaluate_research_node(state: AgentState) -> dict:
         logger.info("News Editor persona detected. Skipping refinement loops for speed.")
         return {"next_node": "END", "evaluation_report": "Salto de evaluación para modo noticias."}
 
-    # Safety: Hard limit on iterations to avoid infinite loops
-    if iteration >= 2:
-        logger.info("Maximum iterations reached. Finalizing.")
-        return {"next_node": "END", "evaluation_report": "Límite de 2 iteraciones alcanzado."}
+    # Safety: Hard limit on iterations to ensure we don't loop infinitely
+    # User requested max 2 loops (Iteration 0 and Iteration 1)
+    if iteration >= 1:
+        logger.info("Maximum iterations (2) reached. Finalizing.")
+        return {
+            "next_node": "END", 
+            "evaluation_report": "Límite de 2 iteraciones alcanzado.",
+            "topic": state.get("original_topic", state.get("topic", ""))
+        }
     
     prompt = f"""
     Eres un Crítico de Investigación y Fact-Checker experto. Tu tarea es evaluar si la siguiente síntesis es completa y, sobre todo, si las afirmaciones críticas están debidamente verificadas.
