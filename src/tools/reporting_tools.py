@@ -17,13 +17,19 @@ logger = logging.getLogger(__name__)
 
 from ..state import AgentState
 
+# Helper to sanitize text (surrogate fix)
+def sanitize_text(text):
+    if not isinstance(text, str): return text
+    # Encode to UTF-8 ignoring errors (strips surrogates), then decode back
+    return text.encode('utf-8', 'replace').decode('utf-8')
+
 # --------------------------------------------------------------------------
 # NODO 3: GENERACIÓN DEL INFORME EN HTML
 # --------------------------------------------------------------------------
 def generate_report_node(state: AgentState) -> dict:
     """
     Toma los resúmenes y metadatos del estado para crear un informe completo en formato HTML.
-
+    
     Args:
         state (AgentState): El estado actual del agente, que debe contener
                             'summaries', 'video_metadata' y 'topic'.
@@ -39,6 +45,10 @@ def generate_report_node(state: AgentState) -> dict:
     video_metadata = state.get("video_metadata", [])
     topic = state.get("original_topic", state.get("topic", "Tema desconocido"))
     consolidated = state.get("consolidated_summary", "")
+    
+    # Sanitize inputs immediately
+    topic = sanitize_text(topic)
+    consolidated = sanitize_text(consolidated)
     
     # Comprobar si tenemos CUALQUIER tipo de contenido para informar
     has_content = any([
@@ -71,6 +81,7 @@ def generate_report_node(state: AgentState) -> dict:
         <title>Informe: {topic}</title>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
         <style>
+            /* (Styles preserved) */
             * {{
                 box-sizing: border-box;
             }}
@@ -246,16 +257,20 @@ def generate_report_node(state: AgentState) -> dict:
         </div>
         """
 
+    # --- helper for safe strings ---
+    def safe_str(val):
+        return sanitize_text(str(val) if val is not None else "")
+
     # --- SECCIÓN: WIKIPEDIA ---
     if state.get("wiki_research"):
         html_content += "<h2 id='wiki'><span class='tag'>WIKIPEDIA</span> Contexto General</h2><div class='section-card'>"
         for item in state["wiki_research"]:
-            summary = item.get('summary', '')
+            summary = safe_str(item.get('summary', ''))
             if len(summary) > 500:
                 summary = summary[:500] + "..."
             html_content += f"""
             <div class="research-item">
-                <a href="{item.get('url')}" class="item-title">{item.get('title')}</a>
+                <a href="{safe_str(item.get('url'))}" class="item-title">{safe_str(item.get('title'))}</a>
                 <p class="item-content">{summary}</p>
             </div>
             """
@@ -265,13 +280,14 @@ def generate_report_node(state: AgentState) -> dict:
     if state.get("web_research"):
         html_content += "<h2 id='web'><span class='tag'>WEB</span> Investigación Ampliada</h2><div class='section-card'>"
         for item in state["web_research"]:
-            content = item.get('content', item.get('snippet', ''))
+            title = safe_str(item.get('title', 'Resultado Web'))
+            content = safe_str(item.get('content', item.get('snippet', '')))
             if len(content) > 500:
                 content = content[:500] + "..."
             html_content += f"""
             <div class="research-item">
+                <a href="{safe_str(item.get('url'))}" class="item-title">{title}</a>
                 <p class="item-content">{content}</p>
-                <a href="{item.get('url')}" class="item-meta">Ver fuente original &rarr;</a>
             </div>
             """
         html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
@@ -282,9 +298,9 @@ def generate_report_node(state: AgentState) -> dict:
         for item in state["arxiv_research"]:
             html_content += f"""
             <div class="research-item">
-                <a href="{item.get('url', '#')}" class="item-title">{item.get('title')}</a>
-                <div class="item-meta">Autores: {item.get('authors')}</div>
-                <p class="item-content">{item.get('summary')}</p>
+                <a href="{safe_str(item.get('url', '#'))}" class="item-title">{safe_str(item.get('title'))}</a>
+                <div class="item-meta">Autores: {safe_str(item.get('authors'))}</div>
+                <p class="item-content">{safe_str(item.get('summary'))}</p>
             </div>
             """
         html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
@@ -295,9 +311,9 @@ def generate_report_node(state: AgentState) -> dict:
         for item in state["scholar_research"]:
             html_content += f"""
             <div class="research-item">
-                <a href="{item.get('url', '#')}" class="item-title">{item.get('title')} ({item.get('year', 'N/A')})</a>
-                <div class="item-meta">Autores: {item.get('authors')}</div>
-                <p class="item-content">{item.get('content')}</p>
+                <a href="{safe_str(item.get('url', '#'))}" class="item-title">{safe_str(item.get('title'))} ({safe_str(item.get('year', 'N/A'))})</a>
+                <div class="item-meta">Autores: {safe_str(item.get('authors'))}</div>
+                <p class="item-content">{safe_str(item.get('content'))}</p>
             </div>
             """
         html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
@@ -308,8 +324,8 @@ def generate_report_node(state: AgentState) -> dict:
         for item in state["github_research"]:
             html_content += f"""
             <div class="research-item">
-                <a href="{item.get('url')}" class="item-title">{item.get('name')} (⭐ {item.get('stars')})</a>
-                <p class="item-content">{item.get('description')}</p>
+                <a href="{safe_str(item.get('url'))}" class="item-title">{safe_str(item.get('name'))} (⭐ {safe_str(item.get('stars'))})</a>
+                <p class="item-content">{safe_str(item.get('description'))}</p>
             </div>
             """
         html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
@@ -320,8 +336,8 @@ def generate_report_node(state: AgentState) -> dict:
         for item in state["hn_research"]:
             html_content += f"""
             <div class="research-item">
-                <a href="{item.get('url')}" class="item-title">{item.get('title')}</a>
-                <div class="item-meta">Autor: {item.get('author')} | Puntos: {item.get('points')}</div>
+                <a href="{safe_str(item.get('url'))}" class="item-title">{safe_str(item.get('title'))}</a>
+                <div class="item-meta">Autor: {safe_str(item.get('author'))} | Puntos: {safe_str(item.get('points'))}</div>
             </div>
             """
         html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
@@ -332,10 +348,10 @@ def generate_report_node(state: AgentState) -> dict:
         for item in state["so_research"]:
             html_content += f"""
             <div class="research-item">
-                <a href="{item.get('url')}" class="item-title">{item.get('title')}</a>
-                <div class="item-meta">Score: {item.get('score')} | Resuelta: {'Sí' if item.get('is_answered') else 'No'}</div>
+                <a href="{safe_str(item.get('url'))}" class="item-title">{safe_str(item.get('title'))}</a>
+                <div class="item-meta">Score: {safe_str(item.get('score'))} | Resuelta: {'Sí' if item.get('is_answered') else 'No'}</div>
                 <div class="tag-container">
-                    {' '.join([f'<span class="tag">{t.strip()}</span>' for t in item.get('tags', '').split(',')])}
+                    {' '.join([f'<span class="tag">{safe_str(t).strip()}</span>' for t in str(item.get('tags', '')).split(',')])}
                 </div>
             </div>
             """
@@ -345,13 +361,13 @@ def generate_report_node(state: AgentState) -> dict:
     if state.get("reddit_research"):
         html_content += "<h2 id='reddit'><span class='tag'>REDDIT</span> Discusiones y Opiniones</h2><div class='section-card'>"
         for item in state["reddit_research"]:
-            content = item.get('content', item.get('snippet', ''))
+            content = safe_str(item.get('content', item.get('snippet', '')))
             if len(content) > 500:
                 content = content[:500] + "..."
             html_content += f"""
             <div class="research-item">
                 <p class="item-content">{content}</p>
-                <a href="{item.get('url')}" class="item-meta">Ver hilo en Reddit &rarr;</a>
+                <a href="{safe_str(item.get('url'))}" class="item-meta">Ver hilo en Reddit &rarr;</a>
             </div>
             """
         html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
@@ -360,14 +376,14 @@ def generate_report_node(state: AgentState) -> dict:
     if state.get("local_research"):
         html_content += "<h2 id='local'><span class='tag'>LOCAL</span> Conocimiento Interno</h2><div class='section-card'>"
         for item in state["local_research"]:
-            content = item.get('content', '')
+            content = safe_str(item.get('content', ''))
             if len(content) > 500:
                 content = content[:500] + "..."
             html_content += f"""
             <div class="research-item">
-                <div class="item-title">{item.get('title')}</div>
+                <div class="item-title">{safe_str(item.get('title'))}</div>
                 <p class="item-content">{content}</p>
-                <a href="{item.get('url')}" class="item-meta">Ver archivo local &rarr;</a>
+                <a href="{safe_str(item.get('url'))}" class="item-meta">Ver archivo local &rarr;</a>
             </div>
             """
         html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
@@ -377,9 +393,9 @@ def generate_report_node(state: AgentState) -> dict:
         for i, (summary, metadata) in enumerate(zip(summaries, video_metadata)):
             html_content += f"""
             <div class="research-item">
-                <div class="item-title">Vídeo {i+1}: {metadata.get('title', 'Sin título')}</div>
-                <div class="item-meta">Autor: {metadata.get('author', 'Desconocido')} | <a href="{metadata.get('url', '#')}">Ver en YouTube</a></div>
-                <div class="item-content summary-text">{summary}</div>
+                <div class="item-title">Vídeo {i+1}: {safe_str(metadata.get('title', 'Sin título'))}</div>
+                <div class="item-meta">Autor: {safe_str(metadata.get('author', 'Desconocido'))} | <a href="{safe_str(metadata.get('url', '#'))}">Ver en YouTube</a></div>
+                <div class="item-content summary-text">{safe_str(summary)}</div>
             </div>
             """
         html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
@@ -403,68 +419,68 @@ def generate_report_node(state: AgentState) -> dict:
         
         # Wiki
         for item in state.get("wiki_research", []):
-            url = item.get('url', '#')
-            title = item.get('title', 'Wikipedia')
+            url = safe_str(item.get('url', '#'))
+            title = safe_str(item.get('title', 'Wikipedia'))
             ref = f"Wikipedia: {title} - {url}"
             bibliography.append(ref)
             html_content += f"<li>Wikipedia: {title} - <a href='{url}'>{url}</a></li>"
         # arXiv
         for item in state.get("arxiv_research", []):
-            url = item.get('url', '#')
-            title = item.get('title', 'Articulo arXiv')
-            authors = item.get('authors', 'Desconocido')
+            url = safe_str(item.get('url', '#'))
+            title = safe_str(item.get('title', 'Articulo arXiv'))
+            authors = safe_str(item.get('authors', 'Desconocido'))
             ref = f"arXiv: {title} ({authors}) - {url}"
             bibliography.append(ref)
             html_content += f"<li>arXiv: {title} ({authors}) - <a href='{url}'>{url}</a></li>"
         # Scholar
         for item in state.get("scholar_research", []):
-            url = item.get('url', '#')
-            title = item.get('title', 'Articulo Scholar')
-            year = item.get('year', 'N/A')
+            url = safe_str(item.get('url', '#'))
+            title = safe_str(item.get('title', 'Articulo Scholar'))
+            year = safe_str(item.get('year', 'N/A'))
             ref = f"Semantic Scholar: {title} ({year}) - {url}"
             bibliography.append(ref)
             html_content += f"<li>Semantic Scholar: {title} ({year}) - <a href='{url}'>{url}</a></li>"
         # GitHub
         for item in state.get("github_research", []):
-            url = item.get('url', '#')
-            name = item.get('name', 'Repository')
+            url = safe_str(item.get('url', '#'))
+            name = safe_str(item.get('name', 'Repository'))
             ref = f"GitHub: {name} - {url}"
             bibliography.append(ref)
             html_content += f"<li>GitHub: {name} - <a href='{url}'>{url}</a></li>"
         # Hacker News
         for item in state.get("hn_research", []):
-            url = item.get('url', '#')
-            title = item.get('title', 'Hacker News')
+            url = safe_str(item.get('url', '#'))
+            title = safe_str(item.get('title', 'Hacker News'))
             ref = f"Hacker News: {title} - {url}"
             bibliography.append(ref)
             html_content += f"<li>Hacker News: {title} - <a href='{url}'>{url}</a></li>"
         # Stack Overflow
         for item in state.get("so_research", []):
-            url = item.get('url', '#')
-            title = item.get('title', 'Stack Overflow')
+            url = safe_str(item.get('url', '#'))
+            title = safe_str(item.get('title', 'Stack Overflow'))
             ref = f"Stack Overflow: {title} - {url}"
             bibliography.append(ref)
             html_content += f"<li>Stack Overflow: {title} - <a href='{url}'>{url}</a></li>"
         # Reddit
         for item in state.get("reddit_research", []):
-            url = item.get('url', '#')
+            url = safe_str(item.get('url', '#'))
             title = "Discusion en Reddit"
             ref = f"Reddit: {title} - {url}"
             bibliography.append(ref)
             html_content += f"<li>Reddit: {title} - <a href='{url}'>{url}</a></li>"
         # YouTube
         for metadata in video_metadata:
-            url = metadata.get('url', '#')
-            title = metadata.get('title', 'Video')
-            author = metadata.get('author', 'Autor')
+            url = safe_str(metadata.get('url', '#'))
+            title = safe_str(metadata.get('title', 'Video'))
+            author = safe_str(metadata.get('author', 'Autor'))
             ref = f"YouTube: {title} por {author} - {url}"
             bibliography.append(ref)
             html_content += f"<li>YouTube: {title} por {author} - <a href='{url}'>{url}</a></li>"
         
         # Local knowledge
         for item in state.get("local_research", []):
-            url = item.get('url', '#')
-            title = item.get('title', 'Archivo Local')
+            url = safe_str(item.get('url', '#'))
+            title = safe_str(item.get('title', 'Archivo Local'))
             ref = f"Local: {title} - {url}"
             bibliography.append(ref)
             html_content += f"<li>Local: {title} - <a href='{url}'>{url}</a></li>"
@@ -485,21 +501,36 @@ def generate_report_node(state: AgentState) -> dict:
     markdown_text += "## Bibliografía\n"
     for ref in bibliography:
         markdown_text += f"- {ref}\n"
+    
+    # Sanitize markdown
+    markdown_text = sanitize_text(markdown_text)
+
+    # Ensure reports directory exists
+    reports_dir = "reports"
+    if not os.path.exists(reports_dir):
+        os.makedirs(reports_dir)
 
     # Guardamos el HTML
-    report_path = "reporte_final.html"
-    with open(report_path, "w", encoding="utf-8") as f:
-        f.write(html_content)
+    report_path = os.path.join(reports_dir, "reporte_final.html")
+    # ENFORCE SANITIZATION ON FINAL WRITE
+    try:
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write(sanitize_text(html_content))
+    except Exception as e:
+        logger.error(f"Error saving HTML (surrogate check): {e}")
     
     # Guardamos el Markdown
     # Sanitize topic for filename (prevent path injection / Errno 2)
     safe_topic = topic.replace(" ", "_").replace("/", "_").replace("\\", "_")[:30]
-    md_path = f"reporte_{safe_topic}.md"
-    with open(md_path, "w", encoding="utf-8") as f:
-        f.write(markdown_text)
+    md_path = os.path.join(reports_dir, f"reporte_{safe_topic}.md")
+    try:
+        with open(md_path, "w", encoding="utf-8") as f:
+            f.write(markdown_text)
+    except Exception as e:
+        logger.error(f"Error saving MD (surrogate check): {e}")
     
     # Generamos el DOCX
-    docx_path = "reporte_final.docx"
+    docx_path = os.path.join(reports_dir, "reporte_final.docx")
     try:
         generate_docx(state, topic, docx_path, bibliography)
         logger.info("DOCX generated successfully.")
@@ -508,7 +539,7 @@ def generate_report_node(state: AgentState) -> dict:
         docx_path = None
 
     # --- GENERACIÓN DE PDF ---
-    pdf_path = "reporte_investigacion.pdf"
+    pdf_path = os.path.join(reports_dir, "reporte_investigacion.pdf")
     try:
         generate_pdf(state, topic, pdf_path, bibliography) 
         print("✅ PDF generado con éxito.")
@@ -662,11 +693,12 @@ def send_email_node(state: AgentState) -> dict:
         return {}
 
     # Obtenemos la configuración del correo desde las variables de entorno.
-    sender_email = os.getenv("EMAIL_USERNAME")
-    receiver_email = os.getenv("EMAIL_RECIPIENT")
-    password = os.getenv("EMAIL_PASSWORD")
-    host = os.getenv("EMAIL_HOST", "smtp.gmail.com") 
-    port = int(os.getenv("EMAIL_PORT", 587))         
+    from ..config import settings
+    sender_email = settings.email_username
+    receiver_email = settings.email_recipient
+    password = settings.email_password
+    host = settings.email_host
+    port = settings.email_port         
 
     if not all([sender_email, receiver_email, password]):
         print("❌ Faltan credenciales de correo en el archivo .env. No se puede enviar el correo.")

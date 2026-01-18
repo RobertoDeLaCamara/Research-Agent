@@ -4,10 +4,14 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      - DB_PATH=/app/data/research_sessions.db
     volumes:
       - ./reports:/app/reports
-      - ./research_sessions.db:/app/research_sessions.db
+      - ./data:/app/data
       - ./knowledge_base:/app/knowledge_base
+      - ./src:/app/src
+      - ./tests:/app/tests
     network_mode: "host"
     ports:
       - "8501:8501"

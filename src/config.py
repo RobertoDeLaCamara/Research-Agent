@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     max_file_size_mb: int = 10
     allowed_file_extensions: List[str] = ['.pdf', '.txt', '.md']
     
+    # Database Configuration
+    db_path: str = "research_sessions.db"
+    
     # Research Keywords
     research_trigger_keywords: List[str] = [
         "investiga", "busca", "más información",

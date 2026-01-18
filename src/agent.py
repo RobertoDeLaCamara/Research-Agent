@@ -111,6 +111,19 @@ def route_chat(state: AgentState) -> str:
         
     return "send_email"
 
+def save_db_node(state: AgentState) -> dict:
+    """Save the final state to the database."""
+    print("\n--- 💾 NODO: GUARDANDO SESIÓN ---")
+    from .db_manager import save_session
+    try:
+        topic = state.get("topic", "Sin Tema")
+        persona = state.get("persona", "General")
+        save_session(topic, persona, state)
+        print("✅ Sesión guardada en base de datos.")
+    except Exception as e:
+        print(f"⚠️ Error al guardar sesión: {e}")
+    return {} # No state update needed
+
 # Create workflow graph
 workflow = StateGraph(AgentState)
 
@@ -131,6 +144,7 @@ workflow.add_node("search_reddit", search_reddit_node)
 workflow.add_node("consolidate_research", consolidate_research_node)
 workflow.add_node("generate_report", generate_report_node)
 workflow.add_node("send_email", send_email_node)
+workflow.add_node("save_db", save_db_node)
 workflow.add_node("chat", chat_node)
 workflow.add_node("evaluate_research", evaluate_research_node)
 workflow.add_node("local_rag", local_rag_node)
@@ -163,7 +177,6 @@ search_nodes = ["search_wiki", "search_web", "search_arxiv", "search_scholar", "
 
 for node in search_nodes:
     if node == "search_videos":
-        # Special case: search_videos goes to summarize_videos first
         workflow.add_edge("search_videos", "summarize_videos")
         workflow.add_conditional_edges("summarize_videos", route_research, destinations)
     else:
@@ -187,7 +200,6 @@ workflow.add_conditional_edges(
 workflow.add_edge("generate_report", "send_email")
 
 # Chat node is kept for manual interaction, but not as part of the automated sequence
-# We can still have edges FROM chat back to research if we decide to re-invoke the graph
 workflow.add_conditional_edges(
     "chat",
     route_chat,
@@ -197,7 +209,8 @@ workflow.add_conditional_edges(
     }
 )
 
-workflow.add_edge("send_email", END)
+workflow.add_edge("send_email", "save_db")
+workflow.add_edge("save_db", END)
 
 # Compile the agent
 logger.info("Compiling agent...")
