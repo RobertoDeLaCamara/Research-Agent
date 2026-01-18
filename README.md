@@ -92,6 +92,8 @@ graph TD
 docker compose up -d
 ```
 Access the UI at: **http://localhost:8501**
+> **Note for Developers**: The `docker-compose.yml` mounts `./src` and `./tests` effectively allowing live code updates without rebuilding the container.
+
 
 ### Option 2: Local Installation
 ```bash
