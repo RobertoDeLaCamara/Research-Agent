@@ -5,9 +5,15 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - 2026-01-14
 
 ### Fixed
-- **Critical**: Resolved all import path inconsistencies (9 import errors → 0)
-- **Critical**: Fixed all test failures (0% → 100% pass rate)
-- **Critical**: Added missing dependencies (python-docx, PyPDF2)
+- **Critical**: Resolved Citation Hallucinations by enforcing strict Source extraction and Prompt engineering.
+- **Critical**: Fixed Web Research Context to include Title and URL explicitly.
+- **Critical**: Fixed HTML Report rendering for Web sources (References displayed as links with titles).
+- **Critical**: Corrected Report Storage location (now saves to `./reports/` instead of root).
+- **Critical**: Fixed Infinite Loops by limiting research to 2 iterations.
+- **Critical**: Fixed RAG Logic to only appear/execute if local files exist.
+- Resolved all import path inconsistencies (9 import errors → 0)
+- Fixed all test failures (0% → 100% pass rate)
+- Added missing dependencies (python-docx, PyPDF2)
 - Fixed bare except clauses with specific exception handling
 - Fixed thread safety issues in research tools
 - Fixed skipped test to achieve 100% test coverage

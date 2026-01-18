@@ -57,10 +57,28 @@ def search_web_node(state: AgentState) -> dict:
                 logger.debug(f"Using Tavily for web search with query: {search_topic}")
                 from langchain_community.tools.tavily_search import TavilySearchResults
                 search = TavilySearchResults(k=max_results)
-                raw_results = search.run(search_topic)
+                try:
+                    raw_results = search.run(search_topic)
+                    # CRITICAL FIX: Ensure raw_results is a list. Tavily can return a string on error.
+                    if isinstance(raw_results, str):
+                        logger.warning(f"Tavily returned string instead of list: {raw_results}")
+                        # If it looks like a list string, try to parse it, otherwise handle as error/content
+                        import ast
+                        try:
+                            raw_results = ast.literal_eval(raw_results)
+                            if not isinstance(raw_results, list):
+                                raise ValueError
+                        except:
+                            raw_results = [{"url": "Unknown", "content": raw_results}]
+                except Exception as e_tavily:
+                     logger.error(f"Tavily search execution failed: {e_tavily}")
+                     raw_results = []
                 
                 # Use ThreadPoolExecutor to parallelize Jina Reader calls
                 def enhance_result(res):
+                    if isinstance(res, str): # Defensive check for unexpected string results
+                         return {"url": "Unknown", "content": res}
+                    
                     url = res.get("url")
                     if url and url.startswith("http"):
                         try:
@@ -269,6 +287,7 @@ def search_github_node(state: AgentState) -> dict:
         else:
             g = Github() # Public access
             
+        max_results = get_max_results(state) # Get it here to be safe in closure
         import threading
         def run_github_search():
             nonlocal results

@@ -39,7 +39,7 @@ def consolidate_research_node(state: AgentState) -> dict:
     if web:
         context += "--- RESULTADOS DE BÚSQUEDA WEB ---\n"
         for item in web:
-            context += f"Contenido: {item.get('content', item.get('snippet', ''))}\n\n"
+            context += f"Fuente: {item.get('title', 'Web Result')}\nURL: {item.get('url', 'N/A')}\nContenido: {item.get('content', item.get('snippet', ''))}\n\n"
             
     if arxiv:
         context += "--- ARTÍCULOS CIENTÍFICOS (ARXIV) ---\n"
@@ -77,12 +77,19 @@ def consolidate_research_node(state: AgentState) -> dict:
     if local:
         context += "--- CONOCIMIENTO LOCAL (RAG) ---\n"
         for item in local:
-            context += f"Fuente: {item.get('title')}\nContenido: {item.get('content')}\n\n"
+            context += f"Fuente: {item.get('title')}\nUbicación: {item.get('url')}\nContenido: {item.get('content')}\n\n"
 
     if yt_summaries:
         context += "--- RESÚMENES DE YOUTUBE ---\n"
+        video_meta = state.get("video_metadata", [])
         for i, summary in enumerate(yt_summaries):
-            context += f"Video {i+1}: {summary}\n\n"
+            title = "Video desconocido"
+            url = "URL desconocida"
+            if i < len(video_meta):
+                title = video_meta[i].get("title", title)
+                url = video_meta[i].get("url", url)
+            
+            context += f"Fuente: {title}\nURL: {url}\nContenido: {summary}\n\n"
 
     # Context safety truncation for local LLMs
     from ..config import settings
@@ -117,7 +124,13 @@ REGLAS DE SEGURIDAD Y LIMPIEZA (CRÍTICO):
 
 INSTRUCCIONES DE ANÁLISIS ESPECIALISTA (PHASE 6 & 7):
 3. PESO DE AUTORIDAD: Prioriza la información oficial de fuentes académicas y, MUY ESPECIALMENTE, del **CONOCIMIENTO LOCAL (RAG)** proporcionado por el usuario.
-4. CITAS OBLIGATORIAS: Si usas información de archivos locales, cítalos explícitamente como [Nombre del archivo](file://...).
+4. CITAS OBLIGATORIAS Y LITERALES (CRÍTICO):
+   - Todas las afirmaciones deben tener una cita usando Markdown link: `[Título Corto](URL)`.
+   - **LA URL DEBE SER COPIADA EXACTAMENTE** del campo `URL:` proporcionado en el contexto. 
+   - SI UNA FUENTE NO TIENE URL EN EL CONTEXTO, NO INVENTES UNA. Usa el nombre de la fuente sin enlace o pon `(Fuente sin enlace)`.
+   - **PROHIBIDO** usar enlaces de ejemplo como `example.com` o `youtube.com/watch?v=example1`. ESTO SE CONSIDERA UNA ALUCINACIÓN GRAVE.
+   - Para archivos locales: `[mi_archivo.pdf](file://...)`.
+
 5. IDENTIFICACIÓN DE AFIRMACIONES CLAVE: Al final del informe, añade una sección "## Verificación de Datos" con una lista de las 3 afirmaciones más críticas.
 
 FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
