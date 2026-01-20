@@ -92,6 +92,8 @@ graph TD
 docker compose up -d
 ```
 Access the UI at: **http://localhost:8501**
+> **Note for Developers**: The `docker-compose.yml` mounts `./src` and `./tests` effectively allowing live code updates without rebuilding the container.
+
 
 ### Option 2: Local Installation
 ```bash
@@ -102,9 +104,22 @@ streamlit run src/app.py
 
 ## 📁 Knowledge Base (RAG)
 You can include your own documents in the research:
+
+### Option 1: UI Upload
 1. Enable **"Incluir base de conocimientos local"** in the sidebar.
 2. Upload PDFs or TXT files directly through the dashboard.
-3. The agent will prioritize and cite your internal data alongside web results.
+
+### Option 2: Manual Folder (For large datasets)
+1. Copy your PDF/TXT files to the `./knowledge_base` folder in the project root.
+2. Enable **"Incluir base de conocimientos local"** in the sidebar.
+3. The agent will automatically detect and index these files.
+
+## 📄 Output & Reports
+All generated reports are automatically saved to the `./reports/` directory.
+- `reporte_final.html` (Interactive)
+- `reporte_investigacion.pdf` (Print-ready)
+- `reporte_final.docx` (Editable)
+- `reporte_[topic].md` (Raw content)
 
 ## ⚙️ Configuration
 

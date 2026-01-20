@@ -1,10 +1,17 @@
 import streamlit as st
+import sys
 import os
 import subprocess
 import time
-from agent import app
+
+# Add project root to sys.path to ensure 'src' package is resolvable
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from src.agent import app
 import streamlit.components.v1 as components
-from db_manager import get_recent_sessions, load_session, clear_history
+from src.db_manager import get_recent_sessions, load_session, clear_history
 
 # Configuración de la página
 st.set_page_config(
@@ -158,10 +165,10 @@ if "messages" not in st.session_state:
 if "agent_state" not in st.session_state:
     st.session_state.agent_state = None
 
-# Auto-detectar reportes existentes al iniciar
+    # Auto-detectar reportes existentes al iniciar
 if not st.session_state.investigation_done:
-    if os.path.exists("reporte_final.html"):
-        with open("reporte_final.html", "r", encoding="utf-8") as f:
+    if os.path.exists("reports/reporte_final.html"):
+        with open("reports/reporte_final.html", "r", encoding="utf-8") as f:
             st.session_state.report_html = f.read()
         st.session_state.investigation_done = True
         st.session_state.last_topic = "Reporte Guardado"
@@ -224,35 +231,103 @@ if st.button("Iniciar Investigación"):
                     "send_email": "📧 Enviando reporte por correo..."
                 }
 
-                # Streaming execution to show progress (Improved Reactive Logic)
+                # Streaming execution with Threading and Queue to allow Progress Polling
+                import threading
+                import queue
+                import time
+                import json
+                
                 final_state = inputs.copy()
-                
-                # Container to keep track of the current status message
                 status_container = st.empty()
+                rag_progress_bar = st.empty() # Placeholder for progress bar
                 
-                for chunk in app.stream(inputs, config={"recursion_limit": 100}):
-                    for node_name, state_update in chunk.items():
-                        # Aggregately update final_state (defensive check)
-                        if isinstance(state_update, dict):
-                            final_state.update(state_update)
-                        
-                        # Mark current node as COMPLETED
-                        completed_msg = node_messages.get(node_name, f"Ejecutando {node_name}...")
-                        st.write(f"✅ {completed_msg}")
-                        
-                        # Guess the NEXT node from state_update or original plan
-                        next_node = state_update.get("next_node")
-                        if next_node and next_node != "END":
-                            next_msg = node_messages.get(next_node, f"Iniciando {next_node}...")
-                            status_container.info(f"⏳ {next_msg}")
-                        else:
-                            status_container.empty()
+                # Queue for agent events
+                event_q = queue.Queue()
                 
+                def run_agent_in_thread(inputs_dict, q):
+                    try:
+                        for chunk in app.stream(inputs_dict, config={"recursion_limit": 100}):
+                            q.put(chunk)
+                    except Exception as e:
+                        q.put({"error": str(e)})
+                    finally:
+                        q.put(None) # Sentinel
+                
+                # Start Agent Thread
+                agent_thread = threading.Thread(target=run_agent_in_thread, args=(inputs, event_q))
+                agent_thread.start()
+                
+                # Main Loop: consume events AND poll RAG status
+                rag_status_file = "/app/data/rag_status.json"
+                
+                while True:
+                    # 1. Poll Queue for Agent Events
+                    try:
+                        while True:
+                            # Non-blocking get all available items
+                            chunk = event_q.get_nowait()
+                            
+                            if chunk is None: # Sentinel
+                                agent_thread.join()
+                                break
+                            
+                            if "error" in chunk and isinstance(chunk, dict) and len(chunk) == 1:
+                                raise Exception(chunk["error"])
+                                
+                            for node_name, state_update in chunk.items():
+                                if isinstance(state_update, dict):
+                                    final_state.update(state_update)
+                                
+                                # UI Updates for Completed Nodes
+                                completed_msg = node_messages.get(node_name, f"Ejecutando {node_name}...")
+                                st.write(f"✅ {completed_msg}")
+                                # Clean up progress bar when RAG finishes
+                                if node_name == "local_rag":
+                                     rag_progress_bar.empty()
+                                
+                                next_node = state_update.get("next_node") if state_update else None
+                                if next_node and next_node != "END":
+                                    next_msg = node_messages.get(next_node, f"Iniciando {next_node}...")
+                                    status_container.info(f"⏳ {next_msg}")
+                                else:
+                                    status_container.empty()
+                                    
+                    except queue.Empty:
+                        pass
+                    
+                    if not agent_thread.is_alive() and event_q.empty():
+                        break
+                        
+                    # 2. Poll RAG Status File (if exists)
+                    if os.path.exists(rag_status_file):
+                        try:
+                            with open(rag_status_file, "r") as f:
+                                status_data = json.load(f)
+                            
+                            current = status_data.get("current", 0)
+                            total = status_data.get("total", 1)
+                            fname = status_data.get("last_file", "...")
+                            
+                            # Update Progress Bar
+                            if total > 0:
+                                progress = min(current / total, 1.0)
+                                rag_progress_bar.progress(progress, text=f"📂 RAG: Analizando {current}/{total}: {fname}")
+                        except:
+                            pass # Ignore read errors during race conditions
+                    
+                    time.sleep(0.2) # Yield to allow thread to work
+                
+                # Cleanup status file if left over
+                if os.path.exists(rag_status_file):
+                    try:
+                        os.remove(rag_status_file)
+                    except: pass
+                    
                 st.session_state.agent_state = final_state
                 
                 # Guardar resultados en session_state para persistencia
-                if os.path.exists("reporte_final.html"):
-                    with open("reporte_final.html", "r", encoding="utf-8") as f:
+                if os.path.exists("reports/reporte_final.html"):
+                    with open("reports/reporte_final.html", "r", encoding="utf-8") as f:
                         st.session_state.report_html = f.read()
                 
                 st.session_state.last_topic = topic
@@ -275,23 +350,23 @@ if st.session_state.investigation_done:
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        if os.path.exists("reporte_investigacion.pdf"):
-            with open("reporte_investigacion.pdf", "rb") as f:
+        if os.path.exists("reports/reporte_investigacion.pdf"):
+            with open("reports/reporte_investigacion.pdf", "rb") as f:
                 st.download_button("📕 PDF", f, "reporte.pdf", "application/pdf")
     
     with col2:
-        if os.path.exists("reporte_final.docx"):
-            with open("reporte_final.docx", "rb") as f:
+        if os.path.exists("reports/reporte_final.docx"):
+            with open("reports/reporte_final.docx", "rb") as f:
                 st.download_button("📘 Word", f, "reporte.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                 
     with col3:
-        if os.path.exists("reporte_final.md"):
-            with open("reporte_final.md", "rb") as f:
+        if os.path.exists("reports/reporte_final.md"):
+            with open("reports/reporte_final.md", "rb") as f:
                 st.download_button("📝 Markdown", f, "reporte.md", "text/markdown")
                 
     with col4:
-        if os.path.exists("reporte_final.html"):
-            with open("reporte_final.html", "rb") as f:
+        if os.path.exists("reports/reporte_final.html"):
+            with open("reports/reporte_final.html", "rb") as f:
                 st.download_button("🌐 HTML", f, "reporte.html", "text/html")
     
     # Mostrar el reporte HTML persistido
@@ -368,7 +443,7 @@ if st.session_state.investigation_done:
                 # For now, we'll implement a direct chat response or a specific chat branch
                 try:
                     # Use the chat_node directly if we just want conversation
-                    from tools.chat_tools import chat_node
+                    from src.tools.chat_tools import chat_node
                     response_state = chat_node(current_state)
                     ai_response = response_state["messages"][0].content
                     
@@ -384,8 +459,8 @@ if st.session_state.investigation_done:
 
 # Footer
 st.divider()
-st.markdown("""
+st.markdown(f"""
     <div style='text-align: center' class='status-text'>
-        Research-Agent v1.0.0 | Desarrollado con LangGraph & Streamlit
+        Research-Agent v1.0.1 | DB: {os.environ.get('DB_PATH', 'Default')} | PWD: {os.getcwd()}
     </div>
     """, unsafe_allow_html=True)
