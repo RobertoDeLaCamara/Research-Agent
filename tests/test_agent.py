@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 from src.agent import app, initialize_state_node, route_chat
 from langchain_core.messages import HumanMessage
 
@@ -6,10 +7,14 @@ def test_agent_graph_compilation():
     """Verifies that the LangGraph workflow compiles correctly."""
     assert app is not None
 
-def test_initialize_state_node_minimal():
+@patch("src.db_manager.init_db")
+def test_initialize_state_node_minimal(mock_init_db):
     """Verifies that initialize_state_node adds all missing mandatory fields."""
     initial_state = {"topic": "Test Topic"}
     result = initialize_state_node(initial_state)
+    
+    # Check that init_db was called
+    mock_init_db.assert_called_once()
     
     # Check that all keys from AgentState are present
     mandatory_keys = [
@@ -28,10 +33,13 @@ def test_initialize_state_node_minimal():
     assert isinstance(result["summaries"], list)
     assert result["iteration_count"] == 0
 
-def test_initialize_state_node_preserves_existing():
+@patch("src.db_manager.init_db")
+def test_initialize_state_node_preserves_existing(mock_init_db):
     """Verifies that existing fields are preserved."""
     initial_state = {"topic": "Test", "iteration_count": 5, "extra": "data"}
     result = initialize_state_node(initial_state)
+    
+    mock_init_db.assert_called_once()
     
     assert result["topic"] == "Test"
     assert result["iteration_count"] == 5
