@@ -134,5 +134,28 @@ pytest tests/ -v
 - Integration and unit tests
 - Type-safe with full coverage
 
+## 📚 Documentation
+
+### Core Documentation
+- **[Architecture](docs/ARCHITECTURE.md)** - System design and component overview
+- **[Security](docs/SECURITY.md)** - Security best practices and guidelines
+- **[Testing](docs/TESTING.md)** - Testing guide and best practices
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+
+### Additional Resources
+- **[API Documentation](API.md)** - API endpoints and usage
+- **[Contributing](CONTRIBUTING.md)** - How to contribute to the project
+- **[Deployment](DEPLOYMENT.md)** - Deployment guide and best practices
+- **[Code Review](CODE_REVIEW.md)** - Latest code review and recommendations
+- **[Changelog](CHANGELOG.md)** - Version history and updates
+
+## 🤝 Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 ---
 **Built with ❤️ for professional researchers and power users**
