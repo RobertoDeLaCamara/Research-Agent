@@ -99,7 +99,7 @@ Access the UI at: **http://localhost:8501**
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-streamlit run src/app.py
+streamlit run src/app.py --server.address=0.0.0.0
 ```
 
 ## 📁 Knowledge Base (RAG)

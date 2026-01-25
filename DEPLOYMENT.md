@@ -37,7 +37,7 @@ python3 -m pytest tests/ -v
 # Expected: 37 passed, 0 failed, 0 skipped
 
 # Test the application locally
-streamlit run src/app.py
+streamlit run src/app.py --server.address=0.0.0.0
 
 # Test Docker build
 docker compose build
@@ -75,7 +75,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # 3. Run application
-streamlit run src/app.py
+streamlit run src/app.py --server.address=0.0.0.0
 
 # 4. Access at http://localhost:8501
 ```
