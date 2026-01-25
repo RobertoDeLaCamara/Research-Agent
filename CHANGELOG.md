@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 2026-01-14
+## [Unreleased] - 2026-01-25
+
+### Fixed
+- **Performance**: Optimized Local RAG by migrating from JSON to SQLite, eliminating startup lag and redundant re-scanning (warm cache < 0.002s).
+- **Correctness**: Fixed early return logic in RAG node to return correct key.
+
+## [2026-01-14]
 
 ### Fixed
 - **Critical**: Resolved Citation Hallucinations by enforcing strict Source extraction and Prompt engineering.

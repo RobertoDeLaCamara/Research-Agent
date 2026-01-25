@@ -17,171 +17,234 @@ def local_rag_node(state: AgentState) -> dict:
     if not os.path.exists(kb_path):
         os.makedirs(kb_path)
         logger.info(f"Created knowledge_base directory at {kb_path}")
-        return {"local_research": [], "next_node": update_next_node(state, "local_rag")}
+        return {"local_rag": [], "next_node": update_next_node(state, "local_rag")}
 
     results = []
     topic = state.get("topic", "").lower()
     
+    import sqlite3
     import json
     import time
-    
-    # ---------------------------------------------------------
-    # CACHE IMPLEMENTATION
-    # ---------------------------------------------------------
-    CACHE_FILE = "/app/data/rag_cache.json"
-    cache = {}
-    if os.path.exists(CACHE_FILE):
-        try:
-            with open(CACHE_FILE, "r", encoding="utf-8") as f:
-                cache = json.load(f)
-        except Exception as e:
-            logger.warning(f"Failed to load RAG cache: {e}")
-            
-    cache_dirty = False
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
+    # ---------------------------------------------------------
+    # SQLITE CACHE IMPLEMENTATION
+    # ---------------------------------------------------------
+    DB_FILE = "/app/data/rag_cache.db"
+
+    def init_db():
+        """Initialize the SQLite database for RAG cache."""
+        try:
+            with sqlite3.connect(DB_FILE) as conn:
+                # Table for file metadata (path, hash, last_seen)
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS files (
+                        path TEXT PRIMARY KEY,
+                        hash TEXT,
+                        last_seen REAL
+                    )
+                """)
+                # Table for content (path, text). 
+                # Ideally FTS5, but standard table is safer for compatibility.
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS content (
+                        path TEXT PRIMARY KEY,
+                        text TEXT
+                    )
+                """)
+                conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to init RAG DB: {e}")
+
+    # Ensure DB exists
+    init_db()
+
+    # Helper: Get file hash
     def get_file_hash(file_path):
         """Simple hash based on modification time and size."""
         stats = os.stat(file_path)
         return f"{stats.st_mtime}_{stats.st_size}"
 
-    # Updated to support recursive search with os.walk
+    # Helper: Status Update
+    STATUS_FILE = "/app/data/rag_status.json"
+    last_status_update = 0
+    
+    def update_status(current, total, filename, force=False):
+        nonlocal last_status_update
+        now = time.time()
+        # Throttle: 0.1s
+        if not force and (now - last_status_update < 0.1):
+            return
+        try:
+            temp_file = STATUS_FILE + ".tmp"
+            with open(temp_file, "w") as f:
+                json.dump({"current": current, "total": total, "last_file": filename}, f)
+            os.replace(temp_file, STATUS_FILE)
+            last_status_update = now
+        except Exception as e: 
+            logger.warning(f"Status update failed: {e}")
+
+    # Scan Files
     files_found = []
     for root, dirs, files in os.walk(kb_path):
         for file in files:
             if file.lower().endswith(('.pdf', '.txt')):
                 files_found.append(os.path.join(root, file))
     
-    logger.info(f"Scanning {len(files_found)} files in knowledge_base (recursive)")
-    
-    from concurrent.futures import ThreadPoolExecutor
-    
-    def process_file(file_path):
-        nonlocal cache_dirty
-        filename = os.path.basename(file_path)
-        
-        # Optimization: Score filename relevance
-        topic_words = topic.split()
-        filename_score = sum(1 for word in topic_words if word in filename.lower())
-        
-        # -----------------------------------------------------
-        # CACHE CHECK
-        # -----------------------------------------------------
-        file_hash = get_file_hash(file_path)
-        cached_entry = cache.get(file_path)
-        
-        content = ""
-        
-        if cached_entry and cached_entry.get("hash") == file_hash:
-            # Cache Hit
-            content = cached_entry.get("content", "")
-            # logger.debug(f"Cache hit for {filename}")
-        else:
-            # Cache Miss - Process File
-            try:
-                if filename.lower().endswith(".pdf"):
-                    with open(file_path, "rb") as f:
-                        reader = PyPDF2.PdfReader(f)
-                        # Limit pages to avoid huge delays on massive books
-                        max_pages = 50 
-                        count = 0
-                        for page in reader.pages:
-                            if count >= max_pages: break
-                            text = page.extract_text()
-                            if text:
-                                content += text + "\n"
-                            count += 1
-                elif filename.lower().endswith(".txt"):
-                    with open(file_path, "r", encoding="utf-8", errors='ignore') as f:
-                        content = f.read()
-                
-                # Update Cache if content found
-                if content:
-                    cache[file_path] = {
-                        "hash": file_hash,
-                        "content": content
-                    }
-                    # We can't easily set nonlocal cache_dirty in threaded context safely without lock
-                    # But since we're using ThreadPoolExecutor, we can just return the cache update 
-                    # from the function and handle it in the main thread? 
-                    # Actually, dictionary operations in Python are atomic-ish, but let's be safe.
-                    # We will re-save the whole cache at the end, so modifying 'cache' dict here is okay 
-                    # as long as we don't have race conditions on the same key (unlikely).
-            except Exception as e:
-                logger.error(f"Error reading local file {filename}: {e}")
-                return None
+    total_files = len(files_found)
+    logger.info(f"Scanning {total_files} files in knowledge_base (recursive)")
+    update_status(0, total_files, "Comprobando caché...", force=True)
 
-        if content:
-            # Basic relevance check
-            if any(word in content.lower() for word in topic_words) or not topic_words or filename_score > 0:
+    # Identify Cache Misses
+    files_to_process = []
+    
+    # Batch check cache using DB
+    # We want to know which files in 'files_found' are NOT in DB or have different hash
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            # Get all existing paths and hashes
+            # For 10k files, this dict is small enough.
+            cursor.execute("SELECT path, hash FROM files")
+            db_files = {row[0]: row[1] for row in cursor.fetchall()}
+    except Exception as e:
+        logger.error(f"DB Read Error: {e}")
+        db_files = {}
+
+    for file_path in files_found:
+        try:
+            current_hash = get_file_hash(file_path)
+            if file_path not in db_files or db_files[file_path] != current_hash:
+                files_to_process.append(file_path)
+        except OSError:
+            pass # File might have vanished
+
+    # Define Process Function (for threads)
+    def process_file_content(file_path):
+        filename = os.path.basename(file_path)
+        try:
+            content = ""
+            if filename.lower().endswith(".pdf"):
+                with open(file_path, "rb") as f:
+                    reader = PyPDF2.PdfReader(f)
+                    max_pages = 50 
+                    count = 0
+                    for page in reader.pages:
+                        if count >= max_pages: break
+                        text = page.extract_text()
+                        if text:
+                            content += text + "\n"
+                        count += 1
+            elif filename.lower().endswith(".txt"):
+                with open(file_path, "r", encoding="utf-8", errors='ignore') as f:
+                    content = f.read()
+            
+            if content:
+                file_hash = get_file_hash(file_path)
                 return {
-                    "title": filename,
-                    "content": content[:3000], 
-                    "url": f"file://{os.path.abspath(file_path)}",
-                    "score": filename_score,
-                    "cache_update": {file_path: {"hash": file_hash, "content": content}} if not cached_entry or cached_entry.get("hash") != file_hash else None
+                    "path": file_path,
+                    "hash": file_hash,
+                    "content": content,
+                    "filename": filename
                 }
+        except Exception as e:
+            logger.error(f"Error reading {filename}: {e}")
         return None
 
-    # Status Reporting
-    STATUS_FILE = "/app/data/rag_status.json"
-    def update_status(current, total, filename):
-        try:
-            temp_file = STATUS_FILE + ".tmp"
-            with open(temp_file, "w") as f:
-                json.dump({"current": current, "total": total, "last_file": filename}, f)
-            os.replace(temp_file, STATUS_FILE)
-        except Exception as e: 
-            logger.warning(f"Status update failed: {e}")
-
-    # Use ThreadPoolExecutor
-    processed_count = 0
-    total_files = len(files_found)
-    update_status(0, total_files, "Iniciando análisis paralelo...")
-    logger.info(f"Starting processing of {total_files} files with max_workers=4")
+    # Process Misses
+    new_data = [] # List of dicts to insert to DB
     
-    # Reduced workers to prevent OOM on large PDFs
-    from concurrent.futures import as_completed
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        future_to_file = {executor.submit(process_file, f): f for f in files_found}
+    if files_to_process:
+        logger.info(f"Processing {len(files_to_process)} new/modified files...")
+        processed_count = 0
         
-        for future in as_completed(future_to_file):
-            processed_count += 1
-            file_path = future_to_file[future]
-            fname = os.path.basename(file_path)
-            # Update status for every finished file
-            update_status(processed_count, total_files, fname)
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            future_to_file = {executor.submit(process_file_content, f): f for f in files_to_process}
             
-            try:
-                res = future.result()
-                if res:
-                    if "cache_update" in res and res["cache_update"]:
-                        cache.update(res["cache_update"])
-                        cache_dirty = True
-                        del res["cache_update"]
-                    results.append(res)
-                    logger.info(f"Processed: {res['title']}")
-            except Exception as e:
-                logger.error(f"Error processing {fname}: {e}")
+            for future in as_completed(future_to_file):
+                processed_count += 1
+                file_path = future_to_file[future]
+                fname = os.path.basename(file_path)
+                update_status(processed_count, len(files_to_process), fname)
                 
+                try:
+                    res = future.result()
+                    if res:
+                        new_data.append(res)
+                        logger.info(f"Processed: {res['filename']}")
+                except Exception:
+                    pass
+
+    # Batch Insert/Update DB
+    if new_data:
+        try:
+            with sqlite3.connect(DB_FILE) as conn:
+                timestamp = time.time()
+                # Upsert into files and content
+                for item in new_data:
+                    conn.execute("INSERT OR REPLACE INTO files (path, hash, last_seen) VALUES (?, ?, ?)", 
+                                 (item["path"], item["hash"], timestamp))
+                    conn.execute("INSERT OR REPLACE INTO content (path, text) VALUES (?, ?)", 
+                                 (item["path"], item["content"]))
+                conn.commit()
+            logger.info(f"Updated DB with {len(new_data)} records.")
+        except Exception as e:
+            logger.error(f"DB Write Error: {e}")
+
+    # Retrieval / Search
+    # Iterate DB to find relevant content
+    # We do this logic in Python to maintain consistency with previous keyword scoring
+    # But we stream from DB to avoid memory bloom
+    
+    update_status(total_files, total_files, "Buscando en BD...", force=True)
+    
+    topic_words = topic.split()
+    results = []
+    
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            # We only care about files that are currently present on disk (files_found)
+            # Efficient implementation: If files_found is large, we can loop in python, or pass chunks to SQL IN clause.
+            # For simplicity: Select all content, filter by path existence in set(files_found) if needed, 
+            # OR just assume knowledge base is source of truth and we might have stale entries in DB (garbage collection is separate task).
+            # Let's iterate all content in DB. 
+            
+            cursor = conn.cursor()
+            cursor.execute("SELECT path, text FROM content")
+            
+            # Use Set for O(1) existence check
+            valid_files = set(files_found)
+            
+            for path, content in cursor:
+                # Skip if file was deleted from disk
+                if path not in valid_files:
+                    continue
+                    
+                filename = os.path.basename(path)
+                filename_score = sum(1 for word in topic_words if word in filename.lower())
+                
+                if not content: continue
+                
+                # Check match
+                content_lower = content.lower()
+                if any(word in content_lower for word in topic_words) or not topic_words or filename_score > 0:
+                    results.append({
+                        "title": filename,
+                        "content": content[:3000], 
+                        "url": f"file://{os.path.abspath(path)}",
+                        "score": filename_score,
+                        "cache_update": None # No longer used
+                    })
+    except Exception as e:
+        logger.error(f"Search Error: {e}")
+
     # Final cleanup of status
     if os.path.exists(STATUS_FILE):
-        try:
-            os.remove(STATUS_FILE)
+        try: os.remove(STATUS_FILE)
         except: pass
 
-    # Save Cache...
-    if cache_dirty:
-        try:
-            with open(CACHE_FILE, "w", encoding="utf-8") as f:
-                json.dump(cache, f, ensure_ascii=False)
-            logger.info(f"Updated RAG cache at {CACHE_FILE}")
-        except Exception as e:
-            logger.error(f"Failed to save RAG cache: {e}")
-
-    # For now, we store them in a new state key or append to web_research
-    # Let's use a specific key for clarity in synthesis
     return {
-        "local_research": results, 
+        "local_rag": results, 
         "next_node": update_next_node(state, "local_rag"),
         "source_metadata": {"local_rag": {"source_type": "user_provided_knowledge", "reliability": 5}}
     }

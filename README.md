@@ -19,7 +19,7 @@ An autonomous research agent powered by LangChain and LangGraph that performs de
     *   **Market Analyst**: ROI and commercial viability focus.
     *   **Scientific Reviewer**: Rigor and methodology focus.
     *   **Generalist**: Balanced and objective analysis.
-*   **Local Knowledge (RAG)**: Integrate your own PDFs and TXT files directly into the research via the dashboard's file uploader.
+*   **Local Knowledge (RAG)**: Integrate your own PDFs and TXT files directly into the research via the dashboard's file uploader. Powered by **SQLite** for instant re-scans and scalable storage.
 *   **Self-Correction Loop**: Autonomous evaluation node that detects information gaps and triggers re-planning.
 *   **Multilingual Expansion**: Automatically expands technical queries to English to access global academic and technical sources.
 *   **Premium Export Center**: One-click professional reports in **PDF, Word, Markdown, and HTML**.
