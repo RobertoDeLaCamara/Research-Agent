@@ -314,7 +314,7 @@ def local_rag_node(state: AgentState) -> dict:
         except: pass
 
     return {
-        "local_rag": results_list, 
+        "local_research": results_list, 
         "next_node": update_next_node(state, "local_rag"),
         "source_metadata": {"local_rag": {"source_type": "user_provided_knowledge", "reliability": 5}}
     }
