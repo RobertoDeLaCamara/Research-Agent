@@ -3,6 +3,19 @@ import sys
 import os
 import subprocess
 import time
+import asyncio
+
+# Fix for "Can't patch loop of type <class 'uvloop.Loop'>"
+# LangChain/NestAsyncio requires standard asyncio loop, but Uvicorn/Streamlit might set uvloop.
+try:
+    import uvloop
+    asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+except ImportError:
+    pass
+
+import nest_asyncio
+nest_asyncio.apply()
+
 
 # Add project root to sys.path to ensure 'src' package is resolvable
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

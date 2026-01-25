@@ -158,10 +158,10 @@ pytest tests/ -v
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 
 ### Additional Resources
-- **[API Documentation](API.md)** - API endpoints and usage
+- **[API Documentation](docs/API.md)** - API endpoints and usage
 - **[Contributing](CONTRIBUTING.md)** - How to contribute to the project
-- **[Deployment](DEPLOYMENT.md)** - Deployment guide and best practices
-- **[Code Review](CODE_REVIEW.md)** - Latest code review and recommendations
+- **[Deployment](docs/DEPLOYMENT.md)** - Deployment guide and best practices
+- **[Code Review](docs/CODE_REVIEW.md)** - Latest code review and recommendations
 - **[Changelog](CHANGELOG.md)** - Version history and updates
 
 ## 🤝 Contributing

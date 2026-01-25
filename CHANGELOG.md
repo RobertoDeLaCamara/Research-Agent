@@ -8,6 +8,9 @@ All notable changes to this project will be documented in this file.
 - **Performance**: Optimized Local RAG by migrating from JSON to SQLite, eliminating startup lag and redundant re-scanning (warm cache < 0.002s).
 - **Correctness**: Fixed early return logic in RAG node to return correct key.
 
+### Added
+- **RAG**: Implemented Hybrid Search (Vector + Keyword) using `ChromaDB` and `all-MiniLM-L6-v2` embeddings. Now finds relevant documents even without exact keyword matches.
+
 ## [2026-01-14]
 
 ### Fixed

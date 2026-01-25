@@ -40,10 +40,16 @@ def search_web_node(state: AgentState) -> dict:
     
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
     
+    # Validate topic
+    if not search_topic or not search_topic.strip():
+        logger.warning("Empty search topic. Skipping web search.")
+        return {"web_research": [], "next_node": update_next_node(state, "web"), "source_metadata": {"web": {"source_type": "web", "reliability": 3}}}
+
     # Inject date for timeliness if the user didn't provide one
     if not re.search(r'\b(20\d{2}|19\d{2})\b', search_topic): # Check for a 4-digit year
         search_topic = f"{search_topic} {current_date}"
-        
+    
+    search_topic = search_topic.strip() # Ensure no leading/trailing spaces
     logger.info(f"Searching web (Tavily) for: {search_topic}")
     
     import threading
@@ -61,17 +67,24 @@ def search_web_node(state: AgentState) -> dict:
                     raw_results = search.run(search_topic)
                     # CRITICAL FIX: Ensure raw_results is a list. Tavily can return a string on error.
                     if isinstance(raw_results, str):
-                        logger.warning(f"Tavily returned string instead of list: {raw_results}")
+                        logger.warning(f"Tavily returned string (possibly error): {raw_results}")
                         # If it looks like a list string, try to parse it, otherwise handle as error/content
                         import ast
                         try:
-                            raw_results = ast.literal_eval(raw_results)
-                            if not isinstance(raw_results, list):
+                            # Sometimes it might be an unparsed list repr
+                            parsed = ast.literal_eval(raw_results)
+                            if isinstance(parsed, list):
+                                raw_results = parsed
+                            else:
                                 raise ValueError
                         except:
-                            raw_results = [{"url": "Unknown", "content": raw_results}]
+                            # It's a plain string message or error
+                            raw_results = [] # Treat as empty/fail rather than fake content
                 except Exception as e_tavily:
                      logger.error(f"Tavily search execution failed: {e_tavily}")
+                     # Try to access response text if available
+                     if hasattr(e_tavily, 'response') and hasattr(e_tavily.response, 'text'):
+                         logger.error(f"API Response: {e_tavily.response.text}")
                      raw_results = []
                 
                 # Use ThreadPoolExecutor to parallelize Jina Reader calls
