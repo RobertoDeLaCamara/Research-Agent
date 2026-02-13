@@ -1,176 +1,104 @@
-# Research-Agent 🔬
+# Research-Agent
 
-An autonomous research agent powered by LangChain and LangGraph that performs deep investigation into any topic using multiple sources, advanced personas, and your own local data (RAG).
+Autonomous research agent powered by LangGraph that investigates any topic using 10+ sources, customizable personas, and local document integration (RAG). All sources execute in parallel for fast results.
 
-## ✨ Recent Improvements (January 2026)
+## Features
 
-*   **100% Test Coverage**: All 37 tests passing with comprehensive test suite
-*   **Enhanced Security**: Input validation, file upload security, injection prevention (7/10 security score)
-*   **Production Ready**: Centralized configuration, robust error handling, comprehensive logging
-*   **Type Safety**: Full type hints across codebase for better IDE support
-*   **Code Quality**: 9/10 rating with consistent patterns and best practices
+- **Parallel Multi-Source Research**: Web, Wikipedia, arXiv, Semantic Scholar, GitHub, Hacker News, Stack Overflow, Reddit, YouTube, and local RAG — all execute concurrently via `ThreadPoolExecutor`.
+- **Research Personas**: Product Manager, Software Architect, Market Analyst, Scientific Reviewer, or Generalist — each shapes source selection and analysis style.
+- **Local Knowledge (RAG)**: Upload PDFs/TXT files through the dashboard or place them in `./knowledge_base`. Indexed with SQLite cache and ChromaDB vector search.
+- **Self-Correction Loop**: Evaluation node detects information gaps and triggers re-planning automatically (max 2 iterations).
+- **Export Center**: One-click reports in PDF, Word, Markdown, and HTML, saved to `./reports/`.
+- **Configurable Depth**: Quick (2 results/source), Standard (5), or Deep (10).
+- **Multilingual**: Auto-expands queries to English for global academic/technical coverage.
 
-## 🌟 Key Features
-
-*   **Intelligent Agent Flow**: Dynamic source selection and reasoning loops using LangGraph's conditional edges.
-*   **Research Personas**: Customize investigations with specialized profiles:
-    *   **Product Manager**: Focus on value proposition and user needs.
-    *   **Software Architect**: Technical depth and implementation focus.
-    *   **Market Analyst**: ROI and commercial viability focus.
-    *   **Scientific Reviewer**: Rigor and methodology focus.
-    *   **Generalist**: Balanced and objective analysis.
-*   **Local Knowledge (RAG)**: Integrate your own PDFs and TXT files directly into the research via the dashboard's file uploader. Powered by **SQLite** for instant re-scans and scalable storage.
-*   **Self-Correction Loop**: Autonomous evaluation node that detects information gaps and triggers re-planning.
-*   **Multilingual Expansion**: Automatically expands technical queries to English to access global academic and technical sources.
-*   **Premium Export Center**: One-click professional reports in **PDF, Word, Markdown, and HTML**.
-*   **Multi-Source Depth**: Configurable research depth (Quick/Standard/Deep) across Wikipedia, Web, arXiv, Semantic Scholar, GitHub, Hacker News, Stack Overflow, Reddit, and YouTube.
-*   **Hang Prevention Level 2 🛡️**: Global threading timeouts (25-45s) for all search nodes and parallelized Jina Reader extraction to eliminate UI stalls.
-*   **History Retention Policy 📅**: Automatic cleanup of research sessions older than 30 days to keep the database lean.
-*   **Nuclear Reasoning Suppression 🧠**: Advanced XML tag filtering and regex cleaning to ensure zero "thinking" leaks in final reports.
-*   **Robust Enterprise Features**: 100+ step recursion limit, fail-soft API strategies, and dynamic proxy bypass for Ollama.
-
-## � Use Cases
-
-### 📋 Product Strategy
-- **Persona**: Product Manager
-- **Input**: Upload a draft PRD (Product Requirements Document) via RAG.
-- **Task**: "Analyze the feasibility of adding a blockchain-based voting system to our platform."
-- **Outcome**: A report synthesizing user needs from Reddit, market trends from the web, and technical feasibility, all integrated with your internal PRD.
-
-### 🏗️ Technical Architecture
-- **Persona**: Software Architect
-- **Task**: "Design a scalable event-driven architecture using Kafka and Kubernetes."
-- **Outcome**: Deep technical dive into GitHub repositories, Stack Overflow solutions, and architectural best practices, summarized in a CTO-level persona.
-
-### 🧪 Academic Investigation
-- **Persona**: Scientific Reviewer
-- **Task**: "Recent breakthroughs in room-temperature superconductors."
-- **Outcome**: Formal investigation across arXiv and Semantic Scholar, with automated English query expansion to capture the latest peer-reviewed papers.
-
-### 📈 Competitive Intelligence
-- **Persona**: Market Analyst
-- **Input**: Upload competitor annual reports via RAG.
-- **Task**: "SWOT analysis of the electric vehicle market in Europe for 2026."
-- **Outcome**: A strategic analysis combining the latest web news with deep insights from your internal competitor documents.
-
-## �🛠 Architecture
-
-The agent follows an autonomous, self-correcting workflow using **LangGraph**:
+## Architecture
 
 ```mermaid
 graph TD
     Start((Start)) --> Init[Initialize State]
     Init --> Plan[Research Planner]
-    Plan --> Router{Phase 1: Sources}
-    
-    subgraph Research Nodes
-        Router -->|Local| RAG[Local Knowledge / RAG]
-        Router -->|Wiki| Wiki[Wikipedia]
-        Router -->|Web| Web[Web Research]
-        Router -->|Scholar| Scholar[Academic Search]
-        Router -->|Code| Code[GitHub/SO]
-        Router -->|Reddit| Reddit[Reddit Discussions]
-        Router -->|Video| Video[YouTube Analysis]
+    Plan --> Parallel[Parallel Search Node]
+
+    subgraph ThreadPoolExecutor
+        Parallel --> Web[Web]
+        Parallel --> Wiki[Wikipedia]
+        Parallel --> Arxiv[arXiv]
+        Parallel --> Scholar[Semantic Scholar]
+        Parallel --> GH[GitHub]
+        Parallel --> HN[Hacker News]
+        Parallel --> SO[Stack Overflow]
+        Parallel --> Reddit[Reddit]
+        Parallel --> YT[YouTube]
+        Parallel --> RAG[Local RAG]
     end
-    
-    RAG & Wiki & Web & Scholar & Code & Reddit & Video --> Sync[Synthesis Engine]
-    Sync --> Eval{Evaluation & Refinement}
-    
-    Eval -->|Gaps Detected| Plan
+
+    Web & Wiki & Arxiv & Scholar & GH & HN & SO & Reddit & YT & RAG --> Synth[Consolidation]
+    Synth --> Eval{Evaluation}
+
+    Eval -->|Gaps Found| Plan
     Eval -->|Complete| Report[Report Generator]
-    
-    Report --> Chat[Interactive Assistant]
-    Chat -->|Follow-up| Plan
-    Chat -->|History Save| DB[(SQLite 30d)]
-    Chat -->|Finalize| End((End))
+    Report --> Email[Email / Save]
+    Email --> End((End))
 ```
 
-## 🚀 Quick Start
+Flow: `initialize_state` → `plan_research` → `parallel_search` → `consolidate_research` → `evaluate_research` → `generate_report` → `send_email` → `save_db`
 
-### Option 1: Docker Compose (Recommended)
+## Quick Start
+
+### Docker Compose (Recommended)
 ```bash
+cp env.example .env   # Configure API keys
 docker compose up -d
 ```
-Access the UI at: **http://localhost:8501**
-> **Note for Developers**: The `docker-compose.yml` mounts `./src` and `./tests` effectively allowing live code updates without rebuilding the container.
+Access the UI at **http://localhost:8501**
 
+> The `docker-compose.yml` mounts `./src` and `./tests` for live code updates without rebuilding.
 
-### Option 2: Local Installation
+### Local Installation
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 streamlit run src/app.py --server.address=0.0.0.0
 ```
 
-## 📁 Knowledge Base (RAG)
-You can include your own documents in the research:
+## Configuration
 
-### Option 1: UI Upload
-1. Enable **"Incluir base de conocimientos local"** in the sidebar.
-2. Upload PDFs or TXT files directly through the dashboard.
-
-### Option 2: Manual Folder (For large datasets)
-1. Copy your PDF/TXT files to the `./knowledge_base` folder in the project root.
-2. Enable **"Incluir base de conocimientos local"** in the sidebar.
-3. The agent will automatically detect and index these files.
-
-## 📄 Output & Reports
-All generated reports are automatically saved to the `./reports/` directory.
-- `reporte_final.html` (Interactive)
-- `reporte_investigacion.pdf` (Print-ready)
-- `reporte_final.docx` (Editable)
-- `reporte_[topic].md` (Raw content)
-
-## ⚙️ Configuration
-
-| Variable | Description | Default/Value |
+| Variable | Description | Default |
 | :--- | :--- | :--- |
-| `OLLAMA_MODEL` | Deep Knowledge Engine | **qwen3:14b** |
-| `TAVILY_API_KEY` | Web Search Engine | Required |
-| `GITHUB_TOKEN` | Technical Research | Optional |
-| `RESTART_POLICY` | Docker Auto-Start | unless-stopped |
+| `OLLAMA_MODEL` | LLM model | `qwen3:14b` |
+| `OLLAMA_BASE_URL` | Ollama endpoint | `http://localhost:11434` |
+| `TAVILY_API_KEY` | Web search (Tavily) | Required |
+| `GITHUB_TOKEN` | GitHub API access | Optional |
+| `EMAIL_USERNAME` | Report delivery | Optional |
 
-## 🧪 Testing
+See `env.example` for the full list.
+
+## Testing
 
 ```bash
+# Inside Docker
+docker compose run --rm research-agent python -m pytest tests/ -v
+
+# Local
 pytest tests/ -v
 ```
-**Coverage**: 37 tests passing (100% success rate), including:
-- Agent workflow and routing
-- All research tools (web, wiki, arXiv, scholar, GitHub, HN, SO, Reddit, YouTube)
-- RAG and local knowledge integration
-- Report generation and export
-- Database persistence
-- Input validation and security
 
-**Test Quality**: 
-- 100% pass rate (37/37)
-- Comprehensive mocking for external APIs
-- Integration and unit tests
-- Type-safe with full coverage
+49 tests covering agent workflow, all research tools, RAG, report generation, persistence, security validation, resilience, and load.
 
-## 📚 Documentation
+## Documentation
 
-### Core Documentation
-- **[Architecture](docs/ARCHITECTURE.md)** - System design and component overview
-- **[Security](docs/SECURITY.md)** - Security best practices and guidelines
-- **[Testing](docs/TESTING.md)** - Testing guide and best practices
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+| Document | Description |
+| :--- | :--- |
+| [Architecture](docs/ARCHITECTURE.md) | System design, workflow, and extension points |
+| [Testing](docs/TESTING.md) | Test guide, fixtures, and CI setup |
+| [Security](docs/SECURITY.md) | Input validation, credentials, deployment |
+| [API](docs/API.md) | API endpoints |
+| [Deployment](docs/DEPLOYMENT.md) | Docker and production setup |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Common issues |
+| [Code Review](docs/CODE_REVIEW.md) | Quality assessment and action items |
+| [Changelog](CHANGELOG.md) | Version history |
 
-### Additional Resources
-- **[API Documentation](docs/API.md)** - API endpoints and usage
-- **[Contributing](CONTRIBUTING.md)** - How to contribute to the project
-- **[Deployment](docs/DEPLOYMENT.md)** - Deployment guide and best practices
-- **[Code Review](docs/CODE_REVIEW.md)** - Latest code review and recommendations
-- **[Changelog](CHANGELOG.md)** - Version history and updates
+## License
 
-## 🤝 Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-**Built with ❤️ for professional researchers and power users**
+MIT — see [LICENSE](LICENSE).
