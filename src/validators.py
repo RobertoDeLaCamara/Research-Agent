@@ -1,6 +1,6 @@
 import re
 from typing import Literal
-from pydantic import BaseModel, validator, Field
+from pydantic import BaseModel, field_validator, Field
 
 class ResearchRequest(BaseModel):
     """Validated research request."""
@@ -8,8 +8,9 @@ class ResearchRequest(BaseModel):
     research_depth: Literal["quick", "standard", "deep"] = "standard"
     persona: Literal["general", "business", "tech", "academic", "pm", "news_editor"] = "general"
     
-    @validator('topic')
-    def validate_topic_field(cls, v):
+    @field_validator('topic')
+    @classmethod
+    def validate_topic_field(cls, v: str) -> str:
         """Prevent injection attacks."""
         if not v or not v.strip():
             raise ValueError("Topic cannot be empty")

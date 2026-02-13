@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Research-Agent has comprehensive test coverage with 37 passing tests. This guide explains how to run tests, write new tests, and maintain test quality.
+The Research-Agent has comprehensive test coverage with 49 tests (48 passing, 1 pre-existing failure). This guide explains how to run tests, write new tests, and maintain test quality.
 
 ## Running Tests
 
@@ -51,8 +51,8 @@ pytest -n auto
 ```
 tests/
 ├── conftest.py                  # Shared fixtures
-├── test_agent.py                # Workflow tests (5 tests)
-├── test_research_tools.py       # Research sources (8 tests)
+├── test_agent.py                # Workflow & graph tests (5 tests)
+├── test_research_tools.py       # Research sources (9 tests)
 ├── test_router_tools.py         # Planning/routing (4 tests)
 ├── test_synthesis_tools.py      # Consolidation (2 tests)
 ├── test_reporting_tools.py      # Export generation (4 tests)
@@ -60,9 +60,12 @@ tests/
 ├── test_rag_tools.py            # Local knowledge (2 tests)
 ├── test_reddit_tools.py         # Reddit search (2 tests)
 ├── test_youtube_tools.py        # Video summaries (3 tests)
-└── test_persistence.py          # Database (5 tests)
+├── test_persistence.py          # Database (5 tests)
+├── test_resilience.py           # Timeouts & retries (4 tests)
+├── test_security.py             # Input validation & XSS (7 tests)
+└── test_load.py                 # Concurrent load (1 test)
 
-Total: 37 tests (100% pass rate)
+Total: 49 tests (48 passing, 1 pre-existing failure in test_rag_tools)
 ```
 
 ## Writing Tests
@@ -507,5 +510,5 @@ pytest tests/ --import-mode=importlib
 
 ---
 
-**Last Updated:** January 20, 2026  
-**Test Count:** 37 tests (100% pass rate)
+**Last Updated:** February 13, 2026
+**Test Count:** 49 tests (48 passing, 1 pre-existing failure)

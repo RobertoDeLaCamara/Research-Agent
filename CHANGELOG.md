@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-02-13
+
+### Fixed
+- **Thread Safety**: Replaced all `nonlocal` patterns (12 instances across 4 files) with thread-safe mutable container pattern. Results are only read after `thread.join()` confirms the thread has finished, eliminating race conditions between timed-out threads and the main thread.
+- **Thread Safety (RAG)**: Added `threading.Lock` for `update_status` in `rag_tools.py` where real concurrent access occurs via `ThreadPoolExecutor`.
+
+### Changed
+- **Pydantic v2 Migration**: Migrated `src/config.py` from deprecated `class Config:` to `model_config = SettingsConfigDict(...)`. Migrated `src/validators.py` from `@validator` to `@field_validator` with `@classmethod`.
+- **Parallel Research Execution**: Replaced sequential source-by-source execution with `parallel_search_node` using `ThreadPoolExecutor`. All planned research sources now execute concurrently, reducing total research time from sum of timeouts to max of timeouts.
+- **Simplified Graph**: Removed 10+ individual search nodes and all sequential conditional edges from the LangGraph workflow. New flow: `plan_research` → `parallel_search` → `consolidate_research`.
+
+### Added
+- **`src/tools/parallel_tools.py`**: New module with `parallel_search_node` (concurrent source execution) and `_youtube_combined_node` (YouTube search + summarize in sequence within one thread).
+
 ## [Unreleased] - 2026-01-25
 
 ### Fixed

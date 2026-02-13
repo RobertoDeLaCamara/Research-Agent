@@ -53,17 +53,31 @@ The Research-Agent is built on **LangGraph**, a framework for creating stateful,
 **Responsibilities:**
 - `plan_research_node`: Analyzes topic and selects appropriate sources
 - `evaluate_research_node`: Assesses quality and identifies gaps
-- `update_next_node`: Manages workflow navigation
+- `update_next_node`: Manages workflow navigation (used internally by search nodes)
 
 **Key Logic:**
 ```python
 def plan_research_node(state):
     # LLM analyzes topic → selects sources
     # Returns: research_plan = ["web", "arxiv", "github", ...]
-    
+
 def evaluate_research_node(state):
     # LLM evaluates completeness
     # Returns: next_node = "plan_research" (gaps) or "END" (complete)
+```
+
+### 2b. Parallel Tools (`src/tools/parallel_tools.py`)
+
+**Responsibilities:**
+- `parallel_search_node`: Executes all planned research sources concurrently using `ThreadPoolExecutor`
+- `_youtube_combined_node`: Internal wrapper that runs YouTube search + summarize sequentially within one thread
+
+**Key Logic:**
+```python
+def parallel_search_node(state):
+    plan = state["research_plan"]  # e.g. ["web", "arxiv", "github"]
+    # Maps each source to its function, executes all in parallel
+    # Returns combined results from all sources
 ```
 
 ### 3. Research Tools (`src/tools/research_tools.py`)
@@ -126,11 +140,21 @@ User Input → Initialize State → Plan Research
                             Select Sources (LLM)
 ```
 
-### Phase 2: Research (Parallel Capable)
+### Phase 2: Research (Parallel Execution)
 ```
-Plan → [Web, Wiki, arXiv, Scholar, GitHub, HN, SO, Reddit, YouTube, RAG]
-         ↓      ↓      ↓       ↓        ↓      ↓   ↓     ↓       ↓      ↓
-       Results collected and stored in state
+Plan → parallel_search_node (ThreadPoolExecutor)
+         ├── Web ──────┐
+         ├── Wiki ─────┤
+         ├── arXiv ────┤
+         ├── Scholar ──┤
+         ├── GitHub ───┤  All sources execute concurrently
+         ├── HN ───────┤
+         ├── SO ───────┤
+         ├── Reddit ───┤
+         ├── YouTube* ─┤  (*search + summarize run sequentially within thread)
+         └── RAG ──────┘
+                  ↓
+         Combined results merged into state
 ```
 
 ### Phase 3: Synthesis
@@ -174,23 +198,30 @@ except Exception as e:
     results = []  # Return empty, don't crash
 ```
 
-### 3. Timeout Protection
+### 3. Thread-Safe Timeout Protection
 ```python
-thread = threading.Thread(target=search_function)
+container = {"data": []}
+def run_search():
+    container["data"] = [...]  # Write to mutable container
+
+thread = threading.Thread(target=run_search)
 thread.start()
 thread.join(timeout=settings.web_search_timeout)
-if thread.is_alive():
-    logger.warning("Timeout - proceeding with partial results")
+if not thread.is_alive():
+    results = container["data"]  # Only read after thread completes
+# If thread is still alive, results stays empty (safe default)
 ```
 
-### 4. Dynamic Routing
+### 4. Parallel Source Execution
 ```python
-def route_research(state: AgentState) -> str:
-    plan = state.get("research_plan", [])
-    current = state.get("next_node")
-    
-    mapping = {"wiki": "search_wiki", "web": "search_web", ...}
-    return mapping.get(current, "consolidate_research")
+def parallel_search_node(state):
+    plan = state["research_plan"]
+    with ThreadPoolExecutor(max_workers=len(plan)) as executor:
+        futures = {executor.submit(fn, state): name
+                   for name, fn in source_functions.items() if name in plan}
+        for future in as_completed(futures):
+            combined.update(future.result())
+    return combined
 ```
 
 ## Data Flow
@@ -216,14 +247,18 @@ new_state = {**old_state, **node_output}
 
 ### Centralized Settings (`src/config.py`)
 ```python
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
+
     # AI
     ollama_model: str = "qwen3:14b"
-    
+
     # Performance
     max_results_per_source: int = 5
     web_search_timeout: int = 45
-    
+
     # Security
     max_file_size_mb: int = 10
     allowed_file_extensions: List[str] = ['.pdf', '.txt']
@@ -258,8 +293,9 @@ CREATE INDEX idx_sessions_topic ON sessions(topic);
 ## Performance Considerations
 
 ### Parallelization
-- Jina Reader calls: ThreadPoolExecutor (5 workers)
-- Future: Async research sources
+- **Research sources**: All planned sources execute in parallel via `ThreadPoolExecutor` in `parallel_search_node`
+- **Jina Reader calls**: ThreadPoolExecutor (5 workers) within web search
+- **YouTube**: Search + summarize run sequentially within a single parallel thread
 
 ### Caching
 - File-based cache with TTL
@@ -300,9 +336,8 @@ tavily_api_key = os.getenv("TAVILY_API_KEY")
 
 ### Adding New Research Sources
 1. Create node function in `src/tools/research_tools.py`
-2. Add to workflow in `src/agent.py`
-3. Update routing logic
-4. Add tests
+2. Register it in `source_functions` dict in `src/tools/parallel_tools.py`
+3. Add tests
 
 ### Adding New Personas
 1. Add persona config in `src/tools/synthesis_tools.py`
@@ -340,4 +375,4 @@ logger.error("API call failed")
 
 ---
 
-**Last Updated:** January 20, 2026
+**Last Updated:** February 13, 2026

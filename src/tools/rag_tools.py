@@ -77,22 +77,24 @@ def local_rag_node(state: AgentState) -> dict:
 
     # Helper: Status Update
     STATUS_FILE = "/app/data/rag_status.json"
-    last_status_update = 0
-    
+    import threading as _threading
+    _status_lock = _threading.Lock()
+    _status_state = {"last_update": 0}
+
     def update_status(current, total, filename, force=False):
-        nonlocal last_status_update
         now = time.time()
-        # Throttle: 0.1s
-        if not force and (now - last_status_update < 0.1):
-            return
-        try:
-            temp_file = STATUS_FILE + ".tmp"
-            with open(temp_file, "w") as f:
-                json.dump({"current": current, "total": total, "last_file": filename}, f)
-            os.replace(temp_file, STATUS_FILE)
-            last_status_update = now
-        except Exception as e: 
-            logger.warning(f"Status update failed: {e}")
+        with _status_lock:
+            # Throttle: 0.1s
+            if not force and (now - _status_state["last_update"] < 0.1):
+                return
+            try:
+                temp_file = STATUS_FILE + ".tmp"
+                with open(temp_file, "w") as f:
+                    json.dump({"current": current, "total": total, "last_file": filename}, f)
+                os.replace(temp_file, STATUS_FILE)
+                _status_state["last_update"] = now
+            except Exception as e:
+                logger.warning(f"Status update failed: {e}")
 
     # Scan Files
     files_found = []
