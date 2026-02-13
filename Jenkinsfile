@@ -25,7 +25,7 @@ pipeline {
         stage('Test') {
             steps {
                 echo 'Running tests inside container...'
-                sh "docker run --rm -e TAVILY_API_KEY=test-key ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} python -m pytest tests/ -v --ignore=tests/test_rag_tools.py"
+                sh "docker run --rm -e TAVILY_API_KEY=test-key ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} python -m pytest tests/ -v"
             }
         }
 

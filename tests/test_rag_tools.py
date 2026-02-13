@@ -9,7 +9,7 @@ def test_local_rag_node_no_kb(mock_agent_state):
          patch("os.makedirs") as mock_makedirs, \
          patch("sqlite3.connect") as mock_sqlite:
         result = local_rag_node(mock_agent_state)
-        assert result["local_rag"] == []
+        assert result["local_research"] == []
         mock_makedirs.assert_called_once_with("./knowledge_base")
 
 def test_local_rag_node_with_files(mock_agent_state):
@@ -113,7 +113,7 @@ def test_local_rag_node_with_files(mock_agent_state):
         print(f"DEBUG RESULT: {result}")
         
         # Verify
-        titles = [r["title"] for r in result["local_rag"]]
-        assert len(result["local_rag"]) == 2, f"Got: {result['local_rag']}"
+        titles = [r["title"] for r in result["local_research"]]
+        assert len(result["local_research"]) == 2, f"Got: {result['local_rag']}"
         assert "test.txt" in titles
         assert "doc.pdf" in titles

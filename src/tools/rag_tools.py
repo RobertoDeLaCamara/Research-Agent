@@ -17,7 +17,7 @@ def local_rag_node(state: AgentState) -> dict:
     if not os.path.exists(kb_path):
         os.makedirs(kb_path)
         logger.info(f"Created knowledge_base directory at {kb_path}")
-        return {"local_rag": [], "next_node": update_next_node(state, "local_rag")}
+        return {"local_research": [], "next_node": update_next_node(state, "local_rag"), "source_metadata": {"local_rag": {"source_type": "user_provided_knowledge", "reliability": 5}}}
 
     results = []
     topic = state.get("topic", "").lower()
