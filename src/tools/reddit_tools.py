@@ -32,8 +32,8 @@ def search_reddit_node(state: AgentState) -> dict:
     
     try:
         import threading
+        container = {"data": []}
         def run_reddit_search():
-            nonlocal results
             if tavily_key:
                 from tavily import TavilyClient
                 tavily = TavilyClient(api_key=tavily_key)
@@ -55,20 +55,21 @@ def search_reddit_node(state: AgentState) -> dict:
                 tavily_results = search_result.get("results", [])
                 
                 # Re-format for the node
-                results = [{"content": r.get("content"), "url": r.get("url"), "title": r.get("title")} for r in tavily_results]
+                container["data"] = [{"content": r.get("content"), "url": r.get("url"), "title": r.get("title")} for r in tavily_results]
             else:
                 # Fallback to DuckDuckGo
                 from langchain_community.tools import DuckDuckGoSearchRun
                 search = DuckDuckGoSearchRun()
                 res_text = search.run(f"{search_topic} reddit")
-                results = [{"content": res_text, "url": "Reddit (via DDG)"}]
+                container["data"] = [{"content": res_text, "url": "Reddit (via DDG)"}]
         
         thread = threading.Thread(target=run_reddit_search)
         thread.start()
         thread.join(timeout=15) # 15 seconds timeout
         if thread.is_alive():
             logger.warning("Reddit search timed out.")
-            results = []
+        else:
+            results = container["data"]
         
         logger.info(f"Reddit search completed with {len(results)} results")
         

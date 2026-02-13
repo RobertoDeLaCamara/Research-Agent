@@ -31,10 +31,10 @@ def search_videos_node(state: AgentState) -> dict:
         max_results = get_max_results(state)
         import threading
         results = []
+        container = {"data": []}
         def run_search():
-            nonlocal results
             try:
-                results = YoutubeSearch(search_topic, max_results=max_results).to_dict()
+                container["data"] = YoutubeSearch(search_topic, max_results=max_results).to_dict()
             except Exception as e_inner:
                 logger.error(f"YouTubeSearch error: {e_inner}")
 
@@ -44,6 +44,7 @@ def search_videos_node(state: AgentState) -> dict:
         if thread.is_alive():
             logger.warning("YouTube search timed out.")
             return {"video_urls": [], "video_metadata": []}
+        results = container["data"]
 
         video_urls = []
         video_metadata = []
@@ -106,35 +107,39 @@ def summarize_videos_node(state: AgentState) -> dict:
         try:
             import threading
             docs = []
+            docs_container = {"data": []}
             def load_transcript():
-                nonlocal docs
                 try:
                     loader = YoutubeLoader.from_youtube_url(url, add_video_info=False, language=["es", "en"])
-                    docs = loader.load()
+                    docs_container["data"] = loader.load()
                 except Exception as e_load:
                     print(f"  - ⚠️ Loader error: {e_load}")
 
             thread = threading.Thread(target=load_transcript)
             thread.start()
             thread.join(timeout=20) # 20 seconds for transcript loading
-            
+
+            if not thread.is_alive():
+                docs = docs_container["data"]
             if thread.is_alive() or not docs:
                 if thread.is_alive():
                     print("  - ⚠️ Transcript loading timed out.")
                 raise ValueError("No se pudo obtener la transcripción.")
 
             summary = ""
+            summary_container = {"data": ""}
             def run_summarize():
-                nonlocal summary
                 try:
-                    summary = summarize_chain.run(docs)
+                    summary_container["data"] = summarize_chain.run(docs)
                 except Exception as e_sum:
                     print(f"  - ⚠️ Summarization error: {e_sum}")
 
             thread_sum = threading.Thread(target=run_summarize)
             thread_sum.start()
             thread_sum.join(timeout=90) # 90 seconds per video (Ollama can be slow)
-            
+
+            if not thread_sum.is_alive():
+                summary = summary_container["data"]
             if thread_sum.is_alive() or not summary:
                 if thread_sum.is_alive():
                     print("  - ⚠️ Video summarization timed out.")
@@ -154,22 +159,24 @@ def summarize_videos_node(state: AgentState) -> dict:
                 
                 import threading
                 raw_fallback = ""
+                fallback_container = {"data": ""}
                 def run_fallback():
-                    nonlocal raw_fallback
                     try:
                         from langchain_core.messages import SystemMessage, HumanMessage
                         response = llm.invoke([
                             SystemMessage(content=system_rules),
                             HumanMessage(content=human_prompt)
                         ])
-                        raw_fallback = response.content.strip()
+                        fallback_container["data"] = response.content.strip()
                     except Exception:
                         pass
-                
+
                 thread_fb = threading.Thread(target=run_fallback)
                 thread_fb.start()
                 thread_fb.join(timeout=30)
-                
+
+                if not thread_fb.is_alive():
+                    raw_fallback = fallback_container["data"]
                 if thread_fb.is_alive() or not raw_fallback:
                     raise ValueError("Fallback timed out.")
                 

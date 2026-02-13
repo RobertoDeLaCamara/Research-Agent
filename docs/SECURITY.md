@@ -487,5 +487,5 @@ def check_rate_limit(ip_address: str) -> bool:
 
 ---
 
-**Last Updated:** January 20, 2026  
+**Last Updated:** February 13, 2026
 **Review Schedule:** Quarterly
