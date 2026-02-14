@@ -145,26 +145,31 @@ def evaluate_research_node(state: AgentState) -> dict:
             "topic": state.get("original_topic", state.get("topic", ""))
         }
     
+    research_depth = state.get("research_depth", "standard")
+
     prompt = f"""
     Eres un Crítico de Investigación y Fact-Checker experto. Tu tarea es evaluar si la siguiente síntesis es completa y, sobre todo, si las afirmaciones críticas están debidamente verificadas.
 
     TEMA ORIGINAL: {topic}
+    NIVEL DE PROFUNDIDAD SOLICITADO: {research_depth}
     SÍNTESIS ACTUAL:
     {summary}
 
     INSTRUCCIONES DE EVALUACIÓN (PHASE 5):
     1. Revisa la sección "## Verificación de Datos" de la síntesis (si existe).
     2. Identifica si hay afirmaciones de ALTO IMPACTO que parezcan dudosas o solo tengan una fuente informal.
-    3. Responde en formato JSON:
-       - "sufficient": booleano (true si es sólido, false si falta verificación).
+    3. EVALUACIÓN DE PROFUNDIDAD: Revisa si los puntos principales del informe tienen análisis suficientemente profundo para el nivel "{research_depth}". Un informe superficial que solo lista datos sin analizarlos NO es suficiente para niveles "standard" o "deep".
+    4. Responde en formato JSON:
+       - "sufficient": booleano (true si es sólido Y tiene profundidad adecuada, false si falta verificación o profundidad).
        - "gaps": lista de temas a profundizar (opcional).
+       - "shallow_topics": lista de temas que fueron tratados superficialmente y necesitan más análisis (opcional).
        - "fact_check_queries": lista de consultas específicas para VERIFICAR las dudas encontradas.
        - "reasoning": explicación breve.
 
-    Si no hay dudas críticas, marca "sufficient": true.
+    Si no hay dudas críticas y la profundidad es adecuada, marca "sufficient": true.
 
     EJEMPLO:
-    {{"sufficient": false, "gaps": [], "fact_check_queries": ["¿Es cierto que X soporta Y?"], "reasoning": "Duda sobre compatibilidad."}}
+    {{"sufficient": false, "gaps": [], "shallow_topics": ["Impacto en rendimiento"], "fact_check_queries": ["¿Es cierto que X soporta Y?"], "reasoning": "El tema de rendimiento se menciona pero no se analiza con datos concretos."}}
     """
     
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
@@ -183,13 +188,15 @@ def evaluate_research_node(state: AgentState) -> dict:
         evaluation = json.loads(content)
         sufficient = evaluation.get("sufficient", True)
         gaps = evaluation.get("gaps", [])
+        shallow_topics = evaluation.get("shallow_topics", [])
         fact_check_queries = evaluation.get("fact_check_queries", [])
         reasoning = evaluation.get("reasoning", "")
-        
-        if not sufficient and (gaps or fact_check_queries):
-            logger.info(f"Fact-checking required. Queries: {fact_check_queries}")
-            # Trigger RE-PLAN with gaps and queries
-            combined_gap = f"VERIFICAR Y PROFUNDIZAR: {', '.join(gaps + fact_check_queries)}"
+
+        if not sufficient and (gaps or fact_check_queries or shallow_topics):
+            logger.info(f"Fact-checking required. Queries: {fact_check_queries}, Shallow: {shallow_topics}")
+            # Trigger RE-PLAN with gaps, shallow topics and queries
+            all_items = gaps + shallow_topics + fact_check_queries
+            combined_gap = f"VERIFICAR Y PROFUNDIZAR: {', '.join(all_items)}"
             return {
                 "next_node": "plan_research", 
                 "topic": combined_gap,
