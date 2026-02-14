@@ -240,7 +240,7 @@ def search_arxiv_node(state: AgentState) -> dict:
         results = container["data"]
         # Proceed with what we have
         
-    logger.info("arxiv_search_completed", results_count=len(results))
+    logger.info(f"arxiv_search_completed results_count={len(results)}")
     return {"arxiv_research": results, "next_node": update_next_node(state, "arxiv"), "source_metadata": {"arxiv": {"source_type": "scientific", "reliability": 5}}}
 
 def search_scholar_node(state: AgentState) -> dict:
@@ -288,7 +288,7 @@ def search_scholar_node(state: AgentState) -> dict:
     else:
         results = container["data"]
         
-    logger.info("scholar_search_completed", results_count=len(results))
+    logger.info(f"scholar_search_completed results_count={len(results)}")
     return {"scholar_research": results, "next_node": update_next_node(state, "scholar"), "source_metadata": {"scholar": {"source_type": "scientific", "reliability": 5}}}
 
 def search_github_node(state: AgentState) -> dict:
@@ -312,7 +312,7 @@ def search_github_node(state: AgentState) -> dict:
         def run_github_search():
             try:
                 # Intento 1: Búsqueda específica en Python
-                logger.info("github_python_search", topic=topic)
+                logger.info(f"github_python_search topic={topic}")
                 repositories = g.search_repositories(query=f"{topic} language:python", sort="stars", order="desc")
                 
                 # Comprobar si hay resultados usando totalCount
@@ -363,7 +363,7 @@ def search_github_node(state: AgentState) -> dict:
         else:
             results = container["data"]
             
-        logger.info("github_search_completed", results_count=len(results))
+        logger.info(f"github_search_completed results_count={len(results)}")
     except Exception as e:
         logger.warning("github_search_failed", exc_info=e)
         
@@ -404,7 +404,7 @@ def search_hn_node(state: AgentState) -> dict:
                 "num_comments": hit.get('num_comments')
             })
             
-        logger.info("hn_search_completed", results_count=len(results))
+        logger.info(f"hn_search_completed results_count={len(results)}")
     except Exception as e:
         logger.warning("hn_search_failed", exc_info=e)
         
@@ -460,7 +460,7 @@ def search_so_node(state: AgentState) -> dict:
         else:
             results = container["data"]
             
-        logger.info("stackoverflow_search_completed", results_count=len(results))
+        logger.info(f"stackoverflow_search_completed results_count={len(results)}")
     except Exception as e:
         logger.warning("stackoverflow_search_failed", exc_info=e)
         
