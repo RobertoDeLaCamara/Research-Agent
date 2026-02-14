@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - 2026-02-14
 
+### Infrastructure
+- Configure Gitea webhook for automatic Jenkins builds on push
+
 ### Fixed
 - **Thread Safety**: Replaced all `nonlocal` patterns (12 instances across 4 files) with thread-safe mutable container pattern. Results are only read after `thread.join()` confirms the thread has finished, eliminating race conditions between timed-out threads and the main thread.
 - **Thread Safety (RAG)**: Added `threading.Lock` for `update_status` in `rag_tools.py` where real concurrent access occurs via `ThreadPoolExecutor`.
