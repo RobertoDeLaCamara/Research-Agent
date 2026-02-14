@@ -10,10 +10,15 @@ services:
       - ./reports:/app/reports
       - ./data:/app/data
       - ./knowledge_base:/app/knowledge_base
-      - ./src:/app/src
-      - ./tests:/app/tests
-    network_mode: "host"
     ports:
       - "8501:8501"
+    mem_limit: 512m
+    cpus: "1.0"
+    networks:
+      - agent-net
     # Run Dashboard (default): docker compose up
-    # Run CLI: docker compose run --rm research-agent "Topic" python src/main.py "Topic"
+    # Run CLI: docker compose run --rm research-agent python src/main.py "Topic"
+
+networks:
+  agent-net:
+    driver: bridge

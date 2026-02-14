@@ -3,7 +3,7 @@
 import os
 import logging
 from typing import List
-import PyPDF2
+import pypdf
 from ..state import AgentState
 from .router_tools import update_next_node
 
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def local_rag_node(state: AgentState) -> dict:
     """Scans ./knowledge_base and extracts text from PDF and TXT files."""
-    print("\n--- 📁 NODO: CONOCIMIENTO LOCAL (RAG) ---")
+    logger.info("local_rag_node_started")
     
     kb_path = os.getenv("RAG_KB_DIR", "./knowledge_base")
     if not os.path.exists(kb_path):
@@ -134,7 +134,7 @@ def local_rag_node(state: AgentState) -> dict:
             content = ""
             if filename.lower().endswith(".pdf"):
                 with open(file_path, "rb") as f:
-                    reader = PyPDF2.PdfReader(f)
+                    reader = pypdf.PdfReader(f)
                     max_pages = 50 
                     count = 0
                     for page in reader.pages:

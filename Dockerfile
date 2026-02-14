@@ -1,29 +1,30 @@
-# Use an official Python runtime as a parent image
-FROM python:3.11-slim
+FROM python:3.12-slim
 
-# Set the working directory in the container
 WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+    build-essential curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the requirements file into the container
-COPY requirements.txt .
+# Create non-root user
+RUN useradd -m -d /app app && chown -R app:app /app
 
-# Install any needed packages specified in requirements.txt
+# Install dependencies first (layer caching)
+COPY --chown=app:app requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy the current directory contents into the container at /app
-COPY . .
+# Copy application code
+COPY --chown=app:app . .
 
-# Expose port for Streamlit
+USER app
+
 EXPOSE 8501
 
-# Set environment variables
 ENV PYTHONUNBUFFERED=1
 
-# Default command: run the dashboard
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+
 CMD ["streamlit", "run", "src/app.py", "--server.address=0.0.0.0"]

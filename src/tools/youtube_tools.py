@@ -64,7 +64,7 @@ def search_videos_node(state: AgentState) -> dict:
         return {"video_urls": video_urls, "video_metadata": video_metadata}
 
     except Exception as e:
-        print(f"❌ Error durante la búsqueda de vídeos: {e}")
+        logger.error("video_search_failed", exc_info=e)
         return {"video_urls": [], "video_metadata": []}
 
 
@@ -100,9 +100,9 @@ def summarize_videos_node(state: AgentState) -> dict:
     summarize_chain = load_summarize_chain(llm, chain_type="map_reduce")
 
     for i, url in enumerate(video_urls):
-        print(f"\nProcesando vídeo {i+1}/{len(video_urls)}: {url}")
+        logger.info("processing_video", index=i+1, total=len(video_urls), url=url)
         metadata = video_metadata[i]
-        print(f"  - Título: {metadata['title']}")
+        logger.info("video_title", title=metadata['title'])
 
         try:
             import threading
@@ -113,7 +113,7 @@ def summarize_videos_node(state: AgentState) -> dict:
                     loader = YoutubeLoader.from_youtube_url(url, add_video_info=False, language=["es", "en"])
                     docs_container["data"] = loader.load()
                 except Exception as e_load:
-                    print(f"  - ⚠️ Loader error: {e_load}")
+                    logger.warning("transcript_loader_error", exc_info=e_load)
 
             thread = threading.Thread(target=load_transcript)
             thread.start()
@@ -123,7 +123,7 @@ def summarize_videos_node(state: AgentState) -> dict:
                 docs = docs_container["data"]
             if thread.is_alive() or not docs:
                 if thread.is_alive():
-                    print("  - ⚠️ Transcript loading timed out.")
+                    logger.warning("transcript_loading_timeout")
                 raise ValueError("No se pudo obtener la transcripción.")
 
             summary = ""
@@ -132,7 +132,7 @@ def summarize_videos_node(state: AgentState) -> dict:
                 try:
                     summary_container["data"] = summarize_chain.run(docs)
                 except Exception as e_sum:
-                    print(f"  - ⚠️ Summarization error: {e_sum}")
+                    logger.warning("summarization_error", exc_info=e_sum)
 
             thread_sum = threading.Thread(target=run_summarize)
             thread_sum.start()
@@ -142,15 +142,14 @@ def summarize_videos_node(state: AgentState) -> dict:
                 summary = summary_container["data"]
             if thread_sum.is_alive() or not summary:
                 if thread_sum.is_alive():
-                    print("  - ⚠️ Video summarization timed out.")
+                    logger.warning("summarization_timeout")
                 raise ValueError("Resumen fallido o lento.")
 
             summaries.append(summary.strip())
-            print("  - ✅ Resumen generado desde transcripción.")
+            logger.info("summary_from_transcript")
 
         except Exception as e:
-            print(f"  - ⚠️ Error al procesar vídeo: {e}")
-            print(f"  - 🔄 Usando metadatos como fallback...")
+            logger.warning("video_processing_failed_using_fallback", exc_info=e)
             
             try:
                 # Use a more forceful prompt with XML tags and SystemMessage
@@ -198,9 +197,9 @@ def summarize_videos_node(state: AgentState) -> dict:
                         fallback_summary = raw_fallback
                     
                 summaries.append(fallback_summary)
-                print("  - ✅ Resumen generado desde metadatos (Blindado).")
+                logger.info("summary_from_metadata_fallback")
             except Exception as e_inner:
-                print(f"  - ❌ Error final en fallback: {e_inner}")
+                logger.error("fallback_summary_failed", exc_info=e_inner)
                 summaries.append(f"Vídeo titulado '{metadata.get('title')}' por {metadata.get('author')}. No fue posible extraer el contenido detallado debido a restricciones de YouTube.")
 
     from .router_tools import update_next_node
