@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     thread_execution_timeout: int = 30
     
     # Content Limits
-    max_synthesis_context_chars: int = 25000
+    max_synthesis_context_chars: int = 50000
     max_content_preview_chars: int = 5000
     
     # File Upload Limits

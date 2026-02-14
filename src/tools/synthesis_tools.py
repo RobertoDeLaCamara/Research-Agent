@@ -109,8 +109,33 @@ def consolidate_research_node(state: AgentState) -> dict:
     }
     persona_context = persona_configs.get(persona, persona_configs["general"])
 
+    # Depth-aware instructions
+    research_depth = state.get("research_depth", "standard")
+    depth_instructions = {
+        "quick": """PROFUNDIDAD DE ANÁLISIS (modo rápido):
+- Resume los puntos principales de forma concisa pero informativa.
+- Cada punto principal: 1 párrafo con la idea central y evidencia clave.
+- Extensión orientativa: 800-1500 palabras.""",
+        "standard": """PROFUNDIDAD DE ANÁLISIS (modo estándar):
+- Identifica los 3-5 puntos MÁS RELEVANTES del tema y desarróllalos EN PROFUNDIDAD.
+- Cada punto principal DEBE tener MÚLTIPLES PÁRRAFOS (2-4) con: análisis detallado, evidencia concreta de las fuentes, ejemplos específicos y valoración crítica.
+- Los subtemas secundarios pueden ser más breves (1 párrafo).
+- NO hagas un listado superficial de datos: ANALIZA, COMPARA y SINTETIZA la información.
+- Extensión orientativa: 2000-3500 palabras.""",
+        "deep": """PROFUNDIDAD DE ANÁLISIS (modo profundo):
+- Identifica los 3-5 puntos MÁS RELEVANTES y dedica una sección completa a CADA UNO.
+- Cada punto principal DEBE tener MÚLTIPLES PÁRRAFOS (3-5) que incluyan: contexto histórico o técnico, análisis detallado con evidencia de múltiples fuentes, ejemplos concretos, comparativas cuando aplique, implicaciones y valoración crítica propia.
+- CRUZA INFORMACIÓN entre fuentes: señala coincidencias, contradicciones y matices.
+- Incluye una sección de "Análisis Crítico" donde evalúes limitaciones, sesgos y áreas sin consenso.
+- Los subtemas secundarios también merecen desarrollo (1-2 párrafos).
+- Extensión orientativa: 3500-6000 palabras."""
+    }
+    depth_block = depth_instructions.get(research_depth, depth_instructions["standard"])
+
     system_rules = f"""
 Eres {persona_context} Tu tarea es producir una SINTESIS EJECUTIVA CONSOLIDADA, PROFESIONAL Y CRÍTICA.
+
+{depth_block}
 
 REGLAS DE FORMATO MANDATORIAS:
 1. ESTRUCTURA HIERÁRQUICA: Divide el informe en Secciones (H2) y Subtemas (H3).
@@ -126,7 +151,7 @@ INSTRUCCIONES DE ANÁLISIS ESPECIALISTA (PHASE 6 & 7):
 3. PESO DE AUTORIDAD: Prioriza la información oficial de fuentes académicas y, MUY ESPECIALMENTE, del **CONOCIMIENTO LOCAL (RAG)** proporcionado por el usuario.
 4. CITAS OBLIGATORIAS Y LITERALES (CRÍTICO):
    - Todas las afirmaciones deben tener una cita usando Markdown link: `[Título Corto](URL)`.
-   - **LA URL DEBE SER COPIADA EXACTAMENTE** del campo `URL:` proporcionado en el contexto. 
+   - **LA URL DEBE SER COPIADA EXACTAMENTE** del campo `URL:` proporcionado en el contexto.
    - SI UNA FUENTE NO TIENE URL EN EL CONTEXTO, NO INVENTES UNA. Usa el nombre de la fuente sin enlace o pon `(Fuente sin enlace)`.
    - **PROHIBIDO** usar enlaces de ejemplo como `example.com` o `youtube.com/watch?v=example1`. ESTO SE CONSIDERA UNA ALUCINACIÓN GRAVE.
    - Para archivos locales: `[mi_archivo.pdf](file://...)`.
@@ -148,8 +173,8 @@ FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
     llm = ChatOllama(
         base_url=ollama_base_url,
         model=ollama_model,
-        temperature=0.3,
-        request_timeout=240 # 4 minutes timeout for synthesis
+        temperature=0.4,
+        request_timeout=360 # 6 minutes timeout for synthesis
     )
 
     try:
