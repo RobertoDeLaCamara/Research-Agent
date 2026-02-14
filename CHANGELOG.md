@@ -9,17 +9,22 @@ All notable changes to this project will be documented in this file.
 - Fix Gitea ROOT_URL and Jenkins credentials for commit status notifications
 - Verify end-to-end webhook trigger on push
 - Fix Gitea ROOT_URL in docker-compose.yml (3300 -> 9090)
+- **Docker Hardening**: Upgraded base image to `python:3.12-slim`, added non-root `app` user, added `HEALTHCHECK` via Streamlit health endpoint, added `curl` for healthcheck, `--chown` on COPY steps
+- **Docker Compose**: Replaced `network_mode: "host"` with bridge network (`agent-net`), added resource limits (`mem_limit: 512m`, `cpus: 1.0`), switched from remote image to local `build: .`
 
 ### Fixed
 - **Thread Safety**: Replaced all `nonlocal` patterns (12 instances across 4 files) with thread-safe mutable container pattern. Results are only read after `thread.join()` confirms the thread has finished, eliminating race conditions between timed-out threads and the main thread.
 - **Thread Safety (RAG)**: Added `threading.Lock` for `update_status` in `rag_tools.py` where real concurrent access occurs via `ThreadPoolExecutor`.
 
 ### Changed
+- **PyPDF2 → pypdf**: Migrated from deprecated `PyPDF2` to its modern replacement `pypdf` in `requirements.txt`, `src/tools/rag_tools.py`, and `tests/test_rag_tools.py`.
+- **Structured Logging**: Replaced all 47 `print()` calls across 5 source files with structured `logger.*` calls. Added `structlog` dependency and `src/logging_config.py` module that wraps stdlib logging — JSON output in production (`ENV=production`), pretty console in dev. Updated `src/utils.py:setup_logging()` to use structlog configuration.
 - **Pydantic v2 Migration**: Migrated `src/config.py` from deprecated `class Config:` to `model_config = SettingsConfigDict(...)`. Migrated `src/validators.py` from `@validator` to `@field_validator` with `@classmethod`.
 - **Parallel Research Execution**: Replaced sequential source-by-source execution with `parallel_search_node` using `ThreadPoolExecutor`. All planned research sources now execute concurrently, reducing total research time from sum of timeouts to max of timeouts.
 - **Simplified Graph**: Removed 10+ individual search nodes and all sequential conditional edges from the LangGraph workflow. New flow: `plan_research` → `parallel_search` → `consolidate_research`.
 
 ### Added
+- **`src/logging_config.py`**: Structlog configuration module with environment-aware rendering (JSON for production, console for dev).
 - **`src/tools/parallel_tools.py`**: New module with `parallel_search_node` (concurrent source execution) and `_youtube_combined_node` (YouTube search + summarize in sequence within one thread).
 
 ## [Unreleased] - 2026-01-25
@@ -60,7 +65,7 @@ All notable changes to this project will be documented in this file.
 - Improved error messages with detailed context
 - Enhanced security with input validation (2/10 → 7/10)
 - Improved code quality (6/10 → 9/10)
-- Updated all tests to pass (37/37 passing)
+- Updated all tests to pass (37/37 passing at the time)
 
 ### Security
 - Added injection attack prevention in topic validation

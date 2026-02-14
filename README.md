@@ -53,7 +53,7 @@ docker compose up -d
 ```
 Access the UI at **http://localhost:8501**
 
-> The `docker-compose.yml` mounts `./src` and `./tests` for live code updates without rebuilding.
+> The container runs as a non-root user with resource limits (`512m` memory, `1 CPU`) and a health check. Volumes mount `./reports`, `./data`, and `./knowledge_base`.
 
 ### Local Installation
 ```bash

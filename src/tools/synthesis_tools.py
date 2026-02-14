@@ -153,7 +153,7 @@ FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
     )
 
     try:
-        print("Generando síntesis consolidada...")
+        logger.info("generating_consolidated_synthesis")
         from langchain_core.messages import SystemMessage, HumanMessage
         response = llm.invoke([
             SystemMessage(content=system_rules),
@@ -205,9 +205,9 @@ FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
                 
                 consolidated_text = "\n".join(lines[start_idx:]).strip()
 
-        print("✅ Síntesis completada (Nuclear Cleaning).")
+        logger.info("synthesis_completed")
         
         return {"consolidated_summary": consolidated_text}
     except Exception as e:
-        print(f"❌ Error durante la síntesis: {e}")
+        logger.error("synthesis_failed", exc_info=e)
         return {"consolidated_summary": "No fue posible generar la síntesis consolidada."}

@@ -27,7 +27,7 @@ def test_local_rag_node_with_files(mock_agent_state):
     with patch("os.path.exists", side_effect=exists_side_effect), \
          patch("os.walk", return_value=[("./knowledge_base", [], mock_files)]), \
          patch("builtins.open", MagicMock()) as mock_builtin_open, \
-         patch("src.tools.rag_tools.PyPDF2.PdfReader") as mock_pdf, \
+         patch("src.tools.rag_tools.pypdf.PdfReader") as mock_pdf, \
          patch("os.stat") as mock_stat, \
          patch("json.dump") as mock_json_dump, \
          patch("sqlite3.connect") as mock_sqlite:

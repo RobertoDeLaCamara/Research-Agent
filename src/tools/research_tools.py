@@ -173,7 +173,7 @@ def search_wiki_node(state: AgentState) -> dict:
             results = container["data"]
             logger.info("Wikipedia search completed.")
     except Exception as e:
-        print(f"⚠️ Error en Wikipedia: {e}")
+        logger.warning("wikipedia_search_failed", exc_info=e)
         
     return {"wiki_research": results, "next_node": update_next_node(state, "wiki"), "source_metadata": {"wiki": {"source_type": "official", "reliability": 5}}}
 
@@ -196,7 +196,7 @@ def translate_to_english(text: str) -> str:
 
 def search_arxiv_node(state: AgentState) -> dict:
     """Busca artículos científicos en arXiv usando la librería arxiv directamente."""
-    print("\n--- 📄 NODO: BUSCANDO EN ARXIV ---")
+    logger.info("arxiv_search_started")
     
     topic = state.get("topic", "")
     queries = state.get("queries", {})
@@ -240,12 +240,12 @@ def search_arxiv_node(state: AgentState) -> dict:
         results = container["data"]
         # Proceed with what we have
         
-    print(f"✅ Búsqueda en arXiv completada. Se encontraron {len(results)} artículos.")
+    logger.info("arxiv_search_completed", results_count=len(results))
     return {"arxiv_research": results, "next_node": update_next_node(state, "arxiv"), "source_metadata": {"arxiv": {"source_type": "scientific", "reliability": 5}}}
 
 def search_scholar_node(state: AgentState) -> dict:
     """Busca artículos académicos en Semantic Scholar usando la librería directamente."""
-    print("\n--- 🎓 NODO: BUSCANDO EN SEMANTIC SCHOLAR ---")
+    logger.info("scholar_search_started")
     topic = state["topic"]
     results = []
     
@@ -288,12 +288,12 @@ def search_scholar_node(state: AgentState) -> dict:
     else:
         results = container["data"]
         
-    print(f"✅ Búsqueda en Semantic Scholar completada. Se encontraron {len(results)} resultados.")
+    logger.info("scholar_search_completed", results_count=len(results))
     return {"scholar_research": results, "next_node": update_next_node(state, "scholar"), "source_metadata": {"scholar": {"source_type": "scientific", "reliability": 5}}}
 
 def search_github_node(state: AgentState) -> dict:
     """Busca repositorios relevantes en GitHub. Intenta búsqueda amplia si la específica falla."""
-    print("\n--- 💻 NODO: BUSCANDO EN GITHUB ---")
+    logger.info("github_search_started")
     queries = state.get("queries", {})
     topic = queries.get("en", state["topic"])
     results = []
@@ -312,12 +312,12 @@ def search_github_node(state: AgentState) -> dict:
         def run_github_search():
             try:
                 # Intento 1: Búsqueda específica en Python
-                print(f"Buscando repositorios de Python para: {topic}")
+                logger.info("github_python_search", topic=topic)
                 repositories = g.search_repositories(query=f"{topic} language:python", sort="stars", order="desc")
                 
                 # Comprobar si hay resultados usando totalCount
                 if repositories.totalCount == 0:
-                    print("No se encontraron repositorios de Python. Intentando búsqueda global...")
+                    logger.info("github_fallback_to_global_search")
                     repositories = g.search_repositories(query=topic, sort="stars", order="desc")
                     
                 from concurrent.futures import ThreadPoolExecutor
@@ -363,15 +363,15 @@ def search_github_node(state: AgentState) -> dict:
         else:
             results = container["data"]
             
-        print(f"✅ Búsqueda en GitHub completada ({len(results)} repositorios encontrados).")
+        logger.info("github_search_completed", results_count=len(results))
     except Exception as e:
-        print(f"⚠️ Error en GitHub: {e}")
+        logger.warning("github_search_failed", exc_info=e)
         
     return {"github_research": results, "next_node": update_next_node(state, "github"), "source_metadata": {"github": {"source_type": "tech", "reliability": 4}}}
 
 def search_hn_node(state: AgentState) -> dict:
     """Busca discusiones relevantes en Hacker News."""
-    print("\n--- 🧡 NODO: BUSCANDO EN HACKER NEWS ---")
+    logger.info("hn_search_started")
     queries = state.get("queries", {})
     search_topic = queries.get("en", state["topic"])
     results = []
@@ -404,15 +404,15 @@ def search_hn_node(state: AgentState) -> dict:
                 "num_comments": hit.get('num_comments')
             })
             
-        print(f"✅ Búsqueda en Hacker News completada ({len(results)} historias encontradas).")
+        logger.info("hn_search_completed", results_count=len(results))
     except Exception as e:
-        print(f"⚠️ Error en Hacker News: {e}")
+        logger.warning("hn_search_failed", exc_info=e)
         
     return {"hn_research": results, "next_node": update_next_node(state, "hn"), "source_metadata": {"hn": {"source_type": "tech_community", "reliability": 4}}}
 
 def search_so_node(state: AgentState) -> dict:
     """Busca preguntas técnicas en Stack Overflow."""
-    print("\n--- 💙 NODO: BUSCANDO EN STACK OVERFLOW ---")
+    logger.info("stackoverflow_search_started")
     queries = state.get("queries", {})
     search_topic = queries.get("en", state["topic"])
     results = []
@@ -460,9 +460,9 @@ def search_so_node(state: AgentState) -> dict:
         else:
             results = container["data"]
             
-        print(f"✅ Búsqueda en Stack Overflow completada ({len(results)} preguntas encontradas).")
+        logger.info("stackoverflow_search_completed", results_count=len(results))
     except Exception as e:
-        print(f"⚠️ Error en Stack Overflow: {e}")
+        logger.warning("stackoverflow_search_failed", exc_info=e)
         
     return {"so_research": results, "next_node": update_next_node(state, "so"), "source_metadata": {"so": {"source_type": "tech_qa", "reliability": 4}}}
 

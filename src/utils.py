@@ -5,12 +5,15 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from .config import settings
 
 def setup_logging(level: Optional[str] = None) -> logging.Logger:
-    """Setup logging configuration."""
-    log_level = level or settings.log_level
-    logging.basicConfig(
-        level=getattr(logging, log_level.upper()),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+    """Setup structured logging via structlog.
+
+    Configures structlog to wrap stdlib logging so that all existing
+    ``logging.getLogger()`` calls flow through structlog processors.
+    """
+    if level:
+        os.environ.setdefault("LOG_LEVEL", level.upper())
+    from .logging_config import setup_logging as _configure_structlog
+    _configure_structlog()
     return logging.getLogger(__name__)
 
 def validate_env_vars() -> bool:

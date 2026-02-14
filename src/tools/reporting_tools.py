@@ -535,16 +535,16 @@ def generate_report_node(state: AgentState) -> dict:
         generate_docx(state, topic, docx_path, bibliography)
         logger.info("DOCX generated successfully.")
     except Exception as e:
-        print(f"⚠️ Error al generar DOCX: {e}")
+        logger.warning("docx_generation_failed", exc_info=e)
         docx_path = None
 
     # --- GENERACIÓN DE PDF ---
     pdf_path = os.path.join(reports_dir, "reporte_investigacion.pdf")
     try:
         generate_pdf(state, topic, pdf_path, bibliography) 
-        print("✅ PDF generado con éxito.")
+        logger.info("pdf_generated")
     except Exception as e:
-        print(f"⚠️ Error al generar PDF: {e}")
+        logger.warning("pdf_generation_failed", exc_info=e)
         pdf_path = None
 
     # Phase 6: Save finalized research state to database for persistence
@@ -555,7 +555,7 @@ def generate_report_node(state: AgentState) -> dict:
     except Exception as e_db:
         logger.error(f"Failed to persist research session: {e_db}")
 
-    print("✅ Informe HTML generado con éxito.")
+    logger.info("html_report_generated")
     return {
         "report": html_content, 
         "bibliography": bibliography, 
@@ -674,14 +674,14 @@ def send_email_node(state: AgentState) -> dict:
     Returns:
         dict: Un diccionario con una bandera 'email_sent' para evitar re-envíos.
     """
-    print("\n--- 📧 NODO: ENVIANDO CORREO ELECTRÓNICO ---")
+    logger.info("send_email_node_started")
     
     # Verificación de idempotencia
     report = state.get("report", "")
     topic = state.get("original_topic", state.get("topic", "Informe-Investigacion"))
     file_topic = topic.replace(" ", "_")[:50]
     if not report:
-        print("⚠️ No hay reporte para enviar.")
+        logger.warning("no_report_to_send")
         return {}
         
     # Crear un hash del reporte para identificar envíos duplicados
@@ -689,7 +689,7 @@ def send_email_node(state: AgentState) -> dict:
     
     # Comprobar si ya enviamos este reporte exacto en esta ejecución
     if state.get("last_email_hash") == report_hash:
-        print("ℹ️ El correo para este reporte ya ha sido enviado. Omitiendo duplicado.")
+        logger.info("email_already_sent", report_hash=report_hash)
         return {}
 
     # Obtenemos la configuración del correo desde las variables de entorno.
@@ -701,7 +701,7 @@ def send_email_node(state: AgentState) -> dict:
     port = settings.email_port         
 
     if not all([sender_email, receiver_email, password]):
-        print("❌ Faltan credenciales de correo en el archivo .env. No se puede enviar el correo.")
+        logger.error("email_credentials_missing")
         return {}
 
     # Creación del objeto del mensaje de correo.
@@ -725,29 +725,29 @@ def send_email_node(state: AgentState) -> dict:
                 f"attachment; filename={os.path.basename(pdf_path)}",
             )
             msg.attach(part)
-            print(f"✅ PDF adjunto al correo: {pdf_path}")
+            logger.info("pdf_attached_to_email", path=pdf_path)
         except Exception as e:
-            print(f"⚠️ Error al adjuntar PDF: {e}")
+            logger.warning("pdf_attachment_failed", exc_info=e)
 
     try:
         # Iniciamos la conexión con el servidor SMTP.
-        print(f"Conectando al servidor SMTP en {host}:{port}...")
+        logger.info("smtp_connecting", host=host, port=port)
         server = smtplib.SMTP(host, port, timeout=30)
         server.starttls()  
         server.login(sender_email, password)
         
         # Enviamos el correo.
         server.sendmail(sender_email, receiver_email, msg.as_string())
-        print(f"✅ Correo electrónico enviado con éxito a {receiver_email}.")
+        logger.info("email_sent", recipient=receiver_email)
         
         # Devolvemos el hash para evitar envíos futuros del mismo contenido
         return {"last_email_hash": report_hash}
         
     except smtplib.SMTPAuthenticationError:
-        print("❌ Error de autenticación. Revisa tu EMAIL_USERNAME y EMAIL_PASSWORD.")
+        logger.error("smtp_authentication_failed")
         return {}
     except Exception as e:
-        print(f"❌ Error al enviar el correo: {e}")
+        logger.error("email_send_failed", exc_info=e)
         return {}
     finally:
         if 'server' in locals() and server.sock:

@@ -33,8 +33,8 @@ Before deploying to production, you **MUST** complete these security tasks:
 # Run all tests
 python3 -m pytest tests/ -v
 
-# Verify all 37 tests pass
-# Expected: 37 passed, 0 failed, 0 skipped
+# Verify all 49 tests pass
+# Expected: 49 passed, 0 failed, 0 skipped
 
 # Test the application locally
 streamlit run src/app.py --server.address=0.0.0.0
@@ -265,7 +265,7 @@ For issues:
 
 ## Production Checklist
 
-- [ ] All tests passing (37/37)
+- [ ] All tests passing (49/49)
 - [ ] Exposed credentials revoked
 - [ ] New credentials generated and configured
 - [ ] .env file not in git

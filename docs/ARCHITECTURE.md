@@ -361,10 +361,18 @@ tavily_api_key = os.getenv("TAVILY_API_KEY")
 ## Monitoring & Observability
 
 ### Logging
+
+Structured logging via `structlog` wrapping stdlib `logging`. All existing `logging.getLogger()` calls flow through structlog processors automatically.
+
+- **Dev** (`ENV=dev`, default): Pretty console output via `ConsoleRenderer`
+- **Production** (`ENV=production`): JSON output via `JSONRenderer`
+
+Configuration: `src/logging_config.py`, called from `src/utils.py:setup_logging()`.
+
 ```python
-logger.info("Starting research...")
-logger.warning("Timeout occurred")
-logger.error("API call failed")
+logger.info("arxiv_search_completed", results_count=5)
+logger.warning("github_search_failed", exc_info=e)
+logger.error("smtp_authentication_failed")
 ```
 
 ### Metrics (Future)
@@ -375,4 +383,4 @@ logger.error("API call failed")
 
 ---
 
-**Last Updated:** February 13, 2026
+**Last Updated:** February 14, 2026

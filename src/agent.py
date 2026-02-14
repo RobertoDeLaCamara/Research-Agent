@@ -77,15 +77,15 @@ def route_chat(state: AgentState) -> str:
 
 def save_db_node(state: AgentState) -> dict:
     """Save the final state to the database."""
-    print("\n--- 💾 NODO: GUARDANDO SESIÓN ---")
+    logger.info("save_db_node_started")
     from .db_manager import save_session
     try:
         topic = state.get("topic", "Sin Tema")
         persona = state.get("persona", "General")
         save_session(topic, persona, state)
-        print("✅ Sesión guardada en base de datos.")
+        logger.info("session_saved", topic=topic, persona=persona)
     except Exception as e:
-        print(f"⚠️ Error al guardar sesión: {e}")
+        logger.error("session_save_failed", error=str(e))
     return {} # No state update needed
 
 # Create workflow graph
