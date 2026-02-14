@@ -24,8 +24,28 @@ pipeline {
 
         stage('Test') {
             steps {
-                echo 'Running tests inside container...'
-                sh "docker run --rm -e TAVILY_API_KEY=test-key ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} python -m pytest tests/ -v"
+                echo 'Running tests with coverage...'
+                // Mount current directory to get the coverage.xml out
+                sh "docker run --rm -v \$(pwd):/app -w /app -e TAVILY_API_KEY=test-key ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} python -m pytest tests/ -v --cov=src --cov-report=xml:coverage.xml"
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    def scannerHome = tool name: 'SonarQube Scanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+                    withSonarQubeEnv('SonarQube') {
+                        sh "${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=research-agent \
+                            -Dsonar.sources=src \
+                            -Dsonar.tests=tests \
+                            -Dsonar.python.version=3.12 \
+                            -Dsonar.python.coverage.reportPaths=coverage.xml \
+                            -Dsonar.host.url=http://192.168.1.86:9000 \
+                            -Dsonar.login=admin \
+                            -Dsonar.password=patilla1"
+                    }
+                }
             }
         }
 
