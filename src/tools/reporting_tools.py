@@ -689,7 +689,7 @@ def send_email_node(state: AgentState) -> dict:
     
     # Comprobar si ya enviamos este reporte exacto en esta ejecución
     if state.get("last_email_hash") == report_hash:
-        logger.info("email_already_sent", report_hash=report_hash)
+        logger.info(f"email_already_sent report_hash={report_hash}")
         return {}
 
     # Obtenemos la configuración del correo desde las variables de entorno.
@@ -725,20 +725,20 @@ def send_email_node(state: AgentState) -> dict:
                 f"attachment; filename={os.path.basename(pdf_path)}",
             )
             msg.attach(part)
-            logger.info("pdf_attached_to_email", path=pdf_path)
+            logger.info(f"pdf_attached_to_email path={pdf_path}")
         except Exception as e:
             logger.warning("pdf_attachment_failed", exc_info=e)
 
     try:
         # Iniciamos la conexión con el servidor SMTP.
-        logger.info("smtp_connecting", host=host, port=port)
+        logger.info(f"smtp_connecting host={host} port={port}")
         server = smtplib.SMTP(host, port, timeout=30)
         server.starttls()  
         server.login(sender_email, password)
         
         # Enviamos el correo.
         server.sendmail(sender_email, receiver_email, msg.as_string())
-        logger.info("email_sent", recipient=receiver_email)
+        logger.info(f"email_sent recipient={receiver_email}")
         
         # Devolvemos el hash para evitar envíos futuros del mismo contenido
         return {"last_email_hash": report_hash}

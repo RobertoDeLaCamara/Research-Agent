@@ -83,9 +83,9 @@ def save_db_node(state: AgentState) -> dict:
         topic = state.get("topic", "Sin Tema")
         persona = state.get("persona", "General")
         save_session(topic, persona, state)
-        logger.info("session_saved", topic=topic, persona=persona)
+        logger.info(f"session_saved topic={topic} persona={persona}")
     except Exception as e:
-        logger.error("session_save_failed", error=str(e))
+        logger.error(f"session_save_failed error={e}")
     return {} # No state update needed
 
 # Create workflow graph

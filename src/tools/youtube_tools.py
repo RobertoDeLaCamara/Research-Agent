@@ -100,9 +100,9 @@ def summarize_videos_node(state: AgentState) -> dict:
     summarize_chain = load_summarize_chain(llm, chain_type="map_reduce")
 
     for i, url in enumerate(video_urls):
-        logger.info("processing_video", index=i+1, total=len(video_urls), url=url)
+        logger.info(f"processing_video index={i+1} total={len(video_urls)} url={url}")
         metadata = video_metadata[i]
-        logger.info("video_title", title=metadata['title'])
+        logger.info(f"video_title title={metadata['title']}")
 
         try:
             import threading
