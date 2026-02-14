@@ -93,7 +93,7 @@ pytest tests/ -v
 | [Architecture](docs/ARCHITECTURE.md) | System design, workflow, and extension points |
 | [Testing](docs/TESTING.md) | Test guide, fixtures, and CI setup |
 | [Security](docs/SECURITY.md) | Input validation, credentials, deployment |
-| [API](docs/API.md) | API endpoints |
+| [Developer Reference](docs/DEVELOPER_REFERENCE.md) | Internal modules, state, and configuration |
 | [Deployment](docs/DEPLOYMENT.md) | Docker and production setup |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Common issues |
 | [Changelog](CHANGELOG.md) | Version history |

@@ -1,4 +1,4 @@
-# API Reference
+# Developer Reference
 
 ## Core Components
 
