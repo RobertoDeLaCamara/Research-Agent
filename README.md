@@ -96,7 +96,6 @@ pytest tests/ -v
 | [API](docs/API.md) | API endpoints |
 | [Deployment](docs/DEPLOYMENT.md) | Docker and production setup |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Common issues |
-| [Code Review](docs/CODE_REVIEW.md) | Quality assessment and action items |
 | [Changelog](CHANGELOG.md) | Version history |
 
 ## License

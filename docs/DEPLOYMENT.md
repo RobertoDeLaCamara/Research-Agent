@@ -261,8 +261,7 @@ git push origin main
 For issues:
 1. Check logs first
 2. Review CHANGELOG.md for recent changes
-3. Check CODE_REVIEW.md for known issues
-4. Run tests to verify functionality
+3. Run tests to verify functionality
 
 ## Production Checklist
 
