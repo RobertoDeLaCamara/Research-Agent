@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Infrastructure
 - Configure Gitea webhook for automatic Jenkins builds on push
+- Fix Gitea ROOT_URL and Jenkins credentials for commit status notifications
 
 ### Fixed
 - **Thread Safety**: Replaced all `nonlocal` patterns (12 instances across 4 files) with thread-safe mutable container pattern. Results are only read after `thread.join()` confirms the thread has finished, eliminating race conditions between timed-out threads and the main thread.
