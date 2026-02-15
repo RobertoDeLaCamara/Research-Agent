@@ -1,11 +1,5 @@
 pipeline {
-    agent {
-        label 'docker'
-    }
-
-    tools {
-        dockerTool 'docker'
-    }
+    agent any
 
     environment {
         REGISTRY = "192.168.1.86:5000"
