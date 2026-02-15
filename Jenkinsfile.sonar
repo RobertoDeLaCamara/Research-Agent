@@ -47,6 +47,9 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 echo 'Running SonarQube analysis...'
+                // Debug: List workspace files
+                sh 'ls -la'
+                sh 'ls -la tests/ || echo "tests directory not found"'
                 sh """
                 docker run --rm \
                     -v \${WORKSPACE}:/usr/src \
