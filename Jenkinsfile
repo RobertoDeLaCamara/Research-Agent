@@ -17,23 +17,6 @@ pipeline {
             }
         }
 
-        stage('Run Tests') {
-            steps {
-                echo 'Running unit tests...'
-                // Debug: List files in workspace
-                sh 'ls -la'
-                // Using a temporary container to run tests before building the final image
-                // Ensure requirements are installed and pytest runs
-                sh """
-                docker run --rm \
-                    -v ${WORKSPACE}:/app \
-                    -w /app \
-                    -e TAVILY_API_KEY=test-key \
-                    python:3.12-slim \
-                    sh -c "ls -la && pip install --no-cache-dir -r requirements.txt && python -m pytest tests/ -v --cov=src --cov-report=xml:coverage.xml"
-                """
-            }
-        }
 
         stage('Build Image') {
             steps {
@@ -42,13 +25,23 @@ pipeline {
             }
         }
 
+        stage('Run Tests') {
+            steps {
+                echo 'Running unit tests inside built image...'
+                sh """
+                docker run --rm \
+                    -e TAVILY_API_KEY=test-key \
+                    ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} \
+                    python -m pytest tests/ -v --cov=src --cov-report=xml:coverage.xml
+                """
+            }
+        }
+
         stage('Integration Tests') {
             steps {
                 echo 'Running integration tests (Health Check)...'
                 script {
                     // Start the container in detached mode
-                    // We map port 8501 to check it from outside if needed, 
-                    // but we'll use docker exec for the health check to be self-contained
                     try {
                         sh "docker run -d --name integration-test-${BUILD_NUMBER} ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}"
                         
@@ -56,7 +49,6 @@ pipeline {
                         sleep 10
                         
                         // Check health using the internal healthcheck defined in Dockerfile
-                        // Or via curl localhost:8501/health if we mapped ports
                         sh "docker exec integration-test-${BUILD_NUMBER} curl -f http://localhost:8501/_stcore/health"
                     } finally {
                         // Cleanup
