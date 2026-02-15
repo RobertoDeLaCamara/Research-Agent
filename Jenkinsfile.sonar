@@ -26,16 +26,19 @@ pipeline {
                     // Build the image first to ensure we have the latest code
                     sh "docker build -t ${REGISTRY}/${IMAGE_NAME}:sonar-temp ."
                     
-                    // Run tests inside the container and copy coverage.xml out
+                    // Run tests inside a named container to extract coverage.xml
                     sh """
-                    docker run --rm \
-                        -v \${WORKSPACE}:/output \
+                    docker run --name sonar-test-${BUILD_NUMBER} \
                         -e TAVILY_API_KEY=test-key \
                         ${REGISTRY}/${IMAGE_NAME}:sonar-temp \
-                        sh -c "python -m pytest tests/ -v --cov=src --cov-report=xml:coverage.xml && cp coverage.xml /output/"
+                        python -m pytest tests/ -v --cov=src --cov-report=xml:coverage.xml
                     """
                     
-                    // Cleanup temp image
+                    // Copy coverage.xml from container to workspace
+                    sh "docker cp sonar-test-${BUILD_NUMBER}:/app/coverage.xml \${WORKSPACE}/coverage.xml"
+                    
+                    // Cleanup container and temp image
+                    sh "docker rm sonar-test-${BUILD_NUMBER} || true"
                     sh "docker rmi ${REGISTRY}/${IMAGE_NAME}:sonar-temp || true"
                 }
             }
