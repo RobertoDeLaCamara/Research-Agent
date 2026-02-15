@@ -24,7 +24,7 @@ pipeline {
                 // Ensure requirements are installed and pytest runs
                 sh """
                 docker run --rm \
-                    -v \$(pwd):/app \
+                    -v ${WORKSPACE}:/app \
                     -w /app \
                     -e TAVILY_API_KEY=test-key \
                     python:3.12-slim \
