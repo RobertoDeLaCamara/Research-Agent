@@ -56,7 +56,6 @@ pipeline {
                     sonarsource/sonar-scanner-cli \
                     -Dsonar.projectKey=${PROJECT_KEY} \
                     -Dsonar.sources=src \
-                    -Dsonar.tests=tests \
                     -Dsonar.python.version=3.12 \
                     -Dsonar.python.coverage.reportPaths=coverage.xml \
                     -Dsonar.host.url=${SONAR_HOST_URL} \
