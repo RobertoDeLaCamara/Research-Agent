@@ -1,0 +1,111 @@
+pipeline {
+    agent {
+        label 'built-in'
+    }
+
+    environment {
+        SONAR_HOST_URL = "http://192.168.1.86:9000"
+        SONAR_LOGIN = "admin"
+        SONAR_PASSWORD = "patilla1"
+        PROJECT_KEY = "research-agent"
+        REGISTRY = "192.168.1.86:5000"
+        IMAGE_NAME = "research-agent"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Run Tests with Coverage') {
+            steps {
+                echo 'Running tests to generate coverage report...'
+                script {
+                    // Build the image first to ensure we have the latest code
+                    sh "docker build -t ${REGISTRY}/${IMAGE_NAME}:sonar-temp ."
+                    
+                    // Run tests inside the container and copy coverage.xml out
+                    sh """
+                    docker run --rm \
+                        -v \${WORKSPACE}:/output \
+                        -e TAVILY_API_KEY=test-key \
+                        ${REGISTRY}/${IMAGE_NAME}:sonar-temp \
+                        sh -c "python -m pytest tests/ -v --cov=src --cov-report=xml:coverage.xml && cp coverage.xml /output/"
+                    """
+                    
+                    // Cleanup temp image
+                    sh "docker rmi ${REGISTRY}/${IMAGE_NAME}:sonar-temp || true"
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                echo 'Running SonarQube analysis...'
+                sh """
+                docker run --rm \
+                    -v \${WORKSPACE}:/usr/src \
+                    sonarsource/sonar-scanner-cli \
+                    -Dsonar.projectKey=${PROJECT_KEY} \
+                    -Dsonar.sources=src \
+                    -Dsonar.tests=tests \
+                    -Dsonar.python.version=3.12 \
+                    -Dsonar.python.coverage.reportPaths=coverage.xml \
+                    -Dsonar.host.url=${SONAR_HOST_URL} \
+                    -Dsonar.login=${SONAR_LOGIN} \
+                    -Dsonar.password=${SONAR_PASSWORD} \
+                    -Dsonar.scm.disabled=true
+                """
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                echo 'Checking Quality Gate status...'
+                script {
+                    // Wait a bit for SonarQube to process the report
+                    sleep 10
+                    
+                    // Check quality gate status
+                    def response = sh(
+                        script: """
+                        curl -s -u ${SONAR_LOGIN}:${SONAR_PASSWORD} \
+                        '${SONAR_HOST_URL}/api/qualitygates/project_status?projectKey=${PROJECT_KEY}'
+                        """,
+                        returnStdout: true
+                    ).trim()
+                    
+                    echo "Quality Gate Response: ${response}"
+                    
+                    // Parse the response to check if quality gate passed
+                    if (response.contains('"status":"ERROR"')) {
+                        error("Quality Gate FAILED! Check SonarQube dashboard: ${SONAR_HOST_URL}/dashboard?id=${PROJECT_KEY}")
+                    } else if (response.contains('"status":"OK"')) {
+                        echo "✅ Quality Gate PASSED!"
+                    } else {
+                        echo "⚠️ Quality Gate status unknown. Check SonarQube dashboard."
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            // Archive the coverage report
+            archiveArtifacts artifacts: 'coverage.xml', allowEmptyArchive: true
+            
+            // Clean up workspace
+            sh 'rm -f coverage.xml || true'
+        }
+        success {
+            echo "✅ SonarQube analysis completed successfully!"
+            echo "📊 View results at: ${SONAR_HOST_URL}/dashboard?id=${PROJECT_KEY}"
+        }
+        failure {
+            echo "❌ SonarQube analysis failed!"
+        }
+    }
+}
