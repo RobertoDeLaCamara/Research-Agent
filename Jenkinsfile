@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    tools {
+        dockerTool 'docker'
+    }
+
     environment {
         REGISTRY = "192.168.1.86:5000"
         IMAGE_NAME = "research-agent"
