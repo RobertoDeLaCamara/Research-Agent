@@ -85,6 +85,32 @@ pipeline {
                 sh "docker push ${REGISTRY}/${IMAGE_NAME}:latest"
             }
         }
+
+        stage('SonarQube Analysis') {
+            steps {
+                echo 'Running SonarQube code quality analysis...'
+                script {
+                    // Generate coverage report first
+                    sh """
+                    docker run --name coverage-${BUILD_NUMBER} \
+                        -e TAVILY_API_KEY=test-key \
+                        ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} \
+                        python -m pytest tests/ --cov=src --cov-report=xml:coverage.xml
+                    """
+                    
+                    // Extract coverage.xml
+                    sh "docker cp coverage-${BUILD_NUMBER}:/app/coverage.xml \${WORKSPACE}/coverage.xml"
+                    sh "docker rm coverage-${BUILD_NUMBER} || true"
+                    
+                    // Run SonarQube analysis using the script
+                    sh 'chmod +x scripts/run_sonar.sh'
+                    sh './scripts/run_sonar.sh'
+                    
+                    // Cleanup
+                    sh 'rm -f coverage.xml || true'
+                }
+            }
+        }
     }
 
     post {
