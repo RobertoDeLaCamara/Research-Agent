@@ -28,12 +28,31 @@ pipeline {
         stage('Run Tests') {
             steps {
                 echo 'Running unit tests inside built image...'
-                sh """
-                docker run --rm \
-                    -e TAVILY_API_KEY=test-key \
-                    ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} \
-                    python -m pytest tests/ -v --cov=src --cov-report=xml:coverage.xml
-                """
+                script {
+                    // Run tests in a named container to extract results
+                    sh """
+                    docker run --name test-${BUILD_NUMBER} \
+                        -e TAVILY_API_KEY=test-key \
+                        ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} \
+                        python -m pytest tests/ -v \
+                            --cov=src \
+                            --cov-report=xml:coverage.xml \
+                            --junitxml=test-results.xml
+                    """
+                    
+                    // Extract test results from container
+                    sh "docker cp test-${BUILD_NUMBER}:/app/test-results.xml \${WORKSPACE}/test-results.xml || true"
+                    sh "docker cp test-${BUILD_NUMBER}:/app/coverage.xml \${WORKSPACE}/coverage.xml || true"
+                    
+                    // Cleanup container
+                    sh "docker rm test-${BUILD_NUMBER} || true"
+                }
+            }
+            post {
+                always {
+                    // Publish test results
+                    junit allowEmptyResults: true, testResults: 'test-results.xml'
+                }
             }
         }
 
@@ -70,6 +89,9 @@ pipeline {
 
     post {
         always {
+            // Clean up test artifacts
+            sh 'rm -f test-results.xml coverage.xml || true'
+            
             // Clean up old images to save space
             sh "docker rmi ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} || true"
         }
