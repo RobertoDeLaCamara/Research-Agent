@@ -20,6 +20,8 @@ pipeline {
         stage('Run Tests') {
             steps {
                 echo 'Running unit tests...'
+                // Debug: List files in workspace
+                sh 'ls -la'
                 // Using a temporary container to run tests before building the final image
                 // Ensure requirements are installed and pytest runs
                 sh """
@@ -28,7 +30,7 @@ pipeline {
                     -w /app \
                     -e TAVILY_API_KEY=test-key \
                     python:3.12-slim \
-                    sh -c "pip install --no-cache-dir -r requirements.txt && python -m pytest tests/ -v --cov=src --cov-report=xml:coverage.xml"
+                    sh -c "ls -la && pip install --no-cache-dir -r requirements.txt && python -m pytest tests/ -v --cov=src --cov-report=xml:coverage.xml"
                 """
             }
         }
