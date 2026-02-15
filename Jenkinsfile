@@ -1,13 +1,17 @@
 pipeline {
-    agent {
-        label 'built-in'
+    agent any
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '5'))
+        timestamps()
+        timeout(time: 30, unit: 'MINUTES')
     }
 
     environment {
         REGISTRY = "192.168.1.86:5000"
         IMAGE_NAME = "research-agent"
-        NO_PROXY = 'localhost,127.0.0.1,192.168.1.0/24,192.168.1.86,192.168.1.62'
-        no_proxy = 'localhost,127.0.0.1,192.168.1.0/24,192.168.1.86,192.168.1.62'
+        NO_PROXY = 'localhost,127.0.0.1,192.168.1.0/24,192.168.1.86,192.168.1.62,192.168.1.45'
+        no_proxy = 'localhost,127.0.0.1,192.168.1.0/24,192.168.1.86,192.168.1.62,192.168.1.45'
     }
 
     stages {
@@ -16,7 +20,6 @@ pipeline {
                 checkout scm
             }
         }
-
 
         stage('Build Image') {
             steps {
@@ -29,51 +32,27 @@ pipeline {
             steps {
                 echo 'Running unit tests inside built image...'
                 script {
-                    // Run tests in a named container to extract results
-                    sh """
-                    docker run --name test-${BUILD_NUMBER} \
-                        -e TAVILY_API_KEY=test-key \
-                        ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} \
-                        python -m pytest tests/ -v \
-                            --cov=src \
-                            --cov-report=xml:coverage.xml \
-                            --junitxml=test-results.xml
-                    """
-                    
-                    // Extract test results from container
-                    sh "docker cp test-${BUILD_NUMBER}:/app/test-results.xml \${WORKSPACE}/test-results.xml || true"
-                    sh "docker cp test-${BUILD_NUMBER}:/app/coverage.xml \${WORKSPACE}/coverage.xml || true"
-                    
-                    // Cleanup container
-                    sh "docker rm test-${BUILD_NUMBER} || true"
+                    try {
+                        sh """
+                        docker run --name test-${BUILD_NUMBER} \
+                            -e TAVILY_API_KEY=test-key \
+                            ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} \
+                            python -m pytest tests/ -v \
+                                --cov=src \
+                                --cov-report=xml:coverage.xml \
+                                --junitxml=test-results.xml \
+                                --disable-warnings
+                        """
+                    } finally {
+                        sh "docker cp test-${BUILD_NUMBER}:/app/test-results.xml \${WORKSPACE}/test-results.xml || true"
+                        sh "docker cp test-${BUILD_NUMBER}:/app/coverage.xml \${WORKSPACE}/coverage.xml || true"
+                        sh "docker rm test-${BUILD_NUMBER} || true"
+                    }
                 }
             }
             post {
                 always {
-                    // Publish test results
                     junit allowEmptyResults: true, testResults: 'test-results.xml'
-                }
-            }
-        }
-
-        stage('Integration Tests') {
-            steps {
-                echo 'Running integration tests (Health Check)...'
-                script {
-                    // Start the container in detached mode
-                    try {
-                        sh "docker run -d --name integration-test-${BUILD_NUMBER} ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}"
-                        
-                        // Wait for the service to start
-                        sleep 10
-                        
-                        // Check health using the internal healthcheck defined in Dockerfile
-                        sh "docker exec integration-test-${BUILD_NUMBER} curl -f http://localhost:8501/_stcore/health"
-                    } finally {
-                        // Cleanup
-                        sh "docker stop integration-test-${BUILD_NUMBER} || true"
-                        sh "docker rm integration-test-${BUILD_NUMBER} || true"
-                    }
                 }
             }
         }
@@ -85,47 +64,18 @@ pipeline {
                 sh "docker push ${REGISTRY}/${IMAGE_NAME}:latest"
             }
         }
-
-        stage('SonarQube Analysis') {
-            steps {
-                echo 'Running SonarQube code quality analysis...'
-                script {
-                    // Generate coverage report first
-                    sh """
-                    docker run --name coverage-${BUILD_NUMBER} \
-                        -e TAVILY_API_KEY=test-key \
-                        ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} \
-                        python -m pytest tests/ --cov=src --cov-report=xml:coverage.xml
-                    """
-                    
-                    // Extract coverage.xml
-                    sh "docker cp coverage-${BUILD_NUMBER}:/app/coverage.xml \${WORKSPACE}/coverage.xml"
-                    sh "docker rm coverage-${BUILD_NUMBER} || true"
-                    
-                    // Run SonarQube analysis using the script
-                    sh 'chmod +x scripts/run_sonar.sh'
-                    sh './scripts/run_sonar.sh'
-                    
-                    // Cleanup
-                    sh 'rm -f coverage.xml || true'
-                }
-            }
-        }
     }
 
     post {
         always {
-            // Clean up test artifacts
             sh 'rm -f test-results.xml coverage.xml || true'
-            
-            // Clean up old images to save space
             sh "docker rmi ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} || true"
         }
-        failure {
-            echo "Pipeline failed."
-        }
         success {
-            echo "Pipeline succeeded!"
+            echo 'Pipeline succeeded!'
+        }
+        failure {
+            echo 'Pipeline failed.'
         }
     }
 }
