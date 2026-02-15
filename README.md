@@ -101,6 +101,3 @@ pytest tests/ -v
 ## License
 
 MIT — see [LICENSE](LICENSE).
-# Test webhook
-# Webhook test 2
-# Webhook test 2
