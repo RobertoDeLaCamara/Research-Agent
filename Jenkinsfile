@@ -1,5 +1,7 @@
 pipeline {
-    agent any
+    agent {
+        label 'built-in'
+    }
 
     environment {
         REGISTRY = "192.168.1.86:5000"
