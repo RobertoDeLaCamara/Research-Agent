@@ -15,6 +15,22 @@ pipeline {
             }
         }
 
+        stage('Run Tests') {
+            steps {
+                echo 'Running unit tests...'
+                // Using a temporary container to run tests before building the final image
+                // Ensure requirements are installed and pytest runs
+                sh """
+                docker run --rm \
+                    -v \$(pwd):/app \
+                    -w /app \
+                    -e TAVILY_API_KEY=test-key \
+                    python:3.12-slim \
+                    sh -c "pip install --no-cache-dir -r requirements.txt && python -m pytest tests/ -v --cov=src --cov-report=xml:coverage.xml"
+                """
+            }
+        }
+
         stage('Build Image') {
             steps {
                 echo 'Building Docker image...'
@@ -22,28 +38,26 @@ pipeline {
             }
         }
 
-        stage('Test') {
+        stage('Integration Tests') {
             steps {
-                echo 'Running tests with coverage...'
-                // Mount current directory to get the coverage.xml out
-                sh "docker run --rm -v \$(pwd):/app -w /app -e TAVILY_API_KEY=test-key ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} python -m pytest tests/ -v --cov=src --cov-report=xml:coverage.xml"
-            }
-        }
-
-        stage('SonarQube Analysis') {
-            steps {
+                echo 'Running integration tests (Health Check)...'
                 script {
-                    def scannerHome = tool name: 'SonarQube Scanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
-                    withSonarQubeEnv('SonarQube') {
-                        sh "${scannerHome}/bin/sonar-scanner \
-                            -Dsonar.projectKey=research-agent \
-                            -Dsonar.sources=src \
-                            -Dsonar.tests=tests \
-                            -Dsonar.python.version=3.12 \
-                            -Dsonar.python.coverage.reportPaths=coverage.xml \
-                            -Dsonar.host.url=http://192.168.1.86:9000 \
-                            -Dsonar.login=admin \
-                            -Dsonar.password=patilla1"
+                    // Start the container in detached mode
+                    // We map port 8501 to check it from outside if needed, 
+                    // but we'll use docker exec for the health check to be self-contained
+                    try {
+                        sh "docker run -d --name integration-test-${BUILD_NUMBER} ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}"
+                        
+                        // Wait for the service to start
+                        sleep 10
+                        
+                        // Check health using the internal healthcheck defined in Dockerfile
+                        // Or via curl localhost:8501/health if we mapped ports
+                        sh "docker exec integration-test-${BUILD_NUMBER} curl -f http://localhost:8501/_stcore/health"
+                    } finally {
+                        // Cleanup
+                        sh "docker stop integration-test-${BUILD_NUMBER} || true"
+                        sh "docker rm integration-test-${BUILD_NUMBER} || true"
                     }
                 }
             }
@@ -56,24 +70,18 @@ pipeline {
                 sh "docker push ${REGISTRY}/${IMAGE_NAME}:latest"
             }
         }
-
-        stage('Registry Verify') {
-            steps {
-                echo 'Verifying image in local registry...'
-                sh "curl -s http://${REGISTRY}/v2/${IMAGE_NAME}/tags/list"
-            }
-        }
     }
 
     post {
-        success {
-            echo "Build #${BUILD_NUMBER} pushed to ${REGISTRY}/${IMAGE_NAME}"
+        always {
+            // Clean up old images to save space
+            sh "docker rmi ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} || true"
         }
         failure {
-            echo "Build #${BUILD_NUMBER} failed."
+            echo "Pipeline failed."
         }
-        always {
-            sh "docker rmi ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} || true"
+        success {
+            echo "Pipeline succeeded!"
         }
     }
 }
