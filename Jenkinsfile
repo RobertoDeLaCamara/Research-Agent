@@ -1,4 +1,4 @@
-// Trigger test: 2026-02-17
+// Webhook: notifyCommit via Gitea webhook #4
 pipeline {
     agent any
 
