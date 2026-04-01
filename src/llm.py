@@ -18,6 +18,7 @@
 #   OpenRouter→ https://openrouter.ai      (many free models)
 
 import logging
+import os
 from .config import settings
 
 logger = logging.getLogger(__name__)
@@ -34,34 +35,34 @@ _CLOUD_URL_FRAGMENTS = (
 )
 
 
-def _is_cloud_endpoint() -> bool:
-    """True when the configured base URL is a cloud API (not local Ollama)."""
-    url = settings.ollama_base_url.lower()
-    return any(frag in url for frag in _CLOUD_URL_FRAGMENTS)
+def _is_cloud_endpoint(base_url: str) -> bool:
+    """True when the base URL is a cloud API (not local Ollama)."""
+    return any(frag in base_url.lower() for frag in _CLOUD_URL_FRAGMENTS)
 
 
 def get_llm(temperature: float = 0, timeout: int = None):
     """
     Return a LangChain chat model configured from environment variables.
 
-    Drop-in replacement for the previous hardcoded ChatOllama(…) calls.
+    Reads os.environ at call time so runtime overrides (e.g. from the
+    HF Spaces sidebar key input) take effect without restarting the process.
     """
     t = timeout or settings.llm_request_timeout
 
-    if settings.openai_api_key or _is_cloud_endpoint():
+    # Read live env vars so runtime sidebar overrides work
+    api_key = os.environ.get("OPENAI_API_KEY") or settings.openai_api_key
+    base_url = os.environ.get("OLLAMA_BASE_URL") or settings.ollama_base_url
+    model = os.environ.get("OLLAMA_MODEL") or settings.ollama_model
+
+    if api_key or _is_cloud_endpoint(base_url):
         from langchain_openai import ChatOpenAI
 
-        # Use the configured base_url unless it's the local Ollama default
-        base_url = settings.ollama_base_url
         if base_url == "http://localhost:11434":
             base_url = "https://api.openai.com/v1"
 
-        api_key = settings.openai_api_key or "ollama"  # some local servers need a placeholder
-        model = settings.ollama_model
-
         logger.debug(f"LLM: ChatOpenAI base_url={base_url} model={model}")
         return ChatOpenAI(
-            api_key=api_key,
+            api_key=api_key or "ollama",
             base_url=base_url,
             model=model,
             temperature=temperature,
@@ -71,10 +72,10 @@ def get_llm(temperature: float = 0, timeout: int = None):
     else:
         from langchain_ollama import ChatOllama
 
-        logger.debug(f"LLM: ChatOllama base_url={settings.ollama_base_url} model={settings.ollama_model}")
+        logger.debug(f"LLM: ChatOllama base_url={base_url} model={model}")
         return ChatOllama(
-            base_url=settings.ollama_base_url,
-            model=settings.ollama_model,
+            base_url=base_url,
+            model=model,
             temperature=temperature,
             request_timeout=t,
         )

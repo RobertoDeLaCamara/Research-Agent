@@ -1,0 +1,36 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Non-root user (HF Spaces runs as user 1000)
+RUN useradd -m -u 1000 user && chown -R user:user /app
+
+COPY --chown=user:user requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
+
+COPY --chown=user:user . .
+
+USER user
+
+# HF Spaces requires port 7860
+EXPOSE 7860
+
+ENV PYTHONUNBUFFERED=1
+# Sensible cloud defaults (overridden by HF Secrets or sidebar input)
+ENV OLLAMA_BASE_URL="https://api.groq.com/openai/v1"
+ENV OLLAMA_MODEL="llama-3.1-8b-instant"
+ENV LOG_LEVEL="INFO"
+ENV DB_PATH="/tmp/research_sessions.db"
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD curl -f http://localhost:7860/_stcore/health || exit 1
+
+CMD ["streamlit", "run", "src/app.py", \
+     "--server.address=0.0.0.0", \
+     "--server.port=7860", \
+     "--server.headless=true"]
