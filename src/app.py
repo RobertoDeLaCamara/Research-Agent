@@ -169,6 +169,49 @@ with st.sidebar:
             st.success("Historial borrado correctamente.")
             st.rerun()
 
+    # HF Spaces: show API key panel when running as a Space
+    if os.environ.get("SPACE_ID"):
+        st.divider()
+        st.write("### 🔑 LLM API Key")
+        st.caption("Running on Hugging Face Spaces. Enter a free API key to use the agent.")
+
+        _PROVIDERS = {
+            "Groq (free — llama-3.1-8b)": (
+                "https://api.groq.com/openai/v1",
+                "llama-3.1-8b-instant",
+                "Get free key → console.groq.com",
+            ),
+            "Google Gemini (free — flash)": (
+                "https://generativelanguage.googleapis.com/v1beta/openai",
+                "gemini-1.5-flash",
+                "Get free key → aistudio.google.com",
+            ),
+            "OpenAI": (
+                "https://api.openai.com/v1",
+                "gpt-4o-mini",
+                "Requires paid account",
+            ),
+        }
+
+        provider_name = st.selectbox("Provider", list(_PROVIDERS.keys()))
+        base_url, default_model, hint = _PROVIDERS[provider_name]
+        st.caption(hint)
+
+        api_key_input = st.text_input("API Key", type="password", placeholder="Paste your key here")
+        custom_model = st.text_input("Model (optional override)", placeholder=default_model)
+
+        if st.button("✅ Apply", use_container_width=True):
+            if api_key_input:
+                os.environ["OPENAI_API_KEY"] = api_key_input
+                os.environ["OLLAMA_BASE_URL"] = base_url
+                os.environ["OLLAMA_MODEL"] = custom_model.strip() or default_model
+                st.success("API key applied — ready to research!")
+            else:
+                st.error("Please enter an API key.")
+
+        if not os.environ.get("OPENAI_API_KEY"):
+            st.warning("No API key set. Research will fail until you apply one above.")
+
 # --- Inicialización de Session State ---
 if "investigation_done" not in st.session_state:
     st.session_state.investigation_done = False
