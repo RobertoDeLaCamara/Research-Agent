@@ -48,7 +48,7 @@ jobs:
           cache: "pip"
 
       - name: Install lint tools
-        run: pip install flake8
+        run: pip install ruff
 
       - name: Lint
-        run: flake8 src/ --max-line-length=120 --extend-ignore=E203,W503 --count --statistics
+        run: ruff check src/

@@ -2,31 +2,30 @@
 
 import os
 import logging
-from typing import List
 import pypdf
 from ..state import AgentState
 from .router_tools import update_next_node
 
 logger = logging.getLogger(__name__)
 
+
 def local_rag_node(state: AgentState) -> dict:
     """Scans ./knowledge_base and extracts text from PDF and TXT files."""
     logger.info("local_rag_node_started")
-    
+
     kb_path = os.getenv("RAG_KB_DIR", "./knowledge_base")
     if not os.path.exists(kb_path):
         os.makedirs(kb_path)
         logger.info(f"Created knowledge_base directory at {kb_path}")
         return {"local_research": [], "next_node": update_next_node(state, "local_rag"), "source_metadata": {"local_rag": {"source_type": "user_provided_knowledge", "reliability": 5}}}
 
-    results = []
     topic = state.get("topic", "").lower()
-    
+
     import sqlite3
     import json
     import time
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    
+
     # Try importing Vector Store, handle failure gracefully (e.g. if chromadb not installed yet)
     try:
         from .vector_store import VectorStoreManager
@@ -47,7 +46,7 @@ def local_rag_node(state: AgentState) -> dict:
         """Initialize the SQLite database for RAG cache."""
         try:
             with sqlite3.connect(DB_FILE) as conn:
-                # Table for file metadata 
+                # Table for file metadata
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS files (
                         path TEXT PRIMARY KEY,
@@ -55,7 +54,7 @@ def local_rag_node(state: AgentState) -> dict:
                         last_seen REAL
                     )
                 """)
-                # Table for content 
+                # Table for content
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS content (
                         path TEXT PRIMARY KEY,
@@ -102,14 +101,14 @@ def local_rag_node(state: AgentState) -> dict:
         for file in files:
             if file.lower().endswith(('.pdf', '.txt')):
                 files_found.append(os.path.join(root, file))
-    
+
     total_files = len(files_found)
     logger.info(f"Scanning {total_files} files in knowledge_base (recursive)")
     update_status(0, total_files, "Comprobando caché...", force=True)
 
     # Identify Cache Misses
     files_to_process = []
-    
+
     try:
         with sqlite3.connect(DB_FILE) as conn:
             cursor = conn.cursor()
@@ -135,10 +134,11 @@ def local_rag_node(state: AgentState) -> dict:
             if filename.lower().endswith(".pdf"):
                 with open(file_path, "rb") as f:
                     reader = pypdf.PdfReader(f)
-                    max_pages = 50 
+                    max_pages = 50
                     count = 0
                     for page in reader.pages:
-                        if count >= max_pages: break
+                        if count >= max_pages:
+                            break
                         text = page.extract_text()
                         if text:
                             content += text + "\n"
@@ -146,7 +146,7 @@ def local_rag_node(state: AgentState) -> dict:
             elif filename.lower().endswith(".txt"):
                 with open(file_path, "r", encoding="utf-8", errors='ignore') as f:
                     content = f.read()
-            
+
             if content:
                 file_hash = get_file_hash(file_path)
                 return {
@@ -162,24 +162,25 @@ def local_rag_node(state: AgentState) -> dict:
     # Process Misses with Batch Saving
     BATCH_SIZE = 5
     current_batch = []
-    
+
     def save_batch(batch_data):
-        if not batch_data: return
-        
+        if not batch_data:
+            return
+
         # SQLite Update
         try:
             with sqlite3.connect(DB_FILE) as conn:
                 timestamp = time.time()
                 for item in batch_data:
-                    conn.execute("INSERT OR REPLACE INTO files (path, hash, last_seen) VALUES (?, ?, ?)", 
+                    conn.execute("INSERT OR REPLACE INTO files (path, hash, last_seen) VALUES (?, ?, ?)",
                                  (item["path"], item["hash"], timestamp))
-                    conn.execute("INSERT OR REPLACE INTO content (path, text) VALUES (?, ?)", 
+                    conn.execute("INSERT OR REPLACE INTO content (path, text) VALUES (?, ?)",
                                  (item["path"], item["content"]))
                 conn.commit()
             logger.info(f"💾 Saved batch of {len(batch_data)} records to SQLite.")
         except Exception as e:
             logger.error(f"DB Write Error: {e}")
-            
+
         # Vector Store Update
         if vector_store:
             try:
@@ -191,56 +192,56 @@ def local_rag_node(state: AgentState) -> dict:
                     overlap = 100
                     start = 0
                     chunk_idx = 0
-                    
+
                     while start < len(text):
                         end = min(start + chunk_size, len(text))
                         chunk_text = text[start:end]
-                        
+
                         vectors_to_add.append({
                             "id": f"{item['path']}_{chunk_idx}",
                             "text": chunk_text,
                             "metadata": {"source": item["path"], "filename": item["filename"]}
                         })
-                        
+
                         start += (chunk_size - overlap)
                         chunk_idx += 1
-                
+
                 if vectors_to_add:
                     # Update status for vector indexing (just once per batch to avoid spam)
                      # vector_store.add_documents handles batching internally usually, but we pass list
                     vector_store.add_documents(vectors_to_add)
                     logger.info(f"🧠 Indexed {len(vectors_to_add)} vector chunks.")
-                    
+
             except Exception as e:
                 logger.error(f"Vector Indexing Error: {e}")
 
     if files_to_process:
         logger.info(f"Processing {len(files_to_process)} new/modified files...")
         processed_count = 0
-        
+
         with ThreadPoolExecutor(max_workers=2) as executor: # Reduced workers to prevent OOM
             future_to_file = {executor.submit(process_file_content, f): f for f in files_to_process}
-            
+
             for future in as_completed(future_to_file):
                 processed_count += 1
                 file_path = future_to_file[future]
                 fname = os.path.basename(file_path)
                 update_status(processed_count, len(files_to_process), fname)
-                
+
                 try:
                     res = future.result()
                     if res:
                         current_batch.append(res)
                         logger.info(f"Processed: {res['filename']}")
-                        
+
                         # Check Batch Size
                         if len(current_batch) >= BATCH_SIZE:
                             save_batch(current_batch)
                             current_batch = [] # Reset
-                            
+
                 except Exception:
                     pass
-        
+
         # Save remaining items
         if current_batch:
             save_batch(current_batch)
@@ -249,9 +250,9 @@ def local_rag_node(state: AgentState) -> dict:
     # HYBRID RETRIEVAL (Semantic + Keyword)
     # ---------------------------------------------------------
     update_status(total_files, total_files, "Búsqueda Híbrida...", force=True)
-    
+
     final_results = {} # url -> result_dict
-    
+
     # 1. Semantic Search (Vector)
     if vector_store:
         try:
@@ -274,7 +275,7 @@ def local_rag_node(state: AgentState) -> dict:
             logger.error(f"Vector Search Error: {e}")
 
     # 2. Keyword Search (SQLite)
-    # Only if semantic yielded few results, or always? 
+    # Only if semantic yielded few results, or always?
     # Let's do ALWAYS to ensure exact matches are found.
     topic_words = topic.split()
     try:
@@ -282,21 +283,24 @@ def local_rag_node(state: AgentState) -> dict:
             cursor = conn.cursor()
             cursor.execute("SELECT path, text FROM content")
             valid_files = set(files_found)
-            
+
             for path, content in cursor:
-                if path not in valid_files: continue
-                if path in final_results: continue # Skip if already found by vector (optional strategy)
-                
+                if path not in valid_files:
+                    continue
+                if path in final_results:  # Skip if already found by vector
+                    continue
+
                 filename = os.path.basename(path)
                 filename_score = sum(1 for word in topic_words if word in filename.lower())
-                
-                if not content: continue
+
+                if not content:
+                    continue
                 content_lower = content.lower()
-                
+
                 if any(word in content_lower for word in topic_words) or not topic_words or filename_score > 0:
                      final_results[path] = {
                         "title": filename,
-                        "content": content[:3000], 
+                        "content": content[:3000],
                         "url": f"file://{os.path.abspath(path)}",
                         "score": filename_score,
                         "type": "keyword"
@@ -306,17 +310,19 @@ def local_rag_node(state: AgentState) -> dict:
 
     # Convert to list
     results_list = list(final_results.values())
-    
+
     # Sort by score desc
     results_list.sort(key=lambda x: x.get("score", 0), reverse=True)
 
     # Cleanup Status
     if os.path.exists(STATUS_FILE):
-        try: os.remove(STATUS_FILE)
-        except: pass
+        try:
+            os.remove(STATUS_FILE)
+        except Exception:
+            pass
 
     return {
-        "local_research": results_list, 
+        "local_research": results_list,
         "next_node": update_next_node(state, "local_rag"),
         "source_metadata": {"local_rag": {"source_type": "user_provided_knowledge", "reliability": 5}}
     }

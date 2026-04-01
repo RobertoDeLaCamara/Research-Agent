@@ -1,15 +1,15 @@
 import os
 import logging
 from langchain_ollama import ChatOllama
-from langchain_core.messages import HumanMessage
 from ..state import AgentState
 
 logger = logging.getLogger(__name__)
 
+
 def consolidate_research_node(state: AgentState) -> dict:
     """Synthesize all collected information into a consolidated report."""
     logger.info("Starting research synthesis...")
-    
+
     topic = state.get("original_topic", state.get("topic", ""))
     wiki = state.get("wiki_research", [])
     web = state.get("web_research", [])
@@ -22,7 +22,7 @@ def consolidate_research_node(state: AgentState) -> dict:
     local = state.get("local_research", [])
     yt_summaries = state.get("summaries", [])
     persona = state.get("persona", "general")
-    
+
     # Build context for LLM
     source_meta = state.get("source_metadata", {})
     context = f"RESEARCH TOPIC: {topic}\n\n"
@@ -30,22 +30,22 @@ def consolidate_research_node(state: AgentState) -> dict:
     for src, meta in source_meta.items():
         context += f"Fuente: {src} | Confianza: {meta.get('reliability', 'N/A')}/5 | Tipo: {meta.get('source_type', 'N/A')}\n"
     context += "\n"
-    
+
     if wiki:
         context += "--- INFORMACIÓN DE WIKIPEDIA ---\n"
         for item in wiki:
             context += f"Título: {item.get('title')}\nContenido: {item.get('summary')}\n\n"
-            
+
     if web:
         context += "--- RESULTADOS DE BÚSQUEDA WEB ---\n"
         for item in web:
             context += f"Fuente: {item.get('title', 'Web Result')}\nURL: {item.get('url', 'N/A')}\nContenido: {item.get('content', item.get('snippet', ''))}\n\n"
-            
+
     if arxiv:
         context += "--- ARTÍCULOS CIENTÍFICOS (ARXIV) ---\n"
         for item in arxiv:
             context += f"Título: {item.get('title')}\nResumen: {item.get('summary')}\nURL: {item.get('url')}\n\n"
-            
+
     if scholar:
         context += "--- ARTÍCULOS ACADÉMICOS DESTACADOS (SEMANTIC SCHOLAR) ---\n"
         for item in scholar:
@@ -53,27 +53,27 @@ def consolidate_research_node(state: AgentState) -> dict:
             context += f"Autores: {item.get('authors')}\n"
             context += f"Resumen: {item.get('content')}\n"
             context += f"URL: {item.get('url')}\n\n"
-            
+
     if github:
         context += "--- REPOSITORIOS Y CÓDIGO (GITHUB) ---\n"
         for item in github:
             context += f"Repo: {item.get('name')}\nDescripción: {item.get('description')}\nEstrellas: {item.get('stars')}\nURL: {item.get('url')}\n\n"
-            
+
     if hn:
         context += "--- DISCUSIONES EN HACKER NEWS ---\n"
         for item in hn:
             context += f"Título: {item.get('title')}\nAutor: {item.get('author')}\nPuntos: {item.get('points')}\nURL: {item.get('url')}\n\n"
-            
+
     if so:
         context += "--- PREGUNTAS TÉCNICAS (STACK OVERFLOW) ---\n"
         for item in so:
             context += f"Título: {item.get('title')}\nScore: {item.get('score')}\nResuelta: {item.get('is_answered')}\nURL: {item.get('url')}\n\n"
-            
+
     if reddit:
         context += "--- DISCUSIONES Y OPINIONES (REDDIT) ---\n"
         for item in reddit:
             context += f"Contenido: {item.get('content', item.get('snippet', ''))}\nURL: {item.get('url')}\n\n"
-            
+
     if local:
         context += "--- CONOCIMIENTO LOCAL (RAG) ---\n"
         for item in local:
@@ -88,7 +88,7 @@ def consolidate_research_node(state: AgentState) -> dict:
             if i < len(video_meta):
                 title = video_meta[i].get("title", title)
                 url = video_meta[i].get("url", url)
-            
+
             context += f"Fuente: {title}\nURL: {url}\nContenido: {summary}\n\n"
 
     # Context safety truncation for local LLMs
@@ -166,10 +166,10 @@ FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
     # Inicialización del LLM
     from ..utils import bypass_proxy_for_ollama
     bypass_proxy_for_ollama()
-    
+
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
-    
+
     llm = ChatOllama(
         base_url=ollama_base_url,
         model=ollama_model,
@@ -185,12 +185,12 @@ FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
             HumanMessage(content=human_query)
         ])
         raw_text = response.content.strip()
-        
+
         import re
-        
+
         # 1. ELIMINACIÓN DE BLOQUES <think> (DeepSeek/Qwen Reasoning)
         processed_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL).strip()
-        
+
         # 2. EXTRACCIÓN POR ETIQUETAS <report>
         match = re.search(r'<report>(.*?)</report>', processed_text, re.DOTALL)
         if match:
@@ -203,20 +203,20 @@ FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
             anchors = [r'##\s+', r'Resumen:', r'SÍNTESIS:', r'Sintesis:', r'Informe:', r'Resumen ejecutivo:']
             earliest_pos = len(processed_text)
             found_anchor = False
-            
+
             for anchor in anchors:
                 a_match = re.search(anchor, processed_text, re.IGNORECASE)
                 if a_match and a_match.start() < earliest_pos:
                     earliest_pos = a_match.start()
                     found_anchor = True
-            
+
             if found_anchor:
                 consolidated_text = processed_text[earliest_pos:].strip()
             else:
                 # 4. LIMPIEZA HEURÍSTICA DE PREÁMBULOS (Último recurso)
                 # Si no hay anclas, eliminamos líneas que parezcan razonamiento
                 reasoning_patterns = [
-                    r'^okay,?\s.*', r'^entendido,?\s.*', r'^analizando,?\s.*', 
+                    r'^okay,?\s.*', r'^entendido,?\s.*', r'^analizando,?\s.*',
                     r'^aquí tienes,?\s.*', r'^primero,?\s.*', r'^según el texto,?\s.*',
                     r'^voy a,?\s.*', r'^veamos,?\s.*', r'^the user provided,?\s.*'
                 ]
@@ -227,11 +227,11 @@ FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
                         start_idx = i + 1
                     else:
                         break # Encontramos la primera línea que NO parece ruido
-                
+
                 consolidated_text = "\n".join(lines[start_idx:]).strip()
 
         logger.info("synthesis_completed")
-        
+
         return {"consolidated_summary": consolidated_text}
     except Exception as e:
         logger.error("synthesis_failed", exc_info=e)

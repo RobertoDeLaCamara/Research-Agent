@@ -8,6 +8,7 @@ from ..state import AgentState
 
 logger = logging.getLogger(__name__)
 
+
 def update_next_node(state: AgentState, current_step: str) -> str:
     """Determine the next node in the plan after the current step."""
     plan = state.get("research_plan", [])
@@ -19,11 +20,12 @@ def update_next_node(state: AgentState, current_step: str) -> str:
         pass
     return "END"
 
+
 def plan_research_node(state: AgentState) -> dict:
     """Analyze the topic and decide which research sources are relevant."""
     logger.info("Planning research strategy...")
     topic = state["topic"]
-    
+
     # If a research plan is already provided (e.g., from the GUI), keep it
     # BUT if we are in a re-planning loop (iteration > 0), we want the LLM to DECIDE new sources
     if state.get("research_plan") and state.get("iteration_count", 0) == 0:
@@ -33,7 +35,7 @@ def plan_research_node(state: AgentState) -> dict:
             "next_node": state.get("next_node", state["research_plan"][0]),
             "iteration_count": 0
         }
-    
+
     persona = state.get("persona", "general")
     persona_configs = {
         "general": "un coordinador de investigación generalista, equilibrado y objetivo.",
@@ -43,7 +45,7 @@ def plan_research_node(state: AgentState) -> dict:
         "pm": "un Product Manager enfocado en necesidades del usuario, viabilidad del producto y priorización de funcionalidades."
     }
     persona_context = persona_configs.get(persona, persona_configs["general"])
-    
+
     prompt = f"""
     Eres {persona_context} Tu tarea es analizar un tema y decidir qué fuentes de información son las más pertinentes para investigar.
     
@@ -61,14 +63,12 @@ def plan_research_node(state: AgentState) -> dict:
     - reddit: Para opiniones de la comunidad, experiencias reales y discusiones informales.
     - reddit: Para opiniones de la comunidad, experiencias reales y discusiones informales.
     """
-    
+
     # Conditionally add local_rag if files exist
     kb_path = "./knowledge_base"
-    has_local_files = False
     if os.path.exists(kb_path) and any(f for f in os.listdir(kb_path) if not f.startswith('.')):
-        has_local_files = True
         prompt += "\n    - local_rag: Para consultar la base de conocimientos local y archivos proporcionados por el usuario."
-    
+
     prompt += """
     
     INSTRUCCIONES:
@@ -82,10 +82,10 @@ def plan_research_node(state: AgentState) -> dict:
     
     LISTA DE FUENTES SELECCIONADAS:
     """
-    
+
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
-    
+
     from ..config import settings
     llm = ChatOllama(
         base_url=ollama_base_url,
@@ -93,21 +93,21 @@ def plan_research_node(state: AgentState) -> dict:
         temperature=0.1,
         request_timeout=settings.llm_request_timeout
     )
-    
+
     try:
         response = llm.invoke([HumanMessage(content=prompt)])
         content = response.content.strip()
         if "[" in content and "]" in content:
             content = content[content.find("["):content.rfind("]")+1]
-        
+
         selected_sources = json.loads(content)
         logger.info(f"Sources selected: {selected_sources}")
-        
+
         # Multilingual expansion
         expanded_queries = expand_queries_multilingual(topic)
-        
+
         first_node = selected_sources[0] if selected_sources else "generate_report"
-        
+
         return {
             "research_plan": selected_sources,
             "next_node": first_node,
@@ -122,14 +122,15 @@ def plan_research_node(state: AgentState) -> dict:
             "iteration_count": state.get("iteration_count", 0)
         }
 
+
 def evaluate_research_node(state: AgentState) -> dict:
     """Evaluate if the gathered research is sufficient or if more is needed."""
     logger.info("Evaluating research sufficiency with LLM...")
-    
+
     iteration = state.get("iteration_count", 0)
     topic = state["topic"]
     summary = state.get("consolidated_summary", "")
-    
+
     # Phase 7: News Digest should be fast. Skip refinement loops for News Editor.
     if state.get("persona") == "news_editor":
         logger.info("News Editor persona detected. Skipping refinement loops for speed.")
@@ -140,11 +141,11 @@ def evaluate_research_node(state: AgentState) -> dict:
     if iteration >= 1:
         logger.info("Maximum iterations (2) reached. Finalizing.")
         return {
-            "next_node": "END", 
+            "next_node": "END",
             "evaluation_report": "Límite de 2 iteraciones alcanzado.",
             "topic": state.get("original_topic", state.get("topic", ""))
         }
-    
+
     research_depth = state.get("research_depth", "standard")
 
     prompt = f"""
@@ -171,20 +172,20 @@ def evaluate_research_node(state: AgentState) -> dict:
     EJEMPLO:
     {{"sufficient": false, "gaps": [], "shallow_topics": ["Impacto en rendimiento"], "fact_check_queries": ["¿Es cierto que X soporta Y?"], "reasoning": "El tema de rendimiento se menciona pero no se analiza con datos concretos."}}
     """
-    
+
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
-    
+
     from langchain_ollama import ChatOllama
     from ..config import settings
     llm = ChatOllama(base_url=ollama_base_url, model=ollama_model, temperature=0.1, request_timeout=settings.llm_request_timeout)
-    
+
     try:
         response = llm.invoke([HumanMessage(content=prompt)])
         content = response.content.strip()
         if "{" in content and "}" in content:
             content = content[content.find("{"):content.rfind("}")+1]
-        
+
         evaluation = json.loads(content)
         sufficient = evaluation.get("sufficient", True)
         gaps = evaluation.get("gaps", [])
@@ -198,28 +199,28 @@ def evaluate_research_node(state: AgentState) -> dict:
             all_items = gaps + shallow_topics + fact_check_queries
             combined_gap = f"VERIFICAR Y PROFUNDIZAR: {', '.join(all_items)}"
             return {
-                "next_node": "plan_research", 
+                "next_node": "plan_research",
                 "topic": combined_gap,
                 "iteration_count": iteration + 1,
                 "evaluation_report": reasoning
             }
     except Exception as e:
         logger.error(f"Evaluation failed: {e}")
-    
+
     return {
-        "next_node": "END", 
+        "next_node": "END",
         "topic": state.get("original_topic", state.get("topic", "")), # Reset to original if sufficient
         "evaluation_report": "Investigación considerada suficiente o error en evaluación."
     }
 
+
 def router_node(state: AgentState):
     """Router function to decide the next step in LangGraph."""
-    plan = state.get("research_plan", [])
     current_node = state.get("next_node", "END")
-    
+
     if current_node == "END":
         return "consolidate_research"
-        
+
     mapping = {
         "wiki": "search_wiki",
         "web": "search_web",
@@ -232,5 +233,5 @@ def router_node(state: AgentState):
         "reddit": "search_reddit",
         "local_rag": "local_rag"
     }
-    
+
     return mapping.get(current_node, "consolidate_research")

@@ -2,29 +2,26 @@
 
 import os
 import logging
-from typing import List
-from langchain_community.tools.tavily_search import TavilySearchResults
-from langchain_community.tools import DuckDuckGoSearchRun
+from github import Github  # noqa: F401 — needed for test mocking
 from langchain_community.document_loaders import WikipediaLoader
-from langchain_community.tools.semanticscholar.tool import SemanticScholarQueryRun
 import arxiv
 from semanticscholar import SemanticScholar
-from github import Github
 import re
 import datetime
 from ..state import AgentState
-from ..utils import api_call_with_retry, get_max_results
+from ..utils import get_max_results
 from .router_tools import update_next_node
 
 logger = logging.getLogger(__name__)
+
 
 def search_web_node(state: AgentState) -> dict:
     """Search the web using Tavily (if API key available) or DuckDuckGo."""
     logger.info("Starting web search...")
     topic = state["topic"]
-    
+
     max_results = get_max_results(state)
-    
+
     try:
         from ..config import settings
         tavily_key = settings.tavily_api_key
@@ -33,13 +30,13 @@ def search_web_node(state: AgentState) -> dict:
         tavily_key = os.getenv("TAVILY_API_KEY")
 
     results = []
-    
+
     topic = state.get("topic", "")
     queries = state.get("queries", {})
     search_topic = queries.get("en", queries.get("es", topic))
-    
+
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    
+
     # Validate topic
     if not search_topic or not search_topic.strip():
         logger.warning("Empty search topic. Skipping web search.")
@@ -48,14 +45,14 @@ def search_web_node(state: AgentState) -> dict:
     # Inject date for timeliness if the user didn't provide one
     if not re.search(r'\b(20\d{2}|19\d{2})\b', search_topic): # Check for a 4-digit year
         search_topic = f"{search_topic} {current_date}"
-    
+
     search_topic = search_topic.strip() # Ensure no leading/trailing spaces
     logger.info(f"Searching web (Tavily) for: {search_topic}")
-    
+
     import threading
     from concurrent.futures import ThreadPoolExecutor
     import requests
-    
+
     container = {"data": []}
     def run_web_search():
         try:
@@ -77,7 +74,7 @@ def search_web_node(state: AgentState) -> dict:
                                 raw_results = parsed
                             else:
                                 raise ValueError
-                        except:
+                        except Exception:
                             # It's a plain string message or error
                             raw_results = [] # Treat as empty/fail rather than fake content
                 except Exception as e_tavily:
@@ -119,7 +116,7 @@ def search_web_node(state: AgentState) -> dict:
     thread.start()
     from ..config import settings
     thread.join(timeout=settings.web_search_timeout)
-    
+
     if thread.is_alive():
         logger.warning(f"Web search timed out after {settings.web_search_timeout} seconds.")
     else:
@@ -128,27 +125,27 @@ def search_web_node(state: AgentState) -> dict:
     logger.info(f"Web search completed with {len(results)} results")
     return {"web_research": results, "next_node": update_next_node(state, "web"), "source_metadata": {"web": {"source_type": "web", "reliability": 3}}}
 
+
 def search_wiki_node(state: AgentState) -> dict:
     """Search Wikipedia for general context."""
     from ..progress import update_progress
-    from ..metrics import metrics
-    
+
     update_progress("Wikipedia Search")
     logger.info("Starting Wikipedia search...")
     topic = state["topic"]
     results = []
-    
+
     # Detección simple de idioma: si contiene caracteres latinos con tildes o eñes, usamos español.
     # Por defecto inglés para mayor cobertura global.
     lang = "en"
     if re.search(r'[áéíóúÁÉÍÓÚñÑ]', topic):
         lang = "es"
         logger.debug("Detected possible Spanish language by special characters.")
-    
+
     try:
         queries = state.get("queries", {})
         search_topic = queries.get(lang, topic)
-        
+
         max_docs = 1 if state.get("research_depth") != "deep" else 3
         logger.info(f"Searching Wikipedia ({lang}) with query: {search_topic}...")
         loader = WikipediaLoader(query=search_topic, load_max_docs=max_docs, lang=lang)
@@ -174,14 +171,15 @@ def search_wiki_node(state: AgentState) -> dict:
             logger.info("Wikipedia search completed.")
     except Exception as e:
         logger.warning("wikipedia_search_failed", exc_info=e)
-        
+
     return {"wiki_research": results, "next_node": update_next_node(state, "wiki"), "source_metadata": {"wiki": {"source_type": "official", "reliability": 5}}}
+
 
 def translate_to_english(text: str) -> str:
     """Simple translation to English using LLM for technical queries."""
     if not re.search(r'[áéíóúÁÉÍÓÚñÑ]', text):
         return text # Already in English or simple ASCII
-        
+
     logger.info(f"Translating query to English: {text}")
     try:
         from ..utils import bypass_proxy_for_ollama
@@ -194,15 +192,16 @@ def translate_to_english(text: str) -> str:
         logger.warning(f"Translation failed: {e}, using original text")
         return text
 
+
 def search_arxiv_node(state: AgentState) -> dict:
     """Busca artículos científicos en arXiv usando la librería arxiv directamente."""
     logger.info("arxiv_search_started")
-    
+
     topic = state.get("topic", "")
     queries = state.get("queries", {})
     search_topic = queries.get("en", topic)
     results = []
-    
+
     import threading
     container = {"data": []}
     def run_arxiv_search():
@@ -239,16 +238,17 @@ def search_arxiv_node(state: AgentState) -> dict:
     else:
         results = container["data"]
         # Proceed with what we have
-        
+
     logger.info(f"arxiv_search_completed results_count={len(results)}")
     return {"arxiv_research": results, "next_node": update_next_node(state, "arxiv"), "source_metadata": {"arxiv": {"source_type": "scientific", "reliability": 5}}}
+
 
 def search_scholar_node(state: AgentState) -> dict:
     """Busca artículos académicos en Semantic Scholar usando la librería directamente."""
     logger.info("scholar_search_started")
     topic = state["topic"]
     results = []
-    
+
     sch = SemanticScholar()
     max_results = get_max_results(state)
     queries = state.get("queries", {})
@@ -287,9 +287,10 @@ def search_scholar_node(state: AgentState) -> dict:
         logger.warning("Semantic Scholar search timed out. Proceeding with collected results so far.")
     else:
         results = container["data"]
-        
+
     logger.info(f"scholar_search_completed results_count={len(results)}")
     return {"scholar_research": results, "next_node": update_next_node(state, "scholar"), "source_metadata": {"scholar": {"source_type": "scientific", "reliability": 5}}}
+
 
 def search_github_node(state: AgentState) -> dict:
     """Busca repositorios relevantes en GitHub. Intenta búsqueda amplia si la específica falla."""
@@ -297,7 +298,7 @@ def search_github_node(state: AgentState) -> dict:
     queries = state.get("queries", {})
     topic = queries.get("en", state["topic"])
     results = []
-    
+
     token = os.getenv("GITHUB_TOKEN")
     try:
         from github import Github
@@ -305,7 +306,7 @@ def search_github_node(state: AgentState) -> dict:
             g = Github(token)
         else:
             g = Github() # Public access
-            
+
         max_results = get_max_results(state) # Get it here to be safe in closure
         import threading
         container = {"data": []}
@@ -314,14 +315,14 @@ def search_github_node(state: AgentState) -> dict:
                 # Intento 1: Búsqueda específica en Python
                 logger.info(f"github_python_search topic={topic}")
                 repositories = g.search_repositories(query=f"{topic} language:python", sort="stars", order="desc")
-                
+
                 # Comprobar si hay resultados usando totalCount
                 if repositories.totalCount == 0:
                     logger.info("github_fallback_to_global_search")
                     repositories = g.search_repositories(query=topic, sort="stars", order="desc")
-                    
+
                 from concurrent.futures import ThreadPoolExecutor
-                
+
                 def fetch_repo_content(repo):
                     repo_data = {
                         "name": repo.full_name,
@@ -347,7 +348,7 @@ def search_github_node(state: AgentState) -> dict:
                     if i >= max_results:
                         break
                     repo_list.append(repo)
-                
+
                 # Parallel fetch READMEs
                 with ThreadPoolExecutor(max_workers=5) as executor:
                     container["data"] = list(executor.map(fetch_repo_content, repo_list))
@@ -362,12 +363,13 @@ def search_github_node(state: AgentState) -> dict:
             logger.warning("GitHub search timed out.")
         else:
             results = container["data"]
-            
+
         logger.info(f"github_search_completed results_count={len(results)}")
     except Exception as e:
         logger.warning("github_search_failed", exc_info=e)
-        
+
     return {"github_research": results, "next_node": update_next_node(state, "github"), "source_metadata": {"github": {"source_type": "tech", "reliability": 4}}}
+
 
 def search_hn_node(state: AgentState) -> dict:
     """Busca discusiones relevantes en Hacker News."""
@@ -375,23 +377,21 @@ def search_hn_node(state: AgentState) -> dict:
     queries = state.get("queries", {})
     search_topic = queries.get("en", state["topic"])
     results = []
-    
+
     try:
-        from langchain_community.document_loaders import HNLoader
-        # Usamos una búsqueda simple en Algolia HN API via el loader si es posible, 
+        # Usamos una búsqueda simple en Algolia HN API via el loader si es posible,
         # o simulamos la búsqueda de historias populares.
         # El HNLoader de LangChain suele cargar por ID o por "new", "top", etc.
         # Para temas específicos, usaremos una aproximación de búsqueda.
         query = search_topic.replace(" ", "+")
-        search_url = f"https://news.ycombinator.com/item?id=" # Solo base
-        
+
         # Como HNLoader no tiene búsqueda directa por query en la versión estándar de LC,
         # usaremos una búsqueda vía API de Algolia rápida.
         import requests
         search_api = f"https://hn.algolia.com/api/v1/search?query={query}&tags=story"
         response = requests.get(search_api, timeout=10)
         data = response.json()
-        
+
         max_results = get_max_results(state)
         for i, hit in enumerate(data.get('hits', [])):
             if i >= max_results:
@@ -403,12 +403,13 @@ def search_hn_node(state: AgentState) -> dict:
                 "points": hit.get('points'),
                 "num_comments": hit.get('num_comments')
             })
-            
+
         logger.info(f"hn_search_completed results_count={len(results)}")
     except Exception as e:
         logger.warning("hn_search_failed", exc_info=e)
-        
+
     return {"hn_research": results, "next_node": update_next_node(state, "hn"), "source_metadata": {"hn": {"source_type": "tech_community", "reliability": 4}}}
+
 
 def search_so_node(state: AgentState) -> dict:
     """Busca preguntas técnicas en Stack Overflow."""
@@ -416,23 +417,23 @@ def search_so_node(state: AgentState) -> dict:
     queries = state.get("queries", {})
     search_topic = queries.get("en", state["topic"])
     results = []
-    
+
     try:
         from stackapi import StackAPI
         SITE = StackAPI('stackoverflow')
-        
+
         import threading
         container = {"data": []}
         def run_so_search():
             try:
                 # Buscamos preguntas relacionadas con el tema
                 questions = SITE.fetch('search/advanced', q=search_topic, sort='relevance', order='desc', filter='withbody')
-                
+
                 max_results = get_max_results(state)
                 for i, item in enumerate(questions.get('items', [])):
                     if i >= max_results:
                         break
-                    
+
                     # Phase 6: Deep content for SO only if relevant
                     persona = state.get("persona", "general")
                     body = item.get('body', '')
@@ -440,7 +441,7 @@ def search_so_node(state: AgentState) -> dict:
                         content = body[:1000] # Reduced from 2000
                     else:
                         content = item.get('title') # Just the title as summary
-                        
+
                     container["data"].append({
                         "title": item.get('title'),
                         "url": item.get('link'),
@@ -459,11 +460,9 @@ def search_so_node(state: AgentState) -> dict:
             logger.warning("Stack Overflow search timed out.")
         else:
             results = container["data"]
-            
+
         logger.info(f"stackoverflow_search_completed results_count={len(results)}")
     except Exception as e:
         logger.warning("stackoverflow_search_failed", exc_info=e)
-        
+
     return {"so_research": results, "next_node": update_next_node(state, "so"), "source_metadata": {"so": {"source_type": "tech_qa", "reliability": 4}}}
-
-

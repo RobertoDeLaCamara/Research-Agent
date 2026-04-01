@@ -11,21 +11,25 @@ import markdown
 from fpdf import FPDF
 import hashlib
 from docx import Document
-from docx.shared import Pt
 
 logger = logging.getLogger(__name__)
 
-from ..state import AgentState
+from ..state import AgentState # noqa: E402
 
 # Helper to sanitize text (surrogate fix)
+
+
 def sanitize_text(text):
-    if not isinstance(text, str): return text
+    if not isinstance(text, str):
+        return text
     # Encode to UTF-8 ignoring errors (strips surrogates), then decode back
     return text.encode('utf-8', 'replace').decode('utf-8')
 
 # --------------------------------------------------------------------------
 # NODO 3: GENERACIÓN DEL INFORME EN HTML
 # --------------------------------------------------------------------------
+
+
 def generate_report_node(state: AgentState) -> dict:
     """
     Toma los resúmenes y metadatos del estado para crear un informe completo en formato HTML.
@@ -45,11 +49,11 @@ def generate_report_node(state: AgentState) -> dict:
     video_metadata = state.get("video_metadata", [])
     topic = state.get("original_topic", state.get("topic", "Tema desconocido"))
     consolidated = state.get("consolidated_summary", "")
-    
+
     # Sanitize inputs immediately
     topic = sanitize_text(topic)
     consolidated = sanitize_text(consolidated)
-    
+
     # Comprobar si tenemos CUALQUIER tipo de contenido para informar
     has_content = any([
         len(summaries) > 0,
@@ -236,8 +240,8 @@ def generate_report_node(state: AgentState) -> dict:
     # --- SECCIÓN: SÍNTESIS EJECUTIVA ---
     if state.get("consolidated_summary"):
         raw_summary = state["consolidated_summary"]
-        
-        # Pre-procesamiento para evitar listas numeradas planas: 
+
+        # Pre-procesamiento para evitar listas numeradas planas:
         # Convertimos cualquier línea que empiece por número (ej. "1. ") en una viñeta (*)
         processed_lines = []
         import re
@@ -246,10 +250,10 @@ def generate_report_node(state: AgentState) -> dict:
             # (dejando el resto de la línea igual, incluyendo posibles espacios de indentación)
             new_line = re.sub(r'^(\s*)\d+\.\s+', r'\1* ', line)
             processed_lines.append(new_line)
-        
+
         processed_summary = "\n".join(processed_lines)
         synthesis_html = markdown.markdown(processed_summary)
-        
+
         html_content += f"""
         <div class="section-card synthesis-card">
             <h2>💡 Síntesis Ejecutiva Consolidada</h2>
@@ -356,7 +360,7 @@ def generate_report_node(state: AgentState) -> dict:
             </div>
             """
         html_content += "<a href='#top' style='font-size: 0.8rem;'>&uarr; Volver al inicio</a></div>"
-    
+
     # --- SECCIÓN: REDDIT ---
     if state.get("reddit_research"):
         html_content += "<h2 id='reddit'><span class='tag'>REDDIT</span> Discusiones y Opiniones</h2><div class='section-card'>"
@@ -413,10 +417,10 @@ def generate_report_node(state: AgentState) -> dict:
         state.get("local_research"),
         video_metadata
     ])
-    
+
     if has_bib:
         html_content += "<hr><h2>📚 Bibliografía y Fuentes</h2><div class='section-card'><ul class='bib-list'>"
-        
+
         # Wiki
         for item in state.get("wiki_research", []):
             url = safe_str(item.get('url', '#'))
@@ -476,7 +480,7 @@ def generate_report_node(state: AgentState) -> dict:
             ref = f"YouTube: {title} por {author} - {url}"
             bibliography.append(ref)
             html_content += f"<li>YouTube: {title} por {author} - <a href='{url}'>{url}</a></li>"
-        
+
         # Local knowledge
         for item in state.get("local_research", []):
             url = safe_str(item.get('url', '#'))
@@ -484,7 +488,7 @@ def generate_report_node(state: AgentState) -> dict:
             ref = f"Local: {title} - {url}"
             bibliography.append(ref)
             html_content += f"<li>Local: {title} - <a href='{url}'>{url}</a></li>"
-        
+
         html_content += "</ul></div>"
 
     html_content += """
@@ -492,16 +496,16 @@ def generate_report_node(state: AgentState) -> dict:
     </body>
     </html>
     """
-    
+
     # Preparamos los textos para otros formatos
     markdown_text = f"# Informe de Investigación: {topic}\n\n"
     if consolidated:
         markdown_text += f"## Síntesis Ejecutiva\n{consolidated}\n\n"
-    
+
     markdown_text += "## Bibliografía\n"
     for ref in bibliography:
         markdown_text += f"- {ref}\n"
-    
+
     # Sanitize markdown
     markdown_text = sanitize_text(markdown_text)
 
@@ -518,7 +522,7 @@ def generate_report_node(state: AgentState) -> dict:
             f.write(sanitize_text(html_content))
     except Exception as e:
         logger.error(f"Error saving HTML (surrogate check): {e}")
-    
+
     # Guardamos el Markdown
     # Sanitize topic for filename (prevent path injection / Errno 2)
     safe_topic = topic.replace(" ", "_").replace("/", "_").replace("\\", "_")[:30]
@@ -528,7 +532,7 @@ def generate_report_node(state: AgentState) -> dict:
             f.write(markdown_text)
     except Exception as e:
         logger.error(f"Error saving MD (surrogate check): {e}")
-    
+
     # Generamos el DOCX
     docx_path = os.path.join(reports_dir, "reporte_final.docx")
     try:
@@ -541,7 +545,7 @@ def generate_report_node(state: AgentState) -> dict:
     # --- GENERACIÓN DE PDF ---
     pdf_path = os.path.join(reports_dir, "reporte_investigacion.pdf")
     try:
-        generate_pdf(state, topic, pdf_path, bibliography) 
+        generate_pdf(state, topic, pdf_path, bibliography)
         logger.info("pdf_generated")
     except Exception as e:
         logger.warning("pdf_generation_failed", exc_info=e)
@@ -557,34 +561,36 @@ def generate_report_node(state: AgentState) -> dict:
 
     logger.info("html_report_generated")
     return {
-        "report": html_content, 
-        "bibliography": bibliography, 
+        "report": html_content,
+        "bibliography": bibliography,
         "pdf_path": pdf_path,
         "md_path": md_path,
         "docx_path": docx_path
     }
 
+
 def generate_docx(state: AgentState, topic: str, output_path: str, bibliography: list):
     """Genera un archivo Word (.docx) profesional."""
     doc = Document()
     doc.add_heading(f'Informe de Investigación: {topic}', 0)
-    
+
     if state.get("consolidated_summary"):
         doc.add_heading('Síntesis Ejecutiva', level=1)
         doc.add_paragraph(state["consolidated_summary"])
-        
+
     doc.add_heading('Bibliografía', level=1)
     for ref in bibliography:
         doc.add_paragraph(ref, style='List Bullet')
-        
+
     doc.save(output_path)
+
 
 def generate_pdf(state: AgentState, topic: str, output_path: str, bibliography_list: list = None):
     """Genera un archivo PDF profesional usando fpdf2 con todas las secciones."""
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
-    
+
     # Margen explícito
     l_margin = 15
     pdf.set_left_margin(l_margin)
@@ -593,14 +599,15 @@ def generate_pdf(state: AgentState, topic: str, output_path: str, bibliography_l
 
     # Usamos Helvetica (estándar). No admite emojis ni caracteres especiales complejos.
     pdf.set_font("Helvetica", "B", 16)
-    
+
     # Título
     safe_topic = topic.encode('latin-1', 'replace').decode('latin-1')
     pdf.multi_cell(eff_w, 10, f"Informe de Investigacion: {safe_topic}", align='C')
     pdf.ln(5)
-    
+
     def clean_text(text):
-        if not text: return ""
+        if not text:
+            return ""
         # Removemos acentos problemáticos y emojis
         import unicodedata
         text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
@@ -614,16 +621,16 @@ def generate_pdf(state: AgentState, topic: str, output_path: str, bibliography_l
 
     # Síntesis
     add_section_header("Sintesis Ejecutiva Consolidada")
-    
+
     summary_md = state.get("consolidated_summary", "No disponible")
-    
+
     # Simple Markdown Parser for PDF
     for line in summary_md.split("\n"):
         line = line.strip()
         if not line:
             pdf.ln(2)
             continue
-            
+
         # Limpieza básica de negritas Markdown (**) para el PDF simple
         line = line.replace("**", "")
 
@@ -653,9 +660,8 @@ def generate_pdf(state: AgentState, topic: str, output_path: str, bibliography_l
             # Texto normal o subtemas que vienen formateados como "1. Titulo"
             pdf.set_font("Helvetica", "", 10)
             pdf.multi_cell(eff_w, 6, clean_text(line))
-    
-    pdf.ln(5)
 
+    pdf.ln(5)
 
     pdf.output(output_path)
 
@@ -675,7 +681,7 @@ def send_email_node(state: AgentState) -> dict:
         dict: Un diccionario con una bandera 'email_sent' para evitar re-envíos.
     """
     logger.info("send_email_node_started")
-    
+
     # Verificación de idempotencia
     report = state.get("report", "")
     topic = state.get("original_topic", state.get("topic", "Informe-Investigacion"))
@@ -683,10 +689,10 @@ def send_email_node(state: AgentState) -> dict:
     if not report:
         logger.warning("no_report_to_send")
         return {}
-        
+
     # Crear un hash del reporte para identificar envíos duplicados
     report_hash = hashlib.md5(report.encode('utf-8')).hexdigest()
-    
+
     # Comprobar si ya enviamos este reporte exacto en esta ejecución
     if state.get("last_email_hash") == report_hash:
         logger.info(f"email_already_sent report_hash={report_hash}")
@@ -698,7 +704,7 @@ def send_email_node(state: AgentState) -> dict:
     receiver_email = settings.email_recipient
     password = settings.email_password
     host = settings.email_host
-    port = settings.email_port         
+    port = settings.email_port
 
     if not all([sender_email, receiver_email, password]):
         logger.error("email_credentials_missing")
@@ -718,7 +724,7 @@ def send_email_node(state: AgentState) -> dict:
             with open(pdf_path, "rb") as attachment:
                 part = MIMEBase("application", "octet-stream")
                 part.set_payload(attachment.read())
-            
+
             encoders.encode_base64(part)
             part.add_header(
                 "Content-Disposition",
@@ -733,16 +739,16 @@ def send_email_node(state: AgentState) -> dict:
         # Iniciamos la conexión con el servidor SMTP.
         logger.info(f"smtp_connecting host={host} port={port}")
         server = smtplib.SMTP(host, port, timeout=30)
-        server.starttls()  
+        server.starttls()
         server.login(sender_email, password)
-        
+
         # Enviamos el correo.
         server.sendmail(sender_email, receiver_email, msg.as_string())
         logger.info(f"email_sent recipient={receiver_email}")
-        
+
         # Devolvemos el hash para evitar envíos futuros del mismo contenido
         return {"last_email_hash": report_hash}
-        
+
     except smtplib.SMTPAuthenticationError:
         logger.error("smtp_authentication_failed")
         return {}
@@ -751,4 +757,4 @@ def send_email_node(state: AgentState) -> dict:
         return {}
     finally:
         if 'server' in locals() and server.sock:
-            server.quit() 
+            server.quit()
