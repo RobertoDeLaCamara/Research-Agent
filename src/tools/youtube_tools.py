@@ -1,8 +1,7 @@
 # src/tools/youtube_tools.py
 
 import logging
-from langchain_ollama import ChatOllama
-import os
+from ..llm import get_llm
 from youtube_search import YoutubeSearch
 from langchain_classic.chains.summarize import load_summarize_chain
 from langchain_community.document_loaders import YoutubeLoader
@@ -87,14 +86,7 @@ def summarize_videos_node(state: AgentState) -> dict:
     from ..utils import bypass_proxy_for_ollama
     bypass_proxy_for_ollama()
 
-    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
-
-    llm = ChatOllama(
-        base_url=ollama_base_url,
-        model=ollama_model,
-        temperature=0
-    )
+    llm = get_llm(temperature=0)
 
     summarize_chain = load_summarize_chain(llm, chain_type="map_reduce")
 

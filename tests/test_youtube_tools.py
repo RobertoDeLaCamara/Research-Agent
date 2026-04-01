@@ -38,7 +38,7 @@ def test_summarize_videos_node_with_transcript(mock_loader, mock_chain, mock_age
     assert result["summaries"][0] == "Video Summary"
 
 @patch("src.tools.youtube_tools.load_summarize_chain")
-@patch("src.tools.youtube_tools.ChatOllama")
+@patch("src.tools.youtube_tools.get_llm")
 @patch("src.tools.youtube_tools.YoutubeLoader")
 def test_summarize_videos_node_fallback(mock_loader, mock_chat_ollama, mock_chain, mock_agent_state):
     # Mock LLM (for the fallback call later)

@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from src.tools.synthesis_tools import consolidate_research_node
 
-@patch("src.tools.synthesis_tools.ChatOllama")
+@patch("src.tools.synthesis_tools.get_llm")
 def test_consolidate_research_node_success(mock_chat_ollama, mock_agent_state):
     # Setup mocks
     mock_llm = mock_chat_ollama.return_value
@@ -20,7 +20,7 @@ def test_consolidate_research_node_success(mock_chat_ollama, mock_agent_state):
     assert result["consolidated_summary"] == "This is a consolidated summary."
     assert mock_llm.invoke.called
 
-@patch("src.tools.synthesis_tools.ChatOllama")
+@patch("src.tools.synthesis_tools.get_llm")
 def test_consolidate_research_node_persona(mock_chat_ollama, mock_agent_state):
     # Setup mocks
     mock_llm = mock_chat_ollama.return_value

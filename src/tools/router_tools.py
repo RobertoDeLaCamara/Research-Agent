@@ -1,8 +1,8 @@
 import os
 import logging
 import json
-from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage
+from ..llm import get_llm
 from .translation_tools import expand_queries_multilingual
 from ..state import AgentState
 
@@ -83,16 +83,7 @@ def plan_research_node(state: AgentState) -> dict:
     LISTA DE FUENTES SELECCIONADAS:
     """
 
-    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
-
-    from ..config import settings
-    llm = ChatOllama(
-        base_url=ollama_base_url,
-        model=ollama_model,
-        temperature=0.1,
-        request_timeout=settings.llm_request_timeout
-    )
+    llm = get_llm(temperature=0.1)
 
     try:
         response = llm.invoke([HumanMessage(content=prompt)])
@@ -173,12 +164,7 @@ def evaluate_research_node(state: AgentState) -> dict:
     {{"sufficient": false, "gaps": [], "shallow_topics": ["Impacto en rendimiento"], "fact_check_queries": ["¿Es cierto que X soporta Y?"], "reasoning": "El tema de rendimiento se menciona pero no se analiza con datos concretos."}}
     """
 
-    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
-
-    from langchain_ollama import ChatOllama
-    from ..config import settings
-    llm = ChatOllama(base_url=ollama_base_url, model=ollama_model, temperature=0.1, request_timeout=settings.llm_request_timeout)
+    llm = get_llm(temperature=0.1)
 
     try:
         response = llm.invoke([HumanMessage(content=prompt)])

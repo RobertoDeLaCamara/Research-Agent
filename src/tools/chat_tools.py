@@ -1,6 +1,5 @@
-import os
 import logging
-from langchain_ollama import ChatOllama
+from ..llm import get_llm
 from langchain_core.messages import SystemMessage, AIMessage
 from ..state import AgentState
 
@@ -41,15 +40,7 @@ def chat_node(state: AgentState) -> dict:
     from ..utils import bypass_proxy_for_ollama
     bypass_proxy_for_ollama()
 
-    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
-
-    llm = ChatOllama(
-        base_url=ollama_base_url,
-        model=ollama_model,
-        temperature=0.7,
-        request_timeout=90 # 90s for chat response
-    )
+    llm = get_llm(temperature=0.7, timeout=90)
 
     # Convert state messages to LangChain format if they aren't already
     chat_history = [SystemMessage(content=system_prompt)]

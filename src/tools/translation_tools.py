@@ -1,5 +1,4 @@
 import logging
-import os
 from typing import List, Dict
 from langchain_core.messages import HumanMessage
 from ..utils import bypass_proxy_for_ollama
@@ -44,12 +43,9 @@ def expand_queries_multilingual(topic: str, target_languages: List[str] = ["en",
     }}
     """
 
-    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
-
-    from langchain_ollama import ChatOllama
+    from ..llm import get_llm
     bypass_proxy_for_ollama()
-    llm = ChatOllama(base_url=ollama_base_url, model=ollama_model, temperature=0.1, request_timeout=45)
+    llm = get_llm(temperature=0.1, timeout=45)
 
     expanded = {lang: topic for lang in target_languages} # Fallback to original
 

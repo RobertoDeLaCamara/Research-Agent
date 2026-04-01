@@ -1,7 +1,6 @@
-import os
 import logging
-from langchain_ollama import ChatOllama
 from ..state import AgentState
+from ..llm import get_llm
 
 logger = logging.getLogger(__name__)
 
@@ -167,14 +166,9 @@ FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
     from ..utils import bypass_proxy_for_ollama
     bypass_proxy_for_ollama()
 
-    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
-
-    llm = ChatOllama(
-        base_url=ollama_base_url,
-        model=ollama_model,
+    llm = get_llm(
         temperature=0.4,
-        request_timeout=360 # 6 minutes timeout for synthesis
+        timeout=360  # 6 minutes timeout for synthesis
     )
 
     try:

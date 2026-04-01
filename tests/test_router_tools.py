@@ -21,7 +21,7 @@ def test_update_next_node_basic(mock_agent_state):
     next_node = update_next_node(mock_agent_state, "nonexistent")
     assert next_node == "END"
 
-@patch("src.tools.router_tools.ChatOllama")
+@patch("src.tools.router_tools.get_llm")
 def test_plan_research_node(mock_ollama, mock_agent_state):
     mock_llm = mock_ollama.return_value
     mock_response = MagicMock()
@@ -34,7 +34,7 @@ def test_plan_research_node(mock_ollama, mock_agent_state):
     assert result["next_node"] == "wiki"
     assert result["iteration_count"] == 0
 
-@patch("src.tools.router_tools.ChatOllama")
+@patch("src.tools.router_tools.get_llm")
 def test_plan_research_node_persona(mock_ollama, mock_agent_state):
     mock_llm = mock_ollama.return_value
     mock_response = MagicMock()

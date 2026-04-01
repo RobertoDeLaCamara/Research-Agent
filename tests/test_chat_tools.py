@@ -9,7 +9,7 @@ def test_chat_node_basic_response(mock_agent_state):
     mock_agent_state["consolidated_summary"] = "Knowledge context"
     mock_agent_state["messages"] = [HumanMessage(content="Explain this research")]
     
-    with patch("src.tools.chat_tools.ChatOllama") as mock_ollama:
+    with patch("src.tools.chat_tools.get_llm") as mock_ollama:
         mock_instance = mock_ollama.return_value
         mock_instance.invoke.return_value = AIMessage(content="Here is the explanation")
         
@@ -24,7 +24,7 @@ def test_chat_node_suggests_research(mock_agent_state):
     mock_agent_state["topic"] = "Solana"
     mock_agent_state["messages"] = [HumanMessage(content="Find more about consensus")]
     
-    with patch("src.tools.chat_tools.ChatOllama") as mock_ollama:
+    with patch("src.tools.chat_tools.get_llm") as mock_ollama:
         mock_instance = mock_ollama.return_value
         mock_instance.invoke.return_value = AIMessage(content="I need more info. INVESTIGACIÓN: Consensus in Solana.")
         
