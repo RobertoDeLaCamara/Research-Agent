@@ -7,6 +7,8 @@
 
 Give it a topic. Get a sourced, structured research report in minutes.
 
+![Research-Agent demo](docs/demo.gif)
+
 Research-Agent is a LangGraph-based autonomous agent that searches **10 sources in parallel** (Tavily, arXiv, Wikipedia, Semantic Scholar, GitHub, Hacker News, Stack Overflow, Reddit, YouTube, local RAG), detects knowledge gaps and re-plans automatically, then exports a cited report in PDF, Word, Markdown, or HTML — all through a Streamlit UI backed by a local Ollama LLM.
 
 ## Features
