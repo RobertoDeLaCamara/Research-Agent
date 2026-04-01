@@ -1,10 +1,13 @@
 # Research-Agent
 
+[![CI](https://github.com/RobertoDeLaCamara/Research-Agent/actions/workflows/ci.yml/badge.svg)](https://github.com/RobertoDeLaCamara/Research-Agent/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-49%20passed-brightgreen.svg)]()
+[![GitHub Stars](https://img.shields.io/github/stars/RobertoDeLaCamara/Research-Agent?style=social)](https://github.com/RobertoDeLaCamara/Research-Agent/stargazers)
 
-LangGraph-based autonomous research agent with 5 personas, searching 10 sources in parallel (Tavily, arXiv, Wikipedia, Semantic Scholar, GitHub, etc.). Multi-source RAG via ChromaDB, iterative re-planning, PDF/Word/Markdown export. Streamlit UI.
+Give it a topic. Get a sourced, structured research report in minutes.
+
+Research-Agent is a LangGraph-based autonomous agent that searches **10 sources in parallel** (Tavily, arXiv, Wikipedia, Semantic Scholar, GitHub, Hacker News, Stack Overflow, Reddit, YouTube, local RAG), detects knowledge gaps and re-plans automatically, then exports a cited report in PDF, Word, Markdown, or HTML — all through a Streamlit UI backed by a local Ollama LLM.
 
 ## Features
 
@@ -47,6 +50,28 @@ graph TD
 ```
 
 Flow: `initialize_state` -> `plan_research` -> `parallel_search` -> `consolidate_research` -> `evaluate_research` -> `generate_report` -> `send_email` -> `save_db`
+
+## Sample Output
+
+> Research topic: *"Graph neural networks emerging use cases"* — Standard depth, Scientific Reviewer persona
+
+---
+
+**Industry Applications and Success Stories**
+
+Graph Neural Networks (GNNs) are rapidly gaining traction in industries that rely on complex, interconnected data. A notable example is **Google Maps**, which leverages GNNs to improve arrival time predictions by analysing traffic patterns, road networks, and real-time events. In **healthcare**, GNNs are used for drug discovery — molecular structures represented as graphs to predict compound-protein interactions. In **finance**, GNNs detect fraud by analysing transaction networks for anomalous patterns.
+
+**Technical Challenges and Scalability**
+
+Sparse computations pose challenges for hardware optimisation, as traditional GPUs are not designed for irregular data structures. Recent research proposes three strategies: CPU-GPU hybrid training, graph-augmented MLPs for real-time inference, and quantisation-aware training to reduce computational cost.
+
+**Integration with Knowledge Graphs and LLMs**
+
+LLMs can automate KG creation by extracting relationships from unstructured text, which are then fed into GNNs for downstream tasks like recommendation systems or semantic search — particularly valuable in supply chain optimisation.
+
+*[Full report: 1,200 words · 12 cited sources · exported as PDF, Word, Markdown]*
+
+---
 
 ## Quick Start
 
@@ -125,10 +150,7 @@ pytest tests/ -v
 
 ## CI/CD
 
-Jenkins multibranch pipeline (Gitea SCM source) with automatic webhook trigger:
-- **Build** Docker image
-- **Test** inside container
-- **Push** to private Docker registry (`192.168.1.86:5000/research-agent`)
+GitHub Actions runs the test suite on every push and pull request across Python 3.10 and 3.12 — see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## Documentation
 
@@ -141,6 +163,23 @@ Jenkins multibranch pipeline (Gitea SCM source) with automatic webhook trigger:
 | [Deployment](docs/DEPLOYMENT.md) | Docker and production setup |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Common issues |
 | [Changelog](CHANGELOG.md) | Version history |
+
+## Roadmap
+
+Contributions welcome — pick up any of these or open an issue to propose your own.
+
+| Priority | Item | Difficulty |
+| :--- | :--- | :--- |
+| High | **Add PubMed / MEDLINE source** for biomedical research | Easy |
+| High | **Streaming output** — show results token-by-token in the Streamlit UI | Medium |
+| High | **REST API** — expose research as a POST endpoint for headless use | Medium |
+| Medium | **New persona: Legal Analyst** — case law, regulatory sources | Easy |
+| Medium | **LM Studio / any OpenAI-compatible backend** support | Easy |
+| Medium | **LaTeX export** for academic paper formatting | Medium |
+| Medium | **Scheduled research** — recurring reports via cron | Hard |
+| Low | **Report comparison view** — diff two reports on the same topic over time | Hard |
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) to get started. New research source? The pattern lives in `src/tools/research_tools.py` — adding one is ~50 lines.
 
 ## License
 

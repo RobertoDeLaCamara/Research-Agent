@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 2026-02-14
+## [1.0.0] - 2026-03-01
 
 ### Infrastructure
 - Configure Gitea webhook for automatic Jenkins builds on push
@@ -26,8 +26,9 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **`src/logging_config.py`**: Structlog configuration module with environment-aware rendering (JSON for production, console for dev).
 - **`src/tools/parallel_tools.py`**: New module with `parallel_search_node` (concurrent source execution) and `_youtube_combined_node` (YouTube search + summarize in sequence within one thread).
+- **GitHub Actions CI**: Test matrix across Python 3.10 and 3.12 on every push and PR.
 
-## [Unreleased] - 2026-01-25
+## [0.2.0] - 2026-01-25
 
 ### Fixed
 - **Performance**: Optimized Local RAG by migrating from JSON to SQLite, eliminating startup lag and redundant re-scanning (warm cache < 0.002s).
@@ -36,7 +37,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **RAG**: Implemented Hybrid Search (Vector + Keyword) using `ChromaDB` and `all-MiniLM-L6-v2` embeddings. Now finds relevant documents even without exact keyword matches.
 
-## [2026-01-14]
+## [0.1.0] - 2026-01-14
 
 ### Fixed
 - **Critical**: Resolved Citation Hallucinations by enforcing strict Source extraction and Prompt engineering.
