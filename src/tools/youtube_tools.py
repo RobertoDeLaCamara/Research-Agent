@@ -7,9 +7,6 @@ from youtube_search import YoutubeSearch
 from langchain_classic.chains.summarize import load_summarize_chain
 from langchain_community.document_loaders import YoutubeLoader
 
-from typing import TypedDict, List
-from langchain_core.messages import BaseMessage
-from langchain_core.documents import Document
 from ..state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -17,6 +14,8 @@ logger = logging.getLogger(__name__)
 # --------------------------------------------------------------------------
 # NODO 1: BÚSQUEDA DE VÍDEOS EN YOUTUBE
 # --------------------------------------------------------------------------
+
+
 def search_videos_node(state: AgentState) -> dict:
     """
     Busca vídeos en YouTube y extrae sus metadatos (título, autor, URL).
@@ -53,7 +52,7 @@ def search_videos_node(state: AgentState) -> dict:
             video_id = res['id']
             url = f"https://www.youtube.com/watch?v={video_id}"
             video_urls.append(url)
-            
+
             video_metadata.append({
                 "title": res.get('title', 'Título no disponible'),
                 "author": res.get('channel', 'Autor no disponible'),
@@ -90,7 +89,7 @@ def summarize_videos_node(state: AgentState) -> dict:
 
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
-    
+
     llm = ChatOllama(
         base_url=ollama_base_url,
         model=ollama_model,
@@ -150,12 +149,12 @@ def summarize_videos_node(state: AgentState) -> dict:
 
         except Exception as e:
             logger.warning("video_processing_failed_using_fallback", exc_info=e)
-            
+
             try:
                 # Use a more forceful prompt with XML tags and SystemMessage
                 system_rules = "Eres un asistente de investigación experto. Tu tarea es generar UN solo párrafo conciso. REGLA ESTRICTA: NO incluyas preámbulos, razonamientos ni introducciones. SOLO entrega el párrafo final envuelto en etiquetas <summary> y </summary>."
                 human_prompt = f"Genera un breve párrafo explicando de qué trata este vídeo basándote solo en su título: '{metadata.get('title')}'. Menciona que es una fuente audiovisual relevante para el tema {state.get('original_topic', state.get('topic', ''))}."
-                
+
                 import threading
                 raw_fallback = ""
                 fallback_container = {"data": ""}
@@ -178,11 +177,11 @@ def summarize_videos_node(state: AgentState) -> dict:
                     raw_fallback = fallback_container["data"]
                 if thread_fb.is_alive() or not raw_fallback:
                     raise ValueError("Fallback timed out.")
-                
+
                 # Blinded extraction with Regex
                 import re
                 match = re.search(r'<summary>(.*?)</summary>', raw_fallback, re.DOTALL)
-                
+
                 if match:
                     fallback_summary = match.group(1).strip()
                 elif "<summary>" in raw_fallback:
@@ -195,7 +194,7 @@ def summarize_videos_node(state: AgentState) -> dict:
                         fallback_summary = "\n".join(lines[1:]).strip()
                     else:
                         fallback_summary = raw_fallback
-                    
+
                 summaries.append(fallback_summary)
                 logger.info("summary_from_metadata_fallback")
             except Exception as e_inner:

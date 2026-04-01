@@ -1,34 +1,34 @@
 import os
 import logging
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Any
 import chromadb
-from chromadb.config import Settings
 from chromadb.utils import embedding_functions
 
 logger = logging.getLogger(__name__)
+
 
 class VectorStoreManager:
     """
     Manages the ChromaDB vector store for Semantic RAG.
     """
-    
+
     def __init__(self, persist_directory: str = "/app/data/chroma_db"):
         self.persist_directory = persist_directory
         self._client = None
         self._collection = None
-        
+
         # Ensure directory exists
         if not os.path.exists(persist_directory):
             os.makedirs(persist_directory, exist_ok=True)
-            
+
         try:
             # Initialize Client
             self._client = chromadb.PersistentClient(path=persist_directory)
-            
+
             # Default Embedding Function (all-MiniLM-L6-v2)
             # This downloads the model on first use (~80MB)
             self._embedding_fn = embedding_functions.DefaultEmbeddingFunction()
-            
+
             # Get or Create Collection
             self._collection = self._client.get_or_create_collection(
                 name="rag_knowledge_base",
@@ -36,7 +36,7 @@ class VectorStoreManager:
                 metadata={"hnsw:space": "cosine"} # Cosine similarity
             )
             logger.info(f"Vector Store initialized at {persist_directory}")
-            
+
         except Exception as e:
             logger.error(f"Failed to initialize Vector Store: {e}")
             self._client = None
@@ -72,18 +72,18 @@ class VectorStoreManager:
         """
         if not self._collection:
             return []
-            
+
         try:
             results = self._collection.query(
                 query_texts=[query_text],
                 n_results=n_results
             )
-            
+
             # Flatten results structure
             # results['ids'][0], results['documents'][0], results['metadatas'][0], results['distances'][0]
             if not results['ids']:
                 return []
-                
+
             flat_results = []
             for i in range(len(results['ids'][0])):
                 flat_results.append({
@@ -93,18 +93,20 @@ class VectorStoreManager:
                     "distance": results['distances'][0][i]
                 })
             return flat_results
-            
+
         except Exception as e:
             logger.error(f"Vector Query failed: {e}")
             return []
 
     def delete_documents(self, ids: List[str]):
-        if not self._collection: return
+        if not self._collection:
+            return
         try:
             self._collection.delete(ids=ids)
         except Exception as e:
             logger.error(f"Failed to delete docs: {e}")
 
     def count(self):
-        if not self._collection: return 0
+        if not self._collection:
+            return 0
         return self._collection.count()

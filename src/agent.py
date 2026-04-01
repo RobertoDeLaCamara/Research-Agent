@@ -11,12 +11,13 @@ from .tools.parallel_tools import parallel_search_node
 
 logger = logging.getLogger(__name__)
 
+
 def initialize_state_node(state: AgentState) -> dict:
     """Ensure all state fields are initialized with default values."""
     logger.info("Initializing agent state...")
 
     # Initialize DB for Phase 6
-    from .db_manager import init_db, save_session
+    from .db_manager import init_db
     init_db()
 
     defaults = {
@@ -52,6 +53,7 @@ def initialize_state_node(state: AgentState) -> dict:
 
     return defaults
 
+
 def route_chat(state: AgentState) -> str:
     """Decide whether to continue chatting or do more research."""
     if not state["messages"]:
@@ -75,6 +77,7 @@ def route_chat(state: AgentState) -> str:
 
     return "send_email"
 
+
 def save_db_node(state: AgentState) -> dict:
     """Save the final state to the database."""
     logger.info("save_db_node_started")
@@ -87,6 +90,7 @@ def save_db_node(state: AgentState) -> dict:
     except Exception as e:
         logger.error(f"session_save_failed error={e}")
     return {} # No state update needed
+
 
 # Create workflow graph
 workflow = StateGraph(AgentState)
@@ -111,9 +115,11 @@ workflow.add_edge("plan_research", "parallel_search")
 workflow.add_edge("parallel_search", "consolidate_research")
 workflow.add_edge("consolidate_research", "evaluate_research")
 
+
 def route_evaluation(state: AgentState):
     """Route based on evaluation result."""
     return state.get("next_node", "END")
+
 
 workflow.add_conditional_edges(
     "evaluate_research",

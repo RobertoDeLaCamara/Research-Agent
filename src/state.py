@@ -1,6 +1,7 @@
 from typing import TypedDict, List, Dict
 from langchain_core.messages import BaseMessage
 
+
 class AgentState(TypedDict):
     """Shared state definition for the research agent."""
     topic: str
