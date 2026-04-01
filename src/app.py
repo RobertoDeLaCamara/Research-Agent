@@ -28,6 +28,7 @@ setup_logging()
 from src.agent import app # noqa: E402
 import streamlit.components.v1 as components # noqa: E402
 from src.db_manager import get_recent_sessions, load_session, clear_history # noqa: E402
+from src.i18n import T # noqa: E402
 
 # Configuración de la página
 st.set_page_config(
@@ -64,18 +65,39 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# ── Language initialisation (must happen before sidebar renders) ───────────────
+if "lang" not in st.session_state:
+    st.session_state.lang = "es"
+
 # Sidebar
 with st.sidebar:
-    st.title("⚙️ Configuración")
-    st.info("Configura los parámetros de tu investigación.")
+    # Language toggle — top of sidebar
+    lang_col1, lang_col2 = st.columns(2)
+    with lang_col1:
+        if st.button("🇪🇸 Español", use_container_width=True,
+                     type="primary" if st.session_state.lang == "es" else "secondary"):
+            st.session_state.lang = "es"
+            st.rerun()
+    with lang_col2:
+        if st.button("🇬🇧 English", use_container_width=True,
+                     type="primary" if st.session_state.lang == "en" else "secondary"):
+            st.session_state.lang = "en"
+            st.rerun()
+
+    lang = st.session_state.lang
+    _ = T[lang]  # shorthand for current language strings
+
+    st.divider()
+    st.title(_["sidebar_title"])
+    st.info(_["sidebar_info"])
 
     llm_model = st.selectbox(
-        "Modelo LLM (Ollama)",
+        _["llm_model_label"],
         ["qwen3:14b", "qwen2.5:14b", "gemma3:12b", "llama3:8b"],
         index=0
     )
 
-    st.write("### Fuentes Activas")
+    st.write(_["active_sources"])
     sources = {
         "wiki": st.checkbox("Wikipedia", value=True),
         "web": st.checkbox("Web Search (Tavily)", value=True),
@@ -91,47 +113,38 @@ with st.sidebar:
     # Filter only selected sources
     selected_sources = [k for k, v in sources.items() if v]
 
-    st.write("### 📏 Profundidad")
+    st.write(_["depth_header"])
+    depth_options = [_["depth_quick"], _["depth_standard"], _["depth_deep"]]
     depth_mode = st.radio(
-        "Modo de investigación:",
-        ["Rápido", "Estándar", "Profundo"],
+        _["depth_label"],
+        depth_options,
         index=1,
-        help="Afecta al número de resultados y a la exhaustividad del análisis."
+        help=_["depth_help"]
     )
+    research_depth = ["quick", "standard", "deep"][depth_options.index(depth_mode)]
 
-    depth_mapping = {
-        "Rápido": "quick",
-        "Estándar": "standard",
-        "Profundo": "deep"
-    }
-    research_depth = depth_mapping[depth_mode]
-
-    st.write("### 🧠 Perfil de Investigador")
+    st.write(_["persona_header"])
+    persona_labels = [
+        _["persona_general"], _["persona_business"], _["persona_tech"],
+        _["persona_academic"], _["persona_pm"], _["persona_news"],
+    ]
+    persona_codes = ["general", "business", "tech", "academic", "pm", "news_editor"]
     persona_mode = st.selectbox(
-        "Persona del agente:",
-        ["Generalista", "Analista de Mercado", "Arquitecto de Software", "Revisor Científico", "Product Manager", "Editor de Noticias"],
+        _["persona_label"],
+        persona_labels,
         index=0,
-        help="Ajusta el tono de la síntesis y la prioridad de las fuentes."
+        help=_["persona_help"]
     )
+    persona = persona_codes[persona_labels.index(persona_mode)]
 
-    persona_mapping = {
-        "Generalista": "general",
-        "Analista de Mercado": "business",
-        "Arquitecto de Software": "tech",
-        "Revisor Científico": "academic",
-        "Product Manager": "pm",
-        "Editor de Noticias": "news_editor"
-    }
-    persona = persona_mapping[persona_mode]
-
-    st.write("### ⏱️ Filtro Temporal")
-    last_24h = st.checkbox("Filtrar por últimas 24h", value=False, help="Solo para web y Reddit. Útil para noticias de última hora.")
+    st.write(_["time_header"])
+    last_24h = st.checkbox(_["time_24h"], value=False, help=_["time_24h_help"])
     time_range = "d" if last_24h else None
 
-    st.write("### 📁 Conocimiento Local")
-    use_rag = st.checkbox("Incluir base de conocimientos local", value=False, help="Busca en archivos locales (.pdf, .txt) en ./knowledge_base")
+    st.write(_["local_header"])
+    use_rag = st.checkbox(_["local_rag_checkbox"], value=False, help=_["local_rag_help"])
 
-    uploaded_files = st.file_uploader("Subir archivos para investigar", type=["pdf", "txt"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader(_["upload_label"], type=["pdf", "txt"], accept_multiple_files=True)
     if uploaded_files:
         kb_path = "./knowledge_base"
         if not os.path.exists(kb_path):
@@ -139,41 +152,41 @@ with st.sidebar:
         for uploaded_file in uploaded_files:
             with open(os.path.join(kb_path, uploaded_file.name), "wb") as f:
                 f.write(uploaded_file.getbuffer())
-        st.success(f"✅ {len(uploaded_files)} archivos listos.")
+        st.success(f"✅ " + _["upload_success"].format(n=len(uploaded_files)))
 
     st.divider()
-    st.write("### 📂 Historial")
+    st.write(_["history_header"])
     recent_sessions = get_recent_sessions(limit=10)
     if recent_sessions:
-        session_options = ["Seleccionar..."] + [f"{s[3][:16]} | {s[1]}" for s in recent_sessions]
-        selected_session_label = st.selectbox("Cargar investigación previa:", session_options)
+        session_options = [_["history_select_placeholder"]] + [f"{s[3][:16]} | {s[1]}" for s in recent_sessions]
+        selected_session_label = st.selectbox(_["history_load_label"], session_options)
 
-        if selected_session_label != "Seleccionar...":
-            if st.button("📂 Cargar Sesión"):
+        if selected_session_label != _["history_select_placeholder"]:
+            if st.button(_["history_load_btn"]):
                 session_idx = session_options.index(selected_session_label) - 1
                 session_id = recent_sessions[session_idx][0]
                 loaded_state = load_session(session_id)
                 if loaded_state:
                     st.session_state.agent_state = loaded_state
-                    st.session_state.last_topic = loaded_state.get("topic", "Cargado")
+                    st.session_state.last_topic = loaded_state.get("topic", _["history_select_placeholder"])
                     # Map 'report' from state to 'report_html' for UI
                     st.session_state.report_html = loaded_state.get("report", "")
                     st.session_state.investigation_done = True
-                    st.success(f"Cargado: {st.session_state.last_topic}")
+                    st.success(_["history_loaded"].format(topic=st.session_state.last_topic))
                     st.rerun()
     else:
-        st.write("No hay sesiones previas.")
+        st.write(_["history_empty"])
 
-    if st.button("🗑️ Limpiar Historial", type="secondary", use_container_width=True):
+    if st.button(_["history_clear_btn"], type="secondary", use_container_width=True):
         if clear_history():
-            st.success("Historial borrado correctamente.")
+            st.success(_["history_cleared"])
             st.rerun()
 
     # HF Spaces: show API key panel when running as a Space
     if os.environ.get("SPACE_ID"):
         st.divider()
-        st.write("### 🔑 LLM API Key")
-        st.caption("Running on Hugging Face Spaces. Enter a free API key to use the agent.")
+        st.write(_["hf_key_header"])
+        st.caption(_["hf_key_caption"])
 
         _PROVIDERS = {
             "Groq (free — llama-3.1-8b)": (
@@ -200,17 +213,17 @@ with st.sidebar:
         api_key_input = st.text_input("API Key", type="password", placeholder="Paste your key here")
         custom_model = st.text_input("Model (optional override)", placeholder=default_model)
 
-        if st.button("✅ Apply", use_container_width=True):
+        if st.button(_["hf_key_apply"], use_container_width=True):
             if api_key_input:
                 os.environ["OPENAI_API_KEY"] = api_key_input
                 os.environ["OLLAMA_BASE_URL"] = base_url
                 os.environ["OLLAMA_MODEL"] = custom_model.strip() or default_model
-                st.success("API key applied — ready to research!")
+                st.success(_["hf_key_success"])
             else:
-                st.error("Please enter an API key.")
+                st.error(_["hf_key_error"])
 
         if not os.environ.get("OPENAI_API_KEY"):
-            st.warning("No API key set. Research will fail until you apply one above.")
+            st.warning(_["hf_key_warning"])
 
 # --- Inicialización de Session State ---
 if "investigation_done" not in st.session_state:
@@ -224,30 +237,33 @@ if "messages" not in st.session_state:
 if "agent_state" not in st.session_state:
     st.session_state.agent_state = None
 
-    # Auto-detectar reportes existentes al iniciar
+lang = st.session_state.lang
+_ = T[lang]
+
+# Auto-detectar reportes existentes al iniciar
 if not st.session_state.investigation_done:
     if os.path.exists("reports/reporte_final.html"):
         with open("reports/reporte_final.html", "r", encoding="utf-8") as f:
             st.session_state.report_html = f.read()
         st.session_state.investigation_done = True
-        st.session_state.last_topic = "Reporte Guardado"
+        st.session_state.last_topic = _["autoreport_topic"]
 
 # Main UI
 st.title("🔍 Research-Agent")
-st.subheader("Tu asistente inteligente de investigación multimodal")
+st.subheader(_["page_subtitle"])
 
-topic = st.text_input("¿Qué quieres investigar hoy?", placeholder="Ej. Explainable AI, Docker Orchestration...")
+topic = st.text_input(_["topic_label"], placeholder=_["topic_placeholder"])
 
-if st.button("Iniciar Investigación"):
+if st.button(_["start_btn"]):
     if not topic:
-        st.warning("Por favor, introduce un tema.")
+        st.warning(_["topic_warning"])
     else:
         # Clear previous state to ensure clean start
         st.session_state.investigation_done = False
         st.session_state.report_html = ""
         st.session_state.agent_state = None
 
-        with st.status("🚀 Procesando investigación...", expanded=True) as status:
+        with st.status(_["status_running"], expanded=True) as status:
             try:
                 # Actualizar variables de entorno para el modelo seleccionado
                 os.environ["OLLAMA_MODEL"] = llm_model
@@ -269,31 +285,29 @@ if st.button("Iniciar Investigación"):
                     inputs["research_plan"] = plan
                     inputs["next_node"] = plan[0]
 
-                # Use a dict for node description mappings
                 node_messages = {
-                    "initialize_state": "⚙️ Inicializando estado...",
-                    "plan_research": "🗺️ Planificando estrategia de búsqueda...",
-                    "search_videos": "📺 Buscando vídeos en YouTube...",
-                    "summarize_videos": "📝 Resumiendo contenido audiovisual...",
-                    "search_web": "🌐 Explorando la web...",
-                    "search_wiki": "📚 Consultando Wikipedia...",
-                    "search_arxiv": "🎓 Buscando artículos en arXiv...",
-                    "search_scholar": "🔬 Investigando en Semantic Scholar...",
-                    "search_github": "💻 Explorando repositorios en GitHub...",
-                    "search_hn": "🧡 Buscando discusiones en Hacker News...",
-                    "search_so": "💙 Consultando Stack Overflow...",
-                    "search_reddit": "🤖 Analizando opiniones en Reddit...",
-                    "local_rag": "📁 Analizando conocimiento local (RAG)...",
-                    "consolidate_research": "🧠 Sintetizando toda la información...",
-                    "evaluate_research": "⚖️ Evaluando calidad y buscando vacíos...",
-                    "generate_report": "📄 Generando informe final...",
-                    "send_email": "📧 Enviando reporte por correo..."
+                    "initialize_state": _["node_initialize_state"],
+                    "plan_research": _["node_plan_research"],
+                    "search_videos": _["node_search_videos"],
+                    "summarize_videos": _["node_summarize_videos"],
+                    "search_web": _["node_search_web"],
+                    "search_wiki": _["node_search_wiki"],
+                    "search_arxiv": _["node_search_arxiv"],
+                    "search_scholar": _["node_search_scholar"],
+                    "search_github": _["node_search_github"],
+                    "search_hn": _["node_search_hn"],
+                    "search_so": _["node_search_so"],
+                    "search_reddit": _["node_search_reddit"],
+                    "local_rag": _["node_local_rag"],
+                    "consolidate_research": _["node_consolidate_research"],
+                    "evaluate_research": _["node_evaluate_research"],
+                    "generate_report": _["node_generate_report"],
+                    "send_email": _["node_send_email"],
                 }
 
                 # Streaming execution with Threading and Queue to allow Progress Polling
                 import threading
                 import queue
-                import time
                 import json
 
                 final_state = inputs.copy()
@@ -338,7 +352,10 @@ if st.button("Iniciar Investigación"):
                                     final_state.update(state_update)
 
                                 # UI Updates for Completed Nodes
-                                completed_msg = node_messages.get(node_name, f"Ejecutando {node_name}...")
+                                completed_msg = node_messages.get(
+                                    node_name,
+                                    _["node_fallback"].format(node=node_name)
+                                )
                                 st.write(f"✅ {completed_msg}")
                                 # Clean up progress bar when RAG finishes
                                 if node_name == "local_rag":
@@ -346,7 +363,10 @@ if st.button("Iniciar Investigación"):
 
                                 next_node = state_update.get("next_node") if state_update else None
                                 if next_node and next_node != "END":
-                                    next_msg = node_messages.get(next_node, f"Iniciando {next_node}...")
+                                    next_msg = node_messages.get(
+                                        next_node,
+                                        _["node_fallback"].format(node=next_node)
+                                    )
                                     status_container.info(f"⏳ {next_msg}")
                                 else:
                                     status_container.empty()
@@ -370,7 +390,10 @@ if st.button("Iniciar Investigación"):
                             # Update Progress Bar
                             if total > 0:
                                 progress = min(current / total, 1.0)
-                                rag_progress_bar.progress(progress, text=f"📂 RAG: Analizando {current}/{total}: {fname}")
+                                rag_progress_bar.progress(
+                                    progress,
+                                    text=_["rag_progress"].format(current=current, total=total, fname=fname)
+                                )
                         except Exception:
                             pass  # Ignore read errors during race conditions
 
@@ -393,20 +416,20 @@ if st.button("Iniciar Investigación"):
                 st.session_state.last_topic = topic
                 st.session_state.investigation_done = True
 
-                status.update(label="✅ ¡Investigación Completada!", state="complete", expanded=False)
+                status.update(label=_["status_done"], state="complete", expanded=False)
                 st.balloons()
 
             except Exception as e:
-                st.error(f"Ocurrió un error durante la investigación: {e}")
-                status.update(label="❌ Error en la investigación", state="error")
+                st.error(_["error_msg"].format(e=e))
+                status.update(label=_["status_error"], state="error")
 
 # --- SECCIÓN DE RESULTADOS ---
 if st.session_state.investigation_done:
     st.divider()
-    st.subheader(f"📄 Resultado: {st.session_state.last_topic}")
+    st.subheader(_["results_header"].format(topic=st.session_state.last_topic))
 
     # Multi-format Download Center
-    st.write("### 📥 Centro de Descargas")
+    st.write(_["downloads_header"])
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
@@ -431,12 +454,12 @@ if st.session_state.investigation_done:
 
     # Mostrar el reporte HTML persistido
     if st.session_state.report_html:
-        with st.expander("📄 Ver Reporte Completo", expanded=False):
+        with st.expander(_["report_expander"], expanded=False):
             components.html(st.session_state.report_html, height=800, scrolling=True)
 
     # --- EXPLORADOR DE FUENTES (Source Explorer) ---
     st.divider()
-    st.subheader("🔍 Explorador de Fuentes")
+    st.subheader(_["sources_header"])
 
     if st.session_state.agent_state:
         state = st.session_state.agent_state
@@ -448,27 +471,29 @@ if st.session_state.investigation_done:
                 for item in state[key]:
                     sources_list.append({
                         "type": key.split("_")[0].upper(),
-                        "title": item.get("title") or item.get("name") or "Sin título",
-                        "content": item.get("content") or item.get("summary") or item.get("description") or "Sin contenido",
+                        "title": item.get("title") or item.get("name") or _["source_untitled"],
+                        "content": item.get("content") or item.get("summary") or item.get("description") or _["source_no_content"],
                         "url": item.get("url")
                     })
 
         if sources_list:
-            selected_source_idx = st.selectbox("Selecciona una fuente para explorar el fragmento original:",
-                                             range(len(sources_list)),
-                                             format_func=lambda x: f"[{sources_list[x]['type']}] {sources_list[x]['title']}")
+            selected_source_idx = st.selectbox(
+                _["sources_select"],
+                range(len(sources_list)),
+                format_func=lambda x: f"[{sources_list[x]['type']}] {sources_list[x]['title']}"
+            )
 
             src = sources_list[selected_source_idx]
-            st.info(f"**Fuente:** [{src['type']}] {src['title']}")
+            st.info(_["source_label"].format(type=src['type'], title=src['title']))
             st.markdown(src['content'])
             if src['url']:
-                st.link_button("🔗 Abrir fuente original", src['url'])
+                st.link_button(_["source_open_btn"], src['url'])
         else:
-            st.info("No hay fuentes detalladas disponibles para este reporte.")
+            st.info(_["sources_empty"])
 
     # --- CHAT INTERACTIVO ---
     st.divider()
-    st.subheader("💬 Chat con tu Investigador")
+    st.subheader(_["chat_header"])
 
     # Display chat messages
     for message in st.session_state.messages:
@@ -476,14 +501,14 @@ if st.session_state.investigation_done:
             st.markdown(message["content"])
 
     # Chat input
-    if prompt := st.chat_input("Pregúntame sobre la investigación..."):
+    if prompt := st.chat_input(_["chat_input"]):
         # Add user message to chat history
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            with st.spinner("Pensando..."):
+            with st.spinner(_["chat_thinking"]):
                 from langchain_core.messages import HumanMessage, AIMessage
 
                 # Prepare state for the agent
@@ -499,10 +524,7 @@ if st.session_state.investigation_done:
 
                 current_state["messages"] = lc_messages + [HumanMessage(content=prompt)]
 
-                # In a real LangGraph flow, we might want to invoke a specific part of the graph
-                # For now, we'll implement a direct chat response or a specific chat branch
                 try:
-                    # Use the chat_node directly if we just want conversation
                     from src.tools.chat_tools import chat_node
                     response_state = chat_node(current_state)
                     ai_response = response_state["messages"][0].content
@@ -515,7 +537,7 @@ if st.session_state.investigation_done:
                     st.session_state.agent_state = current_state
 
                 except Exception as e:
-                    st.error(f"Error en el chat: {e}")
+                    st.error(_["chat_error"].format(e=e))
 
 # Footer
 st.divider()
