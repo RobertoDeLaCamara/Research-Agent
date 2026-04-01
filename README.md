@@ -20,6 +20,8 @@ Research-Agent is a LangGraph-based autonomous agent that searches **10 sources 
 - **Export Center**: One-click reports in PDF, Word, Markdown, and HTML, saved to `./reports/`.
 - **Configurable Depth**: Quick (2 results/source), Standard (5), or Deep (10).
 - **Multilingual**: Auto-expands queries to English for global academic/technical coverage.
+- **UI Language Switcher**: Toggle the dashboard between English and Spanish with one click (🇪🇸/🇬🇧 buttons in the sidebar).
+- **Cloud LLM Support**: Works with Groq, Google Gemini, OpenAI, or any OpenAI-compatible API — no local Ollama required. Set `OPENAI_API_KEY` + `OLLAMA_BASE_URL` in `.env`.
 
 ## Architecture
 
