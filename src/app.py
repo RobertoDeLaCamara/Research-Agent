@@ -246,7 +246,7 @@ if not st.session_state.investigation_done:
         with open("reports/reporte_final.html", "r", encoding="utf-8") as f:
             st.session_state.report_html = f.read()
         st.session_state.investigation_done = True
-        st.session_state.last_topic = _["autoreport_topic"]
+        st.session_state.last_topic = "__saved_report__"
 
 # Main UI
 st.title("🔍 Research-Agent")
@@ -426,7 +426,8 @@ if st.button(_["start_btn"]):
 # --- SECCIÓN DE RESULTADOS ---
 if st.session_state.investigation_done:
     st.divider()
-    st.subheader(_["results_header"].format(topic=st.session_state.last_topic))
+    _topic = _["autoreport_topic"] if st.session_state.last_topic == "__saved_report__" else st.session_state.last_topic
+    st.subheader(_["results_header"].format(topic=_topic))
 
     # Multi-format Download Center
     st.write(_["downloads_header"])
