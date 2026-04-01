@@ -198,3 +198,4 @@ reporte_*
 data/
 knowledge_base/
 .aider*
+*.db
