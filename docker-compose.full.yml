@@ -1,0 +1,78 @@
+# docker-compose.full.yml — Self-contained setup (batteries included)
+#
+# Includes a local Ollama instance. No API keys required.
+# First run pulls the model (~1 GB) and may take a few minutes.
+#
+# Usage:
+#   docker compose -f docker-compose.full.yml up
+#   open http://localhost:8501
+
+services:
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - agent-net
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  ollama-init:
+    image: ollama/ollama:latest
+    restart: "no"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - agent-net
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: >
+      sh -c "
+        echo 'Pulling model (first run only — will be cached after this)...' &&
+        ollama pull ${OLLAMA_MODEL:-qwen2.5:1.5b} &&
+        echo 'Model ready.'
+      "
+
+  research-agent:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:1.5b}
+      - DB_PATH=/app/data/research_sessions.db
+      - TAVILY_API_KEY=${TAVILY_API_KEY:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./reports:/app/reports
+      - ./data:/app/data
+      - ./knowledge_base:/app/knowledge_base
+    ports:
+      - "8501:8501"
+    mem_limit: 1g
+    cpus: "2.0"
+    networks:
+      - agent-net
+
+networks:
+  agent-net:
+    driver: bridge
+
+volumes:
+  ollama_data:

@@ -77,22 +77,50 @@ LLMs can automate KG creation by extracting relationships from unstructured text
 
 ## Quick Start
 
-### Docker Compose (Recommended)
+### Zero-config (batteries included)
+
+No Ollama, no API keys, no `.env` file needed. Docker only.
+
 ```bash
 git clone https://github.com/RobertoDeLaCamara/Research-Agent.git
 cd Research-Agent
-cp env.example .env   # Configure API keys
+docker compose -f docker-compose.full.yml up
+```
+
+Open **http://localhost:8501**. The first run pulls a ~1 GB model and may take a few minutes — subsequent starts are instant.
+
+> **Want a guided setup instead?** Run `bash scripts/quickstart.sh` — it asks which LLM backend and model size you want, optionally adds API keys, then launches everything.
+
+---
+
+### Option B — Bring your own Ollama
+
+If you already have [Ollama](https://ollama.com) running locally:
+
+```bash
+ollama pull qwen2.5:1.5b   # or any model you prefer
+cp env.example .env         # defaults work out of the box
 docker compose up -d
 ```
-Access the UI at **http://localhost:8501**
 
-> The container runs as a non-root user with resource limits (`512m` memory, `1 CPU`) and a health check. Volumes mount `./reports`, `./data`, and `./knowledge_base`.
+### Option C — Use OpenAI (or any compatible API)
 
-### Local Installation
+```bash
+cp env.example .env
+# Edit .env: set OPENAI_API_KEY and point OLLAMA_BASE_URL to https://api.openai.com/v1
+docker compose up -d
+```
+
+Works with any OpenAI-compatible endpoint: LM Studio, Together AI, Groq, Ollama, etc.
+
+> **No API keys required for web search** — the agent falls back to DuckDuckGo automatically. Add a free [Tavily](https://tavily.com) key (`TAVILY_API_KEY`) for better results.
+
+### Local Installation (no Docker)
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-streamlit run src/app.py --server.address=0.0.0.0
+cp env.example .env   # edit OLLAMA_BASE_URL if Ollama is not on localhost
+streamlit run src/app.py
 ```
 
 ## Project Structure
