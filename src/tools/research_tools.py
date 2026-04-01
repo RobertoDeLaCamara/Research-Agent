@@ -184,8 +184,8 @@ def translate_to_english(text: str) -> str:
     try:
         from ..utils import bypass_proxy_for_ollama
         bypass_proxy_for_ollama()
-        from langchain_ollama import ChatOllama
-        llm = ChatOllama(model=os.getenv("OLLAMA_MODEL", "qwen3:14b"), temperature=0, request_timeout=30)
+        from ..llm import get_llm
+        llm = get_llm(temperature=0, timeout=30)
         prompt = f"Translate the following research topic to English for a technical search on arXiv/GitHub. respond ONLY with the translation: {text}"
         return llm.invoke(prompt).content.strip()
     except Exception as e:
