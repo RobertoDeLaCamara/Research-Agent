@@ -40,7 +40,7 @@ services:
     entrypoint: >
       sh -c "
         echo 'Pulling model (first run only — will be cached after this)...' &&
-        ollama pull ${OLLAMA_MODEL:-qwen2.5:1.5b} &&
+        ollama pull qwen2.5:1.5b &&
         echo 'Model ready.'
       "
 
@@ -54,7 +54,7 @@ services:
         condition: service_completed_successfully
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:1.5b}
+      - OLLAMA_MODEL=qwen2.5:1.5b
       - DB_PATH=/app/data/research_sessions.db
       - TAVILY_API_KEY=${TAVILY_API_KEY:-}
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
