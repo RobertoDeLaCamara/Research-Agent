@@ -91,10 +91,24 @@ with st.sidebar:
     st.title(_["sidebar_title"])
     st.info(_["sidebar_info"])
 
+    def _get_ollama_models() -> list[str]:
+        try:
+            import requests
+            base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+            resp = requests.get(f"{base_url}/api/tags", timeout=3)
+            models = [m["name"] for m in resp.json().get("models", [])]
+            return models if models else [os.environ.get("OLLAMA_MODEL", "qwen2.5:1.5b")]
+        except Exception:
+            return [os.environ.get("OLLAMA_MODEL", "qwen2.5:1.5b")]
+
+    available_models = _get_ollama_models()
+    current_model = os.environ.get("OLLAMA_MODEL", available_models[0])
+    default_index = available_models.index(current_model) if current_model in available_models else 0
+
     llm_model = st.selectbox(
         _["llm_model_label"],
-        ["qwen3:14b", "qwen2.5:14b", "gemma3:12b", "llama3:8b"],
-        index=0
+        available_models,
+        index=default_index
     )
 
     st.write(_["active_sources"])
