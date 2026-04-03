@@ -6,6 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/RobertoDeLaCamara/Research-Agent)](https://github.com/RobertoDeLaCamara/Research-Agent/releases)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-2496ED?logo=docker&logoColor=white)](https://ghcr.io/robertodelaCAMARa/research-agent)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20this%20project-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/bobelsilencioso)
+[![HF Space](https://img.shields.io/badge/🤗%20Live%20Demo-HF%20Spaces-FFD21E)](https://huggingface.co/spaces/ecerocg/research-agent)
 
 Give it a topic. Get a sourced, structured research report in minutes.
 
