@@ -3,8 +3,7 @@
 # Usage: ./scripts/deploy_hf_spaces.sh <hf-username>
 #
 # Prerequisites:
-#   pip install huggingface_hub
-#   huggingface-cli login   (or set HF_TOKEN env var)
+#   venv/bin/python -c "from huggingface_hub import login; login()"
 
 set -euo pipefail
 
@@ -19,11 +18,13 @@ HF_REPO="${HF_USER}/${SPACE_NAME}"
 HF_REMOTE="https://huggingface.co/spaces/${HF_REPO}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PYTHON="${REPO_ROOT}/venv/bin/python"
+if [[ ! -f "$PYTHON" ]]; then PYTHON="python3"; fi
 
 echo "▶ Deploying to Hugging Face Space: ${HF_REPO}"
 
 # ── 1. Create the Space if it doesn't exist ───────────────────────────────────
-python3 - <<PYEOF
+"$PYTHON" - <<PYEOF
 from huggingface_hub import HfApi
 api = HfApi()
 try:
@@ -40,27 +41,41 @@ except Exception:
     print("  Space created: https://huggingface.co/spaces/${HF_REPO}")
 PYEOF
 
-# ── 2. Set up hf remote ───────────────────────────────────────────────────────
+# ── 2. Set up hf remote (token embedded for non-interactive push) ─────────────
 cd "$REPO_ROOT"
+HF_TOKEN="${HF_TOKEN:-$(cat ~/.cache/huggingface/token 2>/dev/null || echo "")}"
+if [[ -z "$HF_TOKEN" ]]; then
+  echo "ERROR: No HF token found. Run: venv/bin/python -c \"from huggingface_hub import login; login()\""
+  exit 1
+fi
+HF_REMOTE_AUTH="https://${HF_USER}:${HF_TOKEN}@huggingface.co/spaces/${HF_REPO}"
 if git remote get-url hf &>/dev/null; then
-  git remote set-url hf "$HF_REMOTE"
+  git remote set-url hf "$HF_REMOTE_AUTH"
 else
-  git remote add hf "$HF_REMOTE"
+  git remote add hf "$HF_REMOTE_AUTH"
 fi
 echo "  Remote 'hf' → ${HF_REMOTE}"
 
-# ── 3. Prepare HF-specific files in a temp branch ────────────────────────────
+# ── 3. Build an orphan branch (no history) to avoid binary file rejection ─────
 TEMP_BRANCH="hf-spaces-deploy-$(date +%s)"
-git checkout -b "$TEMP_BRANCH"
 
-# Replace Dockerfile with the Spaces variant
-cp Dockerfile.spaces Dockerfile
+TMPDIR_DEPLOY="$(mktemp -d)"
+# Copy all tracked files except binaries HF rejects
+git ls-files | grep -vE '\.(gif|db|sqlite|sqlite3|png|jpg|jpeg|mp4|pt|bin|pkl)$' \
+  | xargs -I{} bash -c 'mkdir -p "$1/$(dirname "$2")" && cp "$2" "$1/$2"' _ "$TMPDIR_DEPLOY" {}
 
-# Replace README.md with the HF frontmatter version
-cp hf_spaces/README.md README.md
+# Swap in HF-specific files
+cp Dockerfile.spaces "${TMPDIR_DEPLOY}/Dockerfile"
+cp hf_spaces/README.md "${TMPDIR_DEPLOY}/README.md"
 
-git add Dockerfile README.md
-git commit --allow-empty -m "chore: prepare Dockerfile and README for HF Spaces deploy"
+# Create orphan branch from that clean tree
+git checkout --orphan "$TEMP_BRANCH"
+git rm -rf . --quiet
+cp -r "${TMPDIR_DEPLOY}/." .
+rm -rf "$TMPDIR_DEPLOY"
+
+git add -A
+git commit -m "chore: HF Spaces deploy (orphan — no binary history)"
 
 # ── 4. Push to HF ─────────────────────────────────────────────────────────────
 echo "▶ Pushing to Hugging Face…"
@@ -74,6 +89,5 @@ echo ""
 echo "✅ Deployed! Your Space will be live in ~2 minutes at:"
 echo "   https://huggingface.co/spaces/${HF_REPO}"
 echo ""
-echo "Next: set OPENAI_API_KEY (Groq key) as a Secret in the Space settings"
-echo "      so the demo works without users pasting their own key:"
+echo "Next: set OPENAI_API_KEY (Groq key) as a Secret in the Space settings:"
 echo "   https://huggingface.co/spaces/${HF_REPO}/settings"
