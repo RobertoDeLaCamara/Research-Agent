@@ -3,6 +3,8 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/RobertoDeLaCamara/Research-Agent?style=social)](https://github.com/RobertoDeLaCamara/Research-Agent/stargazers)
+[![Release](https://img.shields.io/github/v/release/RobertoDeLaCamara/Research-Agent)](https://github.com/RobertoDeLaCamara/Research-Agent/releases)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-2496ED?logo=docker&logoColor=white)](https://ghcr.io/robertodelaCAMARa/research-agent)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20this%20project-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/bobelsilencioso)
 
 Give it a topic. Get a sourced, structured research report in minutes.

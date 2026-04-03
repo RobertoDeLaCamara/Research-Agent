@@ -4,12 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-04-03
+
 ### Added
 - **UI Language Switcher**: 🇪🇸/🇬🇧 toggle buttons at the top of the sidebar switch the entire dashboard between Spanish and English. Language persists in `st.session_state` across reruns. All 84 UI strings (labels, buttons, depth/persona options, node progress messages, chat prompts) are defined in `src/i18n.py`.
 - **Cloud LLM Factory** (`src/llm.py`): `get_llm()` factory auto-selects `ChatOllama` (local) or `ChatOpenAI` (cloud) based on `OPENAI_API_KEY` presence or URL detection. Supports Groq (free tier), Google Gemini (free tier), OpenAI, OpenRouter, Cerebras, Mistral, and any OpenAI-compatible endpoint. Reads `os.environ` at call time so sidebar key overrides take effect without restart.
 - **Hugging Face Spaces deployment**: `Dockerfile.spaces` (port 7860), sidebar API key panel shown when `SPACE_ID` env var is detected, `hf_spaces/README.md` with Space frontmatter, and `scripts/deploy_hf_spaces.sh` for one-command deploy.
 - **Zero-config quickstart**: `docker-compose.full.yml` bundles Ollama + model pull + agent in a single `docker compose up`. `scripts/quickstart.sh` provides interactive setup for local/cloud/custom backends.
 - **`env.example` presets**: Ready-to-paste configurations for Groq, Google Gemini, and OpenAI with inline comments.
+- **Docker image on GitHub Container Registry**: Automated publish to `ghcr.io/robertodelaCAMARa/research-agent` on every release via GitHub Actions.
 
 ## [1.0.0] - 2026-03-01
 
