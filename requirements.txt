@@ -19,11 +19,10 @@ pydantic-settings>=2.0.0
 chromadb>=0.4.0
 
 # APIs and Utilities
-youtube-transcript-api==0.6.2
+youtube-transcript-api>=1.0.0
 google-api-python-client==2.130.0
 python-dotenv==1.0.1
 youtube-search
-youtube-transcript-api
 pytube
 wikipedia
 arxiv
