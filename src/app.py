@@ -547,3 +547,9 @@ st.markdown(f"""
         Research-Agent v1.0.1 | DB: {os.environ.get('DB_PATH', 'Default')} | PWD: {os.getcwd()}
     </div>
     """, unsafe_allow_html=True)
+
+
+def main():
+    """Entry point for research-agent-ui CLI command."""
+    import subprocess, sys
+    subprocess.run([sys.executable, "-m", "streamlit", "run", __file__, "--server.address=0.0.0.0"])

@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "research-agent-ai"
+version = "1.1.0"
+description = "LangGraph-based autonomous research agent with multi-source RAG and Streamlit UI"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "Roberto de la Cámara", email = "roberto@robertodelaCAMARa.dev" }]
+keywords = ["langchain", "langgraph", "research", "ai", "agent", "rag", "streamlit", "ollama"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+]
+dependencies = [
+    "langchain>=0.2.0",
+    "langchain-core>=0.2.20",
+    "langchain-openai>=0.1.8",
+    "langchain-ollama",
+    "langchain-community",
+    "langchain-tavily",
+    "tavily-python",
+    "langgraph>=0.0.68",
+    "nest_asyncio>=1.6.0",
+    "aiohttp>=3.8.0",
+    "tenacity>=8.0.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "chromadb>=0.4.0",
+    "youtube-transcript-api==0.6.2",
+    "google-api-python-client==2.130.0",
+    "python-dotenv==1.0.1",
+    "wikipedia",
+    "arxiv",
+    "duckduckgo-search",
+    "stackapi",
+    "fpdf",
+    "requests",
+    "markdown",
+    "semanticscholar",
+    "PyGithub",
+    "streamlit",
+    "streamlit-extras",
+    "python-docx>=0.8.11",
+    "pypdf>=3.0.0",
+    "structlog",
+    "transformers",
+]
+
+[project.urls]
+Homepage = "https://github.com/RobertoDeLaCamara/Research-Agent"
+Repository = "https://github.com/RobertoDeLaCamara/Research-Agent"
+Changelog = "https://github.com/RobertoDeLaCamara/Research-Agent/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/RobertoDeLaCamara/Research-Agent/issues"
+
+[project.scripts]
+research-agent = "main:run_agent"
+research-agent-ui = "app:main"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.yaml", "*.yml"]
