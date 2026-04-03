@@ -6,7 +6,7 @@ colorTo: indigo
 sdk: docker
 app_port: 7860
 pinned: false
-short_description: Autonomous multi-source AI research agent — 10 sources in parallel, LangGraph + Streamlit
+short_description: LangGraph research agent — 10 sources, RAG, Streamlit
 tags:
   - langchain
   - langgraph
