@@ -33,4 +33,5 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
 CMD ["streamlit", "run", "src/app.py", \
      "--server.address=0.0.0.0", \
      "--server.port=7860", \
-     "--server.headless=true"]
+     "--server.headless=true", \
+     "--server.fileWatcherType=none"]
