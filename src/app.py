@@ -239,6 +239,36 @@ with st.sidebar:
         if not os.environ.get("OPENAI_API_KEY"):
             st.warning(_["hf_key_warning"])
 
+    # Optional API keys (always visible)
+    st.divider()
+    with st.expander(_["opt_keys_header"]):
+        st.caption(_["opt_keys_caption"])
+
+        tavily_input = st.text_input(
+            _["opt_keys_tavily"], type="password",
+            placeholder=_["opt_keys_tavily_hint"],
+            value=os.environ.get("TAVILY_API_KEY", ""),
+        )
+        github_input = st.text_input(
+            _["opt_keys_github"], type="password",
+            placeholder=_["opt_keys_github_hint"],
+            value=os.environ.get("GITHUB_TOKEN", ""),
+        )
+        youtube_input = st.text_input(
+            _["opt_keys_youtube"], type="password",
+            placeholder=_["opt_keys_youtube_hint"],
+            value=os.environ.get("YOUTUBE_API_KEY", ""),
+        )
+
+        if st.button(_["opt_keys_apply"], use_container_width=True):
+            if tavily_input:
+                os.environ["TAVILY_API_KEY"] = tavily_input
+            if github_input:
+                os.environ["GITHUB_TOKEN"] = github_input
+            if youtube_input:
+                os.environ["YOUTUBE_API_KEY"] = youtube_input
+            st.success(_["opt_keys_success"])
+
 # --- Inicialización de Session State ---
 if "investigation_done" not in st.session_state:
     st.session_state.investigation_done = False
