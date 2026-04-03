@@ -4,6 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/RobertoDeLaCamara/Research-Agent?style=social)](https://github.com/RobertoDeLaCamara/Research-Agent/stargazers)
 [![Release](https://img.shields.io/github/v/release/RobertoDeLaCamara/Research-Agent)](https://github.com/RobertoDeLaCamara/Research-Agent/releases)
+[![PyPI](https://img.shields.io/pypi/v/research-agent-ai?logo=pypi&logoColor=white)](https://pypi.org/project/research-agent-ai/)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-2496ED?logo=docker&logoColor=white)](https://ghcr.io/robertodelaCAMARa/research-agent)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20this%20project-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/bobelsilencioso)
 
