@@ -117,7 +117,8 @@ def summarize_videos_node(state: AgentState) -> dict:
             if thread.is_alive() or not docs:
                 if thread.is_alive():
                     logger.warning("transcript_loading_timeout")
-                raise ValueError("No se pudo obtener la transcripción.")
+                logger.warning("transcript_unavailable_skipping_video")
+                continue
 
             summary = ""
             summary_container = {"data": ""}
@@ -129,7 +130,7 @@ def summarize_videos_node(state: AgentState) -> dict:
 
             thread_sum = threading.Thread(target=run_summarize)
             thread_sum.start()
-            thread_sum.join(timeout=90) # 90 seconds per video (Ollama can be slow)
+            thread_sum.join(timeout=30) # 30 seconds per video
 
             if not thread_sum.is_alive():
                 summary = summary_container["data"]

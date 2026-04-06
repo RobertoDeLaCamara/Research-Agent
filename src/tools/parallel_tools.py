@@ -59,14 +59,20 @@ def parallel_search_node(state: AgentState) -> dict:
             else:
                 logger.warning(f"Unknown source in plan: {source_name}")
 
-        for future in as_completed(futures_map):
-            source_name = futures_map[future]
-            try:
-                result = future.result()
-                combined.update(result)
-                logger.info(f"Source '{source_name}' completed successfully")
-            except Exception as e:
-                logger.error(f"Source '{source_name}' failed: {e}")
+        from concurrent.futures import TimeoutError as FutureTimeoutError
+        try:
+            for future in as_completed(futures_map, timeout=60):
+                source_name = futures_map[future]
+                try:
+                    result = future.result()
+                    combined.update(result)
+                    logger.info(f"Source '{source_name}' completed successfully")
+                except Exception as e:
+                    logger.error(f"Source '{source_name}' failed: {e}")
+        except FutureTimeoutError:
+            for future, source_name in futures_map.items():
+                if not future.done():
+                    logger.warning(f"Source '{source_name}' timed out after 60s, skipping")
 
     # Set next_node to END so consolidation follows
     combined["next_node"] = "END"

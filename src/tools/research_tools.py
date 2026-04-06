@@ -160,6 +160,7 @@ def search_wiki_node(state: AgentState) -> dict:
         if thread.is_alive():
             logger.warning("Wikipedia search timed out.")
         else:
+            results = container["data"]
             logger.info("Wikipedia search completed.")
     except Exception as e:
         logger.warning("wikipedia_search_failed", exc_info=e)
@@ -197,15 +198,14 @@ def search_arxiv_node(state: AgentState) -> dict:
     import threading
     container = {"data": []}
     def run_arxiv_search():
+        max_results = get_max_results(state)
         try:
-            client = arxiv.Client()
-            max_results = get_max_results(state)
+            client = arxiv.Client(page_size=max_results, delay_seconds=1.0)
             search = arxiv.Search(
                 query=search_topic,
                 max_results=max_results,
                 sort_by=arxiv.SortCriterion.Relevance
             )
-
             results_iter = client.results(search)
             for i in range(max_results):
                 try:
@@ -250,15 +250,11 @@ def search_scholar_node(state: AgentState) -> dict:
     container = {"data": []}
     def run_scholar_search():
         try:
-            # SemanticScholar library uses lazy loading.
-            # We MUST iterate INSIDE the thread to stay protected by the timeout.
             search_results = sch.search_paper(search_topic, limit=max_results, fields=['title', 'abstract', 'url', 'year', 'authors'])
-
             count = 0
             for paper in search_results:
                 if count >= max_results:
                     break
-
                 authors_list = [author['name'] for author in paper.authors] if paper.authors else []
                 container["data"].append({
                     "title": paper.title,

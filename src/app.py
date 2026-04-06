@@ -8,9 +8,13 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+from dotenv import load_dotenv
+load_dotenv(os.path.join(project_root, ".env"))
+
 from src.agent import app
 import streamlit.components.v1 as components
 from src.db_manager import get_recent_sessions, load_session, clear_history
+from src.i18n import T
 
 # Configuración de la página
 st.set_page_config(
@@ -226,30 +230,56 @@ with st.sidebar:
     with st.expander(_["opt_keys_header"]):
         st.caption(_["opt_keys_caption"])
 
+        tavily_configured = bool(os.environ.get("TAVILY_API_KEY"))
+        github_configured = bool(os.environ.get("GITHUB_TOKEN"))
+        youtube_configured = bool(os.environ.get("YOUTUBE_API_KEY"))
+
         tavily_input = st.text_input(
-            _["opt_keys_tavily"], type="password",
+            _["opt_keys_tavily"] + (" ✅" if tavily_configured else ""),
+            type="password",
             placeholder=_["opt_keys_tavily_hint"],
             value=os.environ.get("TAVILY_API_KEY", ""),
+            disabled=tavily_configured,
         )
         github_input = st.text_input(
-            _["opt_keys_github"], type="password",
+            _["opt_keys_github"] + (" ✅" if github_configured else ""),
+            type="password",
             placeholder=_["opt_keys_github_hint"],
             value=os.environ.get("GITHUB_TOKEN", ""),
+            disabled=github_configured,
         )
         youtube_input = st.text_input(
-            _["opt_keys_youtube"], type="password",
+            _["opt_keys_youtube"] + (" ✅" if youtube_configured else ""),
+            type="password",
             placeholder=_["opt_keys_youtube_hint"],
             value=os.environ.get("YOUTUBE_API_KEY", ""),
+            disabled=youtube_configured,
         )
 
-        if st.button(_["opt_keys_apply"], use_container_width=True):
-            if tavily_input:
-                os.environ["TAVILY_API_KEY"] = tavily_input
-            if github_input:
-                os.environ["GITHUB_TOKEN"] = github_input
-            if youtube_input:
-                os.environ["YOUTUBE_API_KEY"] = youtube_input
-            st.success(_["opt_keys_success"])
+        if not all([tavily_configured, github_configured, youtube_configured]):
+            if st.button(_["opt_keys_apply"], use_container_width=True):
+                if tavily_input:
+                    os.environ["TAVILY_API_KEY"] = tavily_input
+                if github_input:
+                    os.environ["GITHUB_TOKEN"] = github_input
+                if youtube_input:
+                    os.environ["YOUTUBE_API_KEY"] = youtube_input
+                st.success(_["opt_keys_success"])
+                st.rerun()
+
+# Fallback defaults in case sidebar variables are not yet bound
+if "research_depth" not in globals():
+    research_depth = "standard"
+if "persona" not in globals():
+    persona = "general"
+if "llm_model" not in globals():
+    llm_model = os.environ.get("OLLAMA_MODEL", "qwen3:14b")
+if "selected_sources" not in globals():
+    selected_sources = ["wiki", "web", "arxiv", "scholar", "github", "hn", "so", "youtube", "reddit"]
+if "time_range" not in globals():
+    time_range = None
+if "use_rag" not in globals():
+    use_rag = False
 
 # --- Inicialización de Session State ---
 if "investigation_done" not in st.session_state:
