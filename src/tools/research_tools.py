@@ -111,8 +111,9 @@ def search_web_node(state: AgentState) -> dict:
     
     if thread.is_alive():
         logger.warning(f"Web search timed out after {settings.web_search_timeout} seconds.")
-        # Proceed with empty results if timed out
-        
+    else:
+        results = container["data"]
+
     logger.info(f"Web search completed with {len(results)} results")
     return {"web_research": results, "next_node": update_next_node(state, "web"), "source_metadata": {"web": {"source_type": "web", "reliability": 3}}}
 

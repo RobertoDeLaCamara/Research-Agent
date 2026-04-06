@@ -85,16 +85,7 @@ def plan_research_node(state: AgentState) -> dict:
     LISTA DE FUENTES SELECCIONADAS:
     """
     
-    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
-    
-    from ..config import settings
-    llm = ChatOllama(
-        base_url=ollama_base_url,
-        model=ollama_model,
-        temperature=0.1,
-        request_timeout=settings.llm_request_timeout
-    )
+    llm = get_llm(temperature=0.1)
     
     try:
         response = llm.invoke([HumanMessage(content=prompt)])

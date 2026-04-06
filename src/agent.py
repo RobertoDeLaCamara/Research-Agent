@@ -134,34 +134,8 @@ logger.info("Connecting nodes with edges...")
 workflow.set_entry_point("initialize_state")
 workflow.add_edge("initialize_state", "plan_research")
 
-# Dynamic navigation destinations
-destinations = {
-    "search_wiki": "search_wiki",
-    "search_web": "search_web",
-    "search_arxiv": "search_arxiv",
-    "search_scholar": "search_scholar",
-    "search_github": "search_github",
-    "search_hn": "search_hn",
-    "search_so": "search_so",
-    "search_videos": "search_videos",
-    "search_reddit": "search_reddit",
-    "local_rag": "local_rag",
-    "consolidate_research": "consolidate_research"
-}
-
-# Dynamic navigation after planning
-workflow.add_conditional_edges("plan_research", route_research, destinations)
-
-# Every search node needs to update the state and go to the next node
-search_nodes = ["search_wiki", "search_web", "search_arxiv", "search_scholar", "search_github", "search_hn", "search_so", "search_videos", "search_reddit", "local_rag"]
-
-for node in search_nodes:
-    if node == "search_videos":
-        workflow.add_edge("search_videos", "summarize_videos")
-        workflow.add_conditional_edges("summarize_videos", route_research, destinations)
-    else:
-        workflow.add_conditional_edges(node, route_research, destinations)
-
+workflow.add_edge("plan_research", "parallel_search")
+workflow.add_edge("parallel_search", "consolidate_research")
 workflow.add_edge("consolidate_research", "evaluate_research")
 
 

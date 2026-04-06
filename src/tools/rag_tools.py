@@ -79,7 +79,7 @@ def local_rag_node(state: AgentState) -> dict:
             try:
                 if filename.lower().endswith(".pdf"):
                     with open(file_path, "rb") as f:
-                        reader = PyPDF2.PdfReader(f)
+                        reader = pypdf.PdfReader(f)
                         # Limit pages to avoid huge delays on massive books
                         max_pages = 50 
                         count = 0
@@ -139,6 +139,7 @@ def local_rag_node(state: AgentState) -> dict:
     logger.info(f"Starting processing of {total_files} files with max_workers=4")
     
     # Reduced workers to prevent OOM on large PDFs
+    results = []
     from concurrent.futures import as_completed
     with ThreadPoolExecutor(max_workers=4) as executor:
         future_to_file = {executor.submit(process_file, f): f for f in files_found}
@@ -178,7 +179,7 @@ def local_rag_node(state: AgentState) -> dict:
             logger.error(f"Failed to save RAG cache: {e}")
 
     return {
-        "local_research": results_list,
+        "local_research": results,
         "next_node": update_next_node(state, "local_rag"),
         "source_metadata": {"local_rag": {"source_type": "user_provided_knowledge", "reliability": 5}}
     }
