@@ -49,12 +49,12 @@ Research-Agent is a LangGraph-based autonomous agent that searches **10 sources 
 
 ```mermaid
 graph TD
-    Start((Start)) --> Init[Initialize State]
-    Init --> Plan[Research Planner]
-    Plan --> Parallel[Parallel Search Node]
+    Start((Start)) --> Init[initialize_state]
+    Init --> Plan[plan_research]
+    Plan --> Parallel[parallel_search]
 
     subgraph ThreadPoolExecutor
-        Parallel --> Web[Web]
+        Parallel --> Web[Web / Tavily]
         Parallel --> Wiki[Wikipedia]
         Parallel --> Arxiv[arXiv]
         Parallel --> Scholar[Semantic Scholar]
@@ -62,20 +62,21 @@ graph TD
         Parallel --> HN[Hacker News]
         Parallel --> SO[Stack Overflow]
         Parallel --> Reddit[Reddit]
-        Parallel --> YT[YouTube]
+        Parallel --> YT[YouTube search + summarize]
         Parallel --> RAG[Local RAG]
     end
 
-    Web & Wiki & Arxiv & Scholar & GH & HN & SO & Reddit & YT & RAG --> Synth[Consolidation]
-    Synth --> Eval{Evaluation}
+    Web & Wiki & Arxiv & Scholar & GH & HN & SO & Reddit & YT & RAG --> Synth[consolidate_research]
+    Synth --> Eval{evaluate_research}
 
-    Eval -->|Gaps Found| Plan
-    Eval -->|Complete| Report[Report Generator]
-    Report --> Email[Email / Save]
-    Email --> End((End))
+    Eval -->|Gaps Found - max 1 re-plan| Plan
+    Eval -->|Complete| Report[generate_report]
+    Report --> Email[send_email]
+    Email --> DB[save_db]
+    DB --> End((End))
 ```
 
-Flow: `initialize_state` -> `plan_research` -> `parallel_search` -> `consolidate_research` -> `evaluate_research` -> `generate_report` -> `send_email` -> `save_db`
+Flow: `initialize_state` → `plan_research` → `parallel_search` → `consolidate_research` → `evaluate_research` → `generate_report` → `send_email` → `save_db`
 
 ## Sample Output
 

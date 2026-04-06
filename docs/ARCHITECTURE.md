@@ -77,6 +77,8 @@ def evaluate_research_node(state):
 def parallel_search_node(state):
     plan = state["research_plan"]  # e.g. ["web", "arxiv", "github"]
     # Maps each source to its function, executes all in parallel
+    # Writes per-source progress to /tmp/parallel_search_status.json
+    # Global 60s timeout via as_completed(timeout=60)
     # Returns combined results from all sources
 ```
 
@@ -170,9 +172,9 @@ Consolidated Summary → Evaluate (LLM) → Quality Check
                                     Complete?   → Generate Report
 ```
 
-### Phase 5: Reporting
+### Phase 5: Reporting & Persistence
 ```
-Report Generation → Export (PDF/Word/HTML/MD) → User Download
+generate_report → Export (PDF/Word/HTML/MD) → send_email → save_db → END
 ```
 
 ## Key Design Patterns
@@ -217,10 +219,14 @@ if not thread.is_alive():
 def parallel_search_node(state):
     plan = state["research_plan"]
     with ThreadPoolExecutor(max_workers=len(plan)) as executor:
-        futures = {executor.submit(fn, state): name
-                   for name, fn in source_functions.items() if name in plan}
-        for future in as_completed(futures):
-            combined.update(future.result())
+        futures_map = {executor.submit(fn, state): name for name, fn in source_functions.items() if name in plan}
+        try:
+            for future in as_completed(futures_map, timeout=60):  # 60s global timeout
+                combined.update(future.result())
+                _write_status(done, running, total)  # live UI progress
+        except TimeoutError:
+            pass  # skip slow sources, don't fail
+    combined["next_node"] = "END"
     return combined
 ```
 
