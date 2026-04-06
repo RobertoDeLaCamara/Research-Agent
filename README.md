@@ -4,7 +4,7 @@ emoji: 🔍
 colorFrom: blue
 colorTo: indigo
 sdk: docker
-app_port: 7860
+app_port: 8501
 pinned: false
 short_description: Autonomous AI research agent with LangGraph + Streamlit
 ---
