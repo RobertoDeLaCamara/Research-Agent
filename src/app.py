@@ -336,11 +336,19 @@ if st.button(_["start_btn"]):
 
                 if plan:
                     inputs["research_plan"] = plan
-                    inputs["next_node"] = plan[0]
+                    inputs["next_node"] = "parallel_search"
+
+                source_labels = {
+                    "web": "Web (Tavily)", "wiki": "Wikipedia", "arxiv": "arXiv",
+                    "scholar": "Semantic Scholar", "github": "GitHub", "hn": "Hacker News",
+                    "so": "Stack Overflow", "reddit": "Reddit", "youtube": "YouTube",
+                    "local_rag": "RAG local",
+                }
 
                 node_messages = {
                     "initialize_state": _["node_initialize_state"],
                     "plan_research": _["node_plan_research"],
+                    "parallel_search": "🔍 Buscando en todas las fuentes en paralelo...",
                     "search_videos": _["node_search_videos"],
                     "summarize_videos": _["node_summarize_videos"],
                     "search_web": _["node_search_web"],
@@ -363,10 +371,11 @@ if st.button(_["start_btn"]):
                 import queue
                 import time
                 import json
-                
+                from src.tools.parallel_tools import PARALLEL_STATUS_FILE
+
                 final_state = inputs.copy()
                 status_container = st.empty()
-                rag_progress_bar = st.empty() # Placeholder for progress bar
+                rag_progress_bar = st.empty()
                 
                 # Queue for agent events
                 event_q = queue.Queue()
@@ -384,7 +393,7 @@ if st.button(_["start_btn"]):
                 agent_thread = threading.Thread(target=run_agent_in_thread, args=(inputs, event_q))
                 agent_thread.start()
                 
-                # Main Loop: consume events AND poll RAG status
+                # Main Loop: consume events AND poll RAG/parallel status
                 rag_status_file = "/app/data/rag_status.json"
                 
                 while True:
@@ -425,7 +434,26 @@ if st.button(_["start_btn"]):
                     if not agent_thread.is_alive() and event_q.empty():
                         break
                         
-                    # 2. Poll RAG Status File (if exists)
+                    # 2. Poll Parallel Search Status File
+                    if os.path.exists(PARALLEL_STATUS_FILE):
+                        try:
+                            with open(PARALLEL_STATUS_FILE, "r") as f:
+                                ps = json.load(f)
+                            done = ps.get("done", [])
+                            running = ps.get("running", [])
+                            total = ps.get("total", 1)
+                            done_labels = [source_labels.get(s, s) for s in done]
+                            run_labels = [source_labels.get(s, s) for s in running]
+                            parts = []
+                            if done_labels:
+                                parts.append("✅ " + ", ".join(done_labels))
+                            if run_labels:
+                                parts.append("⏳ " + ", ".join(run_labels))
+                            status_container.info(f"🔍 **Búsqueda paralela** ({len(done)}/{total})\n\n" + "\n\n".join(parts))
+                        except Exception:
+                            pass
+
+                    # 3. Poll RAG Status File (if exists)
                     if os.path.exists(rag_status_file):
                         try:
                             with open(rag_status_file, "r") as f:

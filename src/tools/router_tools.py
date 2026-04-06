@@ -99,11 +99,9 @@ def plan_research_node(state: AgentState) -> dict:
         # Multilingual expansion
         expanded_queries = expand_queries_multilingual(topic)
 
-        first_node = selected_sources[0] if selected_sources else "generate_report"
-
         return {
             "research_plan": selected_sources,
-            "next_node": first_node,
+            "next_node": "parallel_search",
             "iteration_count": state.get("iteration_count", 0),
             "queries": expanded_queries
         }
@@ -111,7 +109,7 @@ def plan_research_node(state: AgentState) -> dict:
         logger.error(f"Error in planning: {e}")
         return {
             "research_plan": ["wiki", "web"],
-            "next_node": "wiki",
+            "next_node": "parallel_search",
             "iteration_count": state.get("iteration_count", 0)
         }
 
@@ -123,6 +121,7 @@ def evaluate_research_node(state: AgentState) -> dict:
     iteration = state.get("iteration_count", 0)
     topic = state["topic"]
     summary = state.get("consolidated_summary", "")
+    research_depth = state.get("research_depth", "standard")
 
     # Phase 7: News Digest should be fast. Skip refinement loops for News Editor.
     if state.get("persona") == "news_editor":

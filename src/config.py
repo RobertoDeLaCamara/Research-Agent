@@ -27,10 +27,10 @@ class Settings(BaseSettings):
     cache_expiry_hours: int = 24
     
     # Timeout Configuration
-    web_search_timeout: int = 45
+    web_search_timeout: int = 12
     llm_request_timeout: int = 60
     content_fetch_timeout: int = 3
-    thread_execution_timeout: int = 30
+    thread_execution_timeout: int = 12
     
     # Content Limits
     max_synthesis_context_chars: int = 25000

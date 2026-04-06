@@ -223,7 +223,7 @@ def search_arxiv_node(state: AgentState) -> dict:
 
     thread = threading.Thread(target=run_arxiv_search)
     thread.start()
-    thread.join(timeout=25) # Increased to 25s for better coverage
+    thread.join(timeout=12) # 12s timeout
 
     if thread.is_alive():
         logger.warning("ArXiv search timed out. Moving on with partial or empty results.")

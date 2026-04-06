@@ -1,10 +1,26 @@
 # src/tools/parallel_tools.py
 
+import json
 import logging
+import os
+import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from ..state import AgentState
 
 logger = logging.getLogger(__name__)
+
+PARALLEL_STATUS_FILE = "/tmp/parallel_search_status.json"
+
+
+def _write_status(done: list, running: list, total: int):
+    try:
+        data = {"done": done, "running": running, "total": total}
+        tmp = PARALLEL_STATUS_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(data, f)
+        os.replace(tmp, PARALLEL_STATUS_FILE)
+    except Exception:
+        pass
 
 
 def _youtube_combined_node(state: AgentState) -> dict:
@@ -12,10 +28,8 @@ def _youtube_combined_node(state: AgentState) -> dict:
     from .youtube_tools import search_videos_node, summarize_videos_node
 
     search_result = search_videos_node(state)
-    # Merge search results into a copy of state for the summarize step
     merged_state = {**state, **search_result}
     summarize_result = summarize_videos_node(merged_state)
-    # Combine both results
     combined = {}
     combined.update(search_result)
     combined.update(summarize_result)
@@ -49,6 +63,9 @@ def parallel_search_node(state: AgentState) -> dict:
 
     combined = {}
     futures_map = {}
+    done_sources = []
+
+    _write_status(done=[], running=list(plan), total=len(plan))
 
     with ThreadPoolExecutor(max_workers=len(plan) or 1) as executor:
         for source_name in plan:
@@ -69,12 +86,21 @@ def parallel_search_node(state: AgentState) -> dict:
                     logger.info(f"Source '{source_name}' completed successfully")
                 except Exception as e:
                     logger.error(f"Source '{source_name}' failed: {e}")
+                finally:
+                    done_sources.append(source_name)
+                    running = [s for s in plan if s not in done_sources]
+                    _write_status(done=done_sources, running=running, total=len(plan))
         except FutureTimeoutError:
             for future, source_name in futures_map.items():
                 if not future.done():
                     logger.warning(f"Source '{source_name}' timed out after 60s, skipping")
 
-    # Set next_node to END so consolidation follows
+    # Cleanup status file
+    try:
+        os.remove(PARALLEL_STATUS_FILE)
+    except Exception:
+        pass
+
     combined["next_node"] = "END"
     logger.info(f"Parallel search completed. Keys: {list(combined.keys())}")
     return combined
