@@ -9,7 +9,7 @@ pipeline {
     }
 
     environment {
-        REGISTRY = "192.168.1.48:5000"
+        REGISTRY = "localhost:5000"
         IMAGE_NAME = "research-agent"
         NO_PROXY = 'localhost,127.0.0.1,192.168.1.0/24,192.168.1.48,192.168.1.62,192.168.1.45'
         no_proxy = 'localhost,127.0.0.1,192.168.1.0/24,192.168.1.48,192.168.1.62,192.168.1.45'
@@ -60,8 +60,6 @@ pipeline {
 
         stage('Push to Registry') {
             steps {
-                echo "Checking Docker push capabilities..."
-                sh "docker info | grep 'Insecure Registries' -A 3 || true"
                 echo "Pushing image to ${REGISTRY}..."
                 sh "docker push ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}"
                 sh "docker push ${REGISTRY}/${IMAGE_NAME}:latest"
