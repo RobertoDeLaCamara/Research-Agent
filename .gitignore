@@ -198,3 +198,4 @@ reporte_*
 data/
 knowledge_base/
 research_sessions.db
+.aider.tags.cache.v4/
