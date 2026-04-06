@@ -10,6 +10,9 @@ services:
       - ./reports:/app/reports
       - ./data:/app/data
       - ./knowledge_base:/app/knowledge_base
+      - ./src:/app/src
+      - ./tests:/app/tests
+    network_mode: "host"
     ports:
       - "8501:8501"
     mem_limit: 512m

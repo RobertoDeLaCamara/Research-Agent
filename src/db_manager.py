@@ -6,10 +6,9 @@ from typing import Optional, List, Tuple, Dict, Any
 
 logger = logging.getLogger(__name__)
 
-from .config import settings # noqa: E402
+from .config import settings
 
 DB_PATH = settings.db_path
-
 
 def init_db(db_path: str = DB_PATH) -> None:
     """Initialize the SQLite database and create necessary tables."""
@@ -30,10 +29,9 @@ def init_db(db_path: str = DB_PATH) -> None:
     conn.commit()
     conn.close()
     logger.info(f"Database initialized at {db_path}")
-
+    
     # Trigger automatic cleanup of old sessions
     cleanup_old_sessions(db_path=db_path)
-
 
 def recursive_sanitize(obj):
     if isinstance(obj, str):
@@ -44,33 +42,31 @@ def recursive_sanitize(obj):
         return [recursive_sanitize(v) for v in obj]
     return obj
 
-
 def save_session(topic: str, persona: str, state: Dict[str, Any], db_path: str = DB_PATH) -> None:
     """Save a research state to the database."""
     try:
         # Avoid saving large binary blobs if they exist
         clean_state = state.copy()
-
+        
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-
+        
         # Serialize state, skipping non-serializable parts
         state_to_save = {k: v for k, v in clean_state.items() if k != "messages"}
-
+        
         # Sanitize before JSON dump to prevent surrogate errors
         safe_state = recursive_sanitize(state_to_save)
-
+        
         cursor.execute('''
         INSERT INTO sessions (topic, persona, timestamp, state_json)
         VALUES (?, ?, ?, ?)
         ''', (topic, persona, datetime.now().isoformat(), json.dumps(safe_state)))
-
+        
         conn.commit()
         conn.close()
         logger.info(f"Session saved for topic: {topic}")
     except Exception as e:
         logger.error(f"Failed to save session: {e}")
-
 
 def get_recent_sessions(limit: int = 10, db_path: str = DB_PATH) -> List[Tuple]:
     """Retrieve the most recent research sessions."""
@@ -84,7 +80,6 @@ def get_recent_sessions(limit: int = 10, db_path: str = DB_PATH) -> List[Tuple]:
     except Exception as e:
         logger.error(f"Failed to get sessions: {e}")
         return []
-
 
 def load_session(session_id: int, db_path: str = DB_PATH) -> Optional[Dict[str, Any]]:
     """Load a full research state from the database."""
@@ -101,7 +96,6 @@ def load_session(session_id: int, db_path: str = DB_PATH) -> Optional[Dict[str, 
         logger.error(f"Failed to load session {session_id}: {e}")
         return None
 
-
 def clear_history(db_path: str = DB_PATH) -> bool:
     """Delete all research sessions from the database."""
     try:
@@ -115,7 +109,6 @@ def clear_history(db_path: str = DB_PATH) -> bool:
     except Exception as e:
         logger.error(f"Failed to clear history: {e}")
         return False
-
 
 def cleanup_old_sessions(days: int = 30, db_path: str = DB_PATH) -> int:
     """Delete research sessions older than a certain number of days."""

@@ -25,6 +25,12 @@ def sanitize_text(text):
     # Encode to UTF-8 ignoring errors (strips surrogates), then decode back
     return text.encode('utf-8', 'replace').decode('utf-8')
 
+# Helper to sanitize text (surrogate fix)
+def sanitize_text(text):
+    if not isinstance(text, str): return text
+    # Encode to UTF-8 ignoring errors (strips surrogates), then decode back
+    return text.encode('utf-8', 'replace').decode('utf-8')
+
 # --------------------------------------------------------------------------
 # NODO 3: GENERACIÓN DEL INFORME EN HTML
 # --------------------------------------------------------------------------
@@ -49,11 +55,11 @@ def generate_report_node(state: AgentState) -> dict:
     video_metadata = state.get("video_metadata", [])
     topic = state.get("original_topic", state.get("topic", "Tema desconocido"))
     consolidated = state.get("consolidated_summary", "")
-
+    
     # Sanitize inputs immediately
     topic = sanitize_text(topic)
     consolidated = sanitize_text(consolidated)
-
+    
     # Comprobar si tenemos CUALQUIER tipo de contenido para informar
     has_content = any([
         len(summaries) > 0,
@@ -505,6 +511,14 @@ def generate_report_node(state: AgentState) -> dict:
     markdown_text += "## Bibliografía\n"
     for ref in bibliography:
         markdown_text += f"- {ref}\n"
+    
+    # Sanitize markdown
+    markdown_text = sanitize_text(markdown_text)
+
+    # Ensure reports directory exists
+    reports_dir = "reports"
+    if not os.path.exists(reports_dir):
+        os.makedirs(reports_dir)
 
     # Sanitize markdown
     markdown_text = sanitize_text(markdown_text)
@@ -522,7 +536,7 @@ def generate_report_node(state: AgentState) -> dict:
             f.write(sanitize_text(html_content))
     except Exception as e:
         logger.error(f"Error saving HTML (surrogate check): {e}")
-
+    
     # Guardamos el Markdown
     # Sanitize topic for filename (prevent path injection / Errno 2)
     safe_topic = topic.replace(" ", "_").replace("/", "_").replace("\\", "_")[:30]
@@ -532,7 +546,7 @@ def generate_report_node(state: AgentState) -> dict:
             f.write(markdown_text)
     except Exception as e:
         logger.error(f"Error saving MD (surrogate check): {e}")
-
+    
     # Generamos el DOCX
     docx_path = os.path.join(reports_dir, "reporte_final.docx")
     try:
@@ -704,7 +718,7 @@ def send_email_node(state: AgentState) -> dict:
     receiver_email = settings.email_recipient
     password = settings.email_password
     host = settings.email_host
-    port = settings.email_port
+    port = settings.email_port         
 
     if not all([sender_email, receiver_email, password]):
         logger.error("email_credentials_missing")

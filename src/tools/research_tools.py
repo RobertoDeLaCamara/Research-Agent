@@ -45,10 +45,9 @@ def search_web_node(state: AgentState) -> dict:
     # Inject date for timeliness if the user didn't provide one
     if not re.search(r'\b(20\d{2}|19\d{2})\b', search_topic): # Check for a 4-digit year
         search_topic = f"{search_topic} {current_date}"
-
-    search_topic = search_topic.strip() # Ensure no leading/trailing spaces
+        
     logger.info(f"Searching web (Tavily) for: {search_topic}")
-
+    
     import threading
     from concurrent.futures import ThreadPoolExecutor
     import requests
@@ -64,31 +63,24 @@ def search_web_node(state: AgentState) -> dict:
                     raw_results = search.run(search_topic)
                     # CRITICAL FIX: Ensure raw_results is a list. Tavily can return a string on error.
                     if isinstance(raw_results, str):
-                        logger.warning(f"Tavily returned string (possibly error): {raw_results}")
+                        logger.warning(f"Tavily returned string instead of list: {raw_results}")
                         # If it looks like a list string, try to parse it, otherwise handle as error/content
                         import ast
                         try:
-                            # Sometimes it might be an unparsed list repr
-                            parsed = ast.literal_eval(raw_results)
-                            if isinstance(parsed, list):
-                                raw_results = parsed
-                            else:
+                            raw_results = ast.literal_eval(raw_results)
+                            if not isinstance(raw_results, list):
                                 raise ValueError
-                        except Exception:
-                            # It's a plain string message or error
-                            raw_results = [] # Treat as empty/fail rather than fake content
+                        except:
+                            raw_results = [{"url": "Unknown", "content": raw_results}]
                 except Exception as e_tavily:
                      logger.error(f"Tavily search execution failed: {e_tavily}")
-                     # Try to access response text if available
-                     if hasattr(e_tavily, 'response') and hasattr(e_tavily.response, 'text'):
-                         logger.error(f"API Response: {e_tavily.response.text}")
                      raw_results = []
-
+                
                 # Use ThreadPoolExecutor to parallelize Jina Reader calls
                 def enhance_result(res):
                     if isinstance(res, str): # Defensive check for unexpected string results
                          return {"url": "Unknown", "content": res}
-
+                    
                     url = res.get("url")
                     if url and url.startswith("http"):
                         try:
@@ -116,12 +108,11 @@ def search_web_node(state: AgentState) -> dict:
     thread.start()
     from ..config import settings
     thread.join(timeout=settings.web_search_timeout)
-
+    
     if thread.is_alive():
         logger.warning(f"Web search timed out after {settings.web_search_timeout} seconds.")
-    else:
-        results = container["data"]
-
+        # Proceed with empty results if timed out
+        
     logger.info(f"Web search completed with {len(results)} results")
     return {"web_research": results, "next_node": update_next_node(state, "web"), "source_metadata": {"web": {"source_type": "web", "reliability": 3}}}
 
@@ -129,7 +120,8 @@ def search_web_node(state: AgentState) -> dict:
 def search_wiki_node(state: AgentState) -> dict:
     """Search Wikipedia for general context."""
     from ..progress import update_progress
-
+    from ..metrics import metrics
+    
     update_progress("Wikipedia Search")
     logger.info("Starting Wikipedia search...")
     topic = state["topic"]
@@ -141,7 +133,7 @@ def search_wiki_node(state: AgentState) -> dict:
     if re.search(r'[áéíóúÁÉÍÓÚñÑ]', topic):
         lang = "es"
         logger.debug("Detected possible Spanish language by special characters.")
-
+    
     try:
         queries = state.get("queries", {})
         search_topic = queries.get(lang, topic)
@@ -167,7 +159,6 @@ def search_wiki_node(state: AgentState) -> dict:
         if thread.is_alive():
             logger.warning("Wikipedia search timed out.")
         else:
-            results = container["data"]
             logger.info("Wikipedia search completed.")
     except Exception as e:
         logger.warning("wikipedia_search_failed", exc_info=e)
@@ -306,7 +297,7 @@ def search_github_node(state: AgentState) -> dict:
             g = Github(token)
         else:
             g = Github() # Public access
-
+            
         max_results = get_max_results(state) # Get it here to be safe in closure
         import threading
         container = {"data": []}

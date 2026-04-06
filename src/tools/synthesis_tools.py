@@ -39,7 +39,7 @@ def consolidate_research_node(state: AgentState) -> dict:
         context += "--- RESULTADOS DE BÚSQUEDA WEB ---\n"
         for item in web:
             context += f"Fuente: {item.get('title', 'Web Result')}\nURL: {item.get('url', 'N/A')}\nContenido: {item.get('content', item.get('snippet', ''))}\n\n"
-
+            
     if arxiv:
         context += "--- ARTÍCULOS CIENTÍFICOS (ARXIV) ---\n"
         for item in arxiv:
@@ -87,7 +87,7 @@ def consolidate_research_node(state: AgentState) -> dict:
             if i < len(video_meta):
                 title = video_meta[i].get("title", title)
                 url = video_meta[i].get("url", url)
-
+            
             context += f"Fuente: {title}\nURL: {url}\nContenido: {summary}\n\n"
 
     # Context safety truncation for local LLMs
@@ -150,7 +150,7 @@ INSTRUCCIONES DE ANÁLISIS ESPECIALISTA (PHASE 6 & 7):
 3. PESO DE AUTORIDAD: Prioriza la información oficial de fuentes académicas y, MUY ESPECIALMENTE, del **CONOCIMIENTO LOCAL (RAG)** proporcionado por el usuario.
 4. CITAS OBLIGATORIAS Y LITERALES (CRÍTICO):
    - Todas las afirmaciones deben tener una cita usando Markdown link: `[Título Corto](URL)`.
-   - **LA URL DEBE SER COPIADA EXACTAMENTE** del campo `URL:` proporcionado en el contexto.
+   - **LA URL DEBE SER COPIADA EXACTAMENTE** del campo `URL:` proporcionado en el contexto. 
    - SI UNA FUENTE NO TIENE URL EN EL CONTEXTO, NO INVENTES UNA. Usa el nombre de la fuente sin enlace o pon `(Fuente sin enlace)`.
    - **PROHIBIDO** usar enlaces de ejemplo como `example.com` o `youtube.com/watch?v=example1`. ESTO SE CONSIDERA UNA ALUCINACIÓN GRAVE.
    - Para archivos locales: `[mi_archivo.pdf](file://...)`.

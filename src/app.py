@@ -1,34 +1,16 @@
-import streamlit as st # noqa: E402
-# Force push timestamp: 2026-01-25
+import streamlit as st
 import sys
 import os
 import time
-import asyncio
-
-# Fix for "Can't patch loop of type <class 'uvloop.Loop'>"
-# LangChain/NestAsyncio requires standard asyncio loop, but Uvicorn/Streamlit might set uvloop.
-try:
-    import uvloop  # noqa: F401
-    asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
-except ImportError:
-    pass
-
-import nest_asyncio
-nest_asyncio.apply()
-
 
 # Add project root to sys.path to ensure 'src' package is resolvable
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from src.logging_config import setup_logging # noqa: E402
-setup_logging()
-
-from src.agent import app # noqa: E402
-import streamlit.components.v1 as components # noqa: E402
-from src.db_manager import get_recent_sessions, load_session, clear_history # noqa: E402
-from src.i18n import T # noqa: E402
+from src.agent import app
+import streamlit.components.v1 as components
+from src.db_manager import get_recent_sessions, load_session, clear_history
 
 # Configuración de la página
 st.set_page_config(
@@ -281,10 +263,7 @@ if "messages" not in st.session_state:
 if "agent_state" not in st.session_state:
     st.session_state.agent_state = None
 
-lang = st.session_state.lang
-_ = T[lang]
-
-# Auto-detectar reportes existentes al iniciar
+    # Auto-detectar reportes existentes al iniciar
 if not st.session_state.investigation_done:
     if os.path.exists("reports/reporte_final.html"):
         with open("reports/reporte_final.html", "r", encoding="utf-8") as f:
@@ -352,15 +331,16 @@ if st.button(_["start_btn"]):
                 # Streaming execution with Threading and Queue to allow Progress Polling
                 import threading
                 import queue
+                import time
                 import json
-
+                
                 final_state = inputs.copy()
                 status_container = st.empty()
                 rag_progress_bar = st.empty() # Placeholder for progress bar
-
+                
                 # Queue for agent events
                 event_q = queue.Queue()
-
+                
                 def run_agent_in_thread(inputs_dict, q):
                     try:
                         for chunk in app.stream(inputs_dict, config={"recursion_limit": 100}):
@@ -369,87 +349,77 @@ if st.button(_["start_btn"]):
                         q.put({"error": str(e)})
                     finally:
                         q.put(None) # Sentinel
-
+                
                 # Start Agent Thread
                 agent_thread = threading.Thread(target=run_agent_in_thread, args=(inputs, event_q))
                 agent_thread.start()
-
+                
                 # Main Loop: consume events AND poll RAG status
                 rag_status_file = "/app/data/rag_status.json"
-
+                
                 while True:
                     # 1. Poll Queue for Agent Events
                     try:
                         while True:
                             # Non-blocking get all available items
                             chunk = event_q.get_nowait()
-
+                            
                             if chunk is None: # Sentinel
                                 agent_thread.join()
                                 break
-
+                            
                             if "error" in chunk and isinstance(chunk, dict) and len(chunk) == 1:
                                 raise Exception(chunk["error"])
-
+                                
                             for node_name, state_update in chunk.items():
                                 if isinstance(state_update, dict):
                                     final_state.update(state_update)
-
+                                
                                 # UI Updates for Completed Nodes
-                                completed_msg = node_messages.get(
-                                    node_name,
-                                    _["node_fallback"].format(node=node_name)
-                                )
+                                completed_msg = node_messages.get(node_name, f"Ejecutando {node_name}...")
                                 st.write(f"✅ {completed_msg}")
                                 # Clean up progress bar when RAG finishes
                                 if node_name == "local_rag":
                                      rag_progress_bar.empty()
-
+                                
                                 next_node = state_update.get("next_node") if state_update else None
                                 if next_node and next_node != "END":
-                                    next_msg = node_messages.get(
-                                        next_node,
-                                        _["node_fallback"].format(node=next_node)
-                                    )
+                                    next_msg = node_messages.get(next_node, f"Iniciando {next_node}...")
                                     status_container.info(f"⏳ {next_msg}")
                                 else:
                                     status_container.empty()
-
+                                    
                     except queue.Empty:
                         pass
-
+                    
                     if not agent_thread.is_alive() and event_q.empty():
                         break
-
+                        
                     # 2. Poll RAG Status File (if exists)
                     if os.path.exists(rag_status_file):
                         try:
                             with open(rag_status_file, "r") as f:
                                 status_data = json.load(f)
-
+                            
                             current = status_data.get("current", 0)
                             total = status_data.get("total", 1)
                             fname = status_data.get("last_file", "...")
-
+                            
                             # Update Progress Bar
                             if total > 0:
                                 progress = min(current / total, 1.0)
-                                rag_progress_bar.progress(
-                                    progress,
-                                    text=_["rag_progress"].format(current=current, total=total, fname=fname)
-                                )
-                        except Exception:
-                            pass  # Ignore read errors during race conditions
-
+                                rag_progress_bar.progress(progress, text=f"📂 RAG: Analizando {current}/{total}: {fname}")
+                        except:
+                            pass # Ignore read errors during race conditions
+                    
                     time.sleep(0.2) # Yield to allow thread to work
-
+                
                 # Cleanup status file if left over
                 if os.path.exists(rag_status_file):
                     try:
                         os.remove(rag_status_file)
-                    except Exception:
-                        pass
-
+                    except: pass
+                    
                 st.session_state.agent_state = final_state
 
                 # Guardar resultados en session_state para persistencia
@@ -570,6 +540,7 @@ if st.session_state.investigation_done:
                 current_state["messages"] = lc_messages + [HumanMessage(content=prompt)]
 
                 try:
+                    # Use the chat_node directly if we just want conversation
                     from src.tools.chat_tools import chat_node
                     response_state = chat_node(current_state)
                     ai_response = response_state["messages"][0].content

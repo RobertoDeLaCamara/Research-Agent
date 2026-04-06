@@ -1,28 +1,25 @@
 import re
 from typing import Literal
-from pydantic import BaseModel, field_validator, Field
-
+from pydantic import BaseModel, validator, Field
 
 class ResearchRequest(BaseModel):
     """Validated research request."""
     topic: str = Field(..., min_length=3, max_length=500)
     research_depth: Literal["quick", "standard", "deep"] = "standard"
     persona: Literal["general", "business", "tech", "academic", "pm", "news_editor"] = "general"
-
-    @field_validator('topic')
-    @classmethod
-    def validate_topic_field(cls, v: str) -> str:
+    
+    @validator('topic')
+    def validate_topic_field(cls, v):
         """Prevent injection attacks."""
         if not v or not v.strip():
             raise ValueError("Topic cannot be empty")
-
+        
         forbidden = ['<script>', 'javascript:', 'onerror=', '<?php', '<iframe>']
         v_lower = v.lower()
         if any(f in v_lower for f in forbidden):
             raise ValueError("Invalid characters in topic")
-
+        
         return v.strip()
-
 
 def validate_topic(topic: str) -> str:
     """Validate and clean research topic."""
@@ -33,10 +30,10 @@ def validate_topic(topic: str) -> str:
 
     if len(topic) < 3:
         raise ValueError("Topic must be at least 3 characters long")
-
+        
     if len(topic) > 500:
         raise ValueError("Topic too long (maximum 500 characters)")
-
+        
     # Remove potentially harmful characters
     topic = re.sub(r'[<>"\']', '', topic)
 
@@ -66,7 +63,6 @@ def sanitize_content(content: str, max_length: int = 50000) -> str:
 
     return content.strip()
 
-
 def validate_file_upload(filename: str, file_size: int, max_size: int = 10485760) -> tuple[bool, str]:
     """Validate uploaded file.
     
@@ -79,22 +75,22 @@ def validate_file_upload(filename: str, file_size: int, max_size: int = 10485760
         Tuple of (is_valid, error_message)
     """
     import os
-
+    
     # Allowed extensions
     allowed_extensions = {'.pdf', '.txt', '.md'}
-
+    
     # Check extension
     _, ext = os.path.splitext(filename)
     if ext.lower() not in allowed_extensions:
         return False, f"File type {ext} not allowed. Allowed: {', '.join(allowed_extensions)}"
-
+    
     # Check size
     if file_size > max_size:
         return False, f"File too large: {file_size / 1024 / 1024:.1f}MB (max {max_size / 1024 / 1024:.0f}MB)"
-
+    
     # Sanitize filename
     safe_name = "".join(c for c in filename if c.isalnum() or c in '._- ')
     if not safe_name or safe_name.startswith('.'):
         return False, "Invalid filename"
-
+    
     return True, ""

@@ -63,12 +63,14 @@ def plan_research_node(state: AgentState) -> dict:
     - reddit: Para opiniones de la comunidad, experiencias reales y discusiones informales.
     - reddit: Para opiniones de la comunidad, experiencias reales y discusiones informales.
     """
-
+    
     # Conditionally add local_rag if files exist
     kb_path = "./knowledge_base"
+    has_local_files = False
     if os.path.exists(kb_path) and any(f for f in os.listdir(kb_path) if not f.startswith('.')):
+        has_local_files = True
         prompt += "\n    - local_rag: Para consultar la base de conocimientos local y archivos proporcionados por el usuario."
-
+    
     prompt += """
     
     INSTRUCCIONES:
@@ -82,9 +84,18 @@ def plan_research_node(state: AgentState) -> dict:
     
     LISTA DE FUENTES SELECCIONADAS:
     """
-
-    llm = get_llm(temperature=0.1)
-
+    
+    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
+    
+    from ..config import settings
+    llm = ChatOllama(
+        base_url=ollama_base_url,
+        model=ollama_model,
+        temperature=0.1,
+        request_timeout=settings.llm_request_timeout
+    )
+    
     try:
         response = llm.invoke([HumanMessage(content=prompt)])
         content = response.content.strip()
@@ -132,13 +143,11 @@ def evaluate_research_node(state: AgentState) -> dict:
     if iteration >= 1:
         logger.info("Maximum iterations (2) reached. Finalizing.")
         return {
-            "next_node": "END",
+            "next_node": "END", 
             "evaluation_report": "Límite de 2 iteraciones alcanzado.",
             "topic": state.get("original_topic", state.get("topic", ""))
         }
-
-    research_depth = state.get("research_depth", "standard")
-
+    
     prompt = f"""
     Eres un Crítico de Investigación y Fact-Checker experto. Tu tarea es evaluar si la siguiente síntesis es completa y, sobre todo, si las afirmaciones críticas están debidamente verificadas.
 
@@ -163,9 +172,14 @@ def evaluate_research_node(state: AgentState) -> dict:
     EJEMPLO:
     {{"sufficient": false, "gaps": [], "shallow_topics": ["Impacto en rendimiento"], "fact_check_queries": ["¿Es cierto que X soporta Y?"], "reasoning": "El tema de rendimiento se menciona pero no se analiza con datos concretos."}}
     """
-
-    llm = get_llm(temperature=0.1)
-
+    
+    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
+    
+    from langchain_ollama import ChatOllama
+    from ..config import settings
+    llm = ChatOllama(base_url=ollama_base_url, model=ollama_model, temperature=0.1, request_timeout=settings.llm_request_timeout)
+    
     try:
         response = llm.invoke([HumanMessage(content=prompt)])
         content = response.content.strip()

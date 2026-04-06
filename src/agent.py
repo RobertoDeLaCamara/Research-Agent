@@ -53,6 +53,30 @@ def initialize_state_node(state: AgentState) -> dict:
 
     return defaults
 
+# Helper for conditional routing
+def route_research(state: AgentState) -> str:
+    """LangGraph conditional edge to determine where to go next."""
+    plan = state.get("research_plan", [])
+    current = state.get("next_node")
+    
+    if not plan or current == "END":
+        return "consolidate_research"
+        
+    # Mapping for LangGraph node names
+    mapping = {
+        "wiki": "search_wiki",
+        "web": "search_web",
+        "arxiv": "search_arxiv",
+        "scholar": "search_scholar",
+        "github": "search_github",
+        "hn": "search_hn",
+        "so": "search_so",
+        "youtube": "search_videos",
+        "reddit": "search_reddit",
+        "local_rag": "local_rag"
+    }
+    
+    return mapping.get(current, "consolidate_research")
 
 def route_chat(state: AgentState) -> str:
     """Decide whether to continue chatting or do more research."""
@@ -77,20 +101,18 @@ def route_chat(state: AgentState) -> str:
 
     return "send_email"
 
-
 def save_db_node(state: AgentState) -> dict:
     """Save the final state to the database."""
-    logger.info("save_db_node_started")
+    print("\n--- 💾 NODO: GUARDANDO SESIÓN ---")
     from .db_manager import save_session
     try:
         topic = state.get("topic", "Sin Tema")
         persona = state.get("persona", "General")
         save_session(topic, persona, state)
-        logger.info(f"session_saved topic={topic} persona={persona}")
+        print("✅ Sesión guardada en base de datos.")
     except Exception as e:
-        logger.error(f"session_save_failed error={e}")
+        print(f"⚠️ Error al guardar sesión: {e}")
     return {} # No state update needed
-
 
 # Create workflow graph
 workflow = StateGraph(AgentState)
@@ -111,8 +133,35 @@ workflow.add_node("evaluate_research", evaluate_research_node)
 logger.info("Connecting nodes with edges...")
 workflow.set_entry_point("initialize_state")
 workflow.add_edge("initialize_state", "plan_research")
-workflow.add_edge("plan_research", "parallel_search")
-workflow.add_edge("parallel_search", "consolidate_research")
+
+# Dynamic navigation destinations
+destinations = {
+    "search_wiki": "search_wiki",
+    "search_web": "search_web",
+    "search_arxiv": "search_arxiv",
+    "search_scholar": "search_scholar",
+    "search_github": "search_github",
+    "search_hn": "search_hn",
+    "search_so": "search_so",
+    "search_videos": "search_videos",
+    "search_reddit": "search_reddit",
+    "local_rag": "local_rag",
+    "consolidate_research": "consolidate_research"
+}
+
+# Dynamic navigation after planning
+workflow.add_conditional_edges("plan_research", route_research, destinations)
+
+# Every search node needs to update the state and go to the next node
+search_nodes = ["search_wiki", "search_web", "search_arxiv", "search_scholar", "search_github", "search_hn", "search_so", "search_videos", "search_reddit", "local_rag"]
+
+for node in search_nodes:
+    if node == "search_videos":
+        workflow.add_edge("search_videos", "summarize_videos")
+        workflow.add_conditional_edges("summarize_videos", route_research, destinations)
+    else:
+        workflow.add_conditional_edges(node, route_research, destinations)
+
 workflow.add_edge("consolidate_research", "evaluate_research")
 
 
