@@ -9,7 +9,7 @@ pipeline {
     }
 
     environment {
-        REGISTRY = "127.0.0.1:5000"
+        REGISTRY = "192.168.1.48:5000"
         IMAGE_NAME = "research-agent"
         NO_PROXY = 'localhost,127.0.0.1,192.168.1.0/24,192.168.1.48,192.168.1.62'
         no_proxy = 'localhost,127.0.0.1,192.168.1.0/24,192.168.1.48,192.168.1.62,192.168.1.45'
