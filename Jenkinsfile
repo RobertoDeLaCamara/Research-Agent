@@ -60,6 +60,8 @@ pipeline {
 
         stage('Push to Registry') {
             steps {
+                echo "Checking Docker push capabilities..."
+                sh "docker info | grep 'Insecure Registries' -A 3 || true"
                 echo "Pushing image to ${REGISTRY}..."
                 sh "docker push ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}"
                 sh "docker push ${REGISTRY}/${IMAGE_NAME}:latest"
