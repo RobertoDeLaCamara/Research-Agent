@@ -17,10 +17,10 @@ All notable changes to this project will be documented in this file.
 ## [1.0.0] - 2026-03-01
 
 ### Infrastructure
-- Configure Gitea webhook for automatic Jenkins builds on push
-- Fix Gitea ROOT_URL and Jenkins credentials for commit status notifications
+- Configure Git Server webhook for automatic CI/CD builds on push
+- Fix Git Server ROOT_URL and CI/CD credentials for commit status notifications
 - Verify end-to-end webhook trigger on push
-- Fix Gitea ROOT_URL in docker-compose.yml (3300 -> 9090)
+- Fix Git Server ROOT_URL in docker-compose.yml (3300 -> 9090)
 - **Docker Hardening**: Upgraded base image to `python:3.12-slim`, added non-root `app` user, added `HEALTHCHECK` via Streamlit health endpoint, added `curl` for healthcheck, `--chown` on COPY steps
 - **Docker Compose**: Replaced `network_mode: "host"` with bridge network (`agent-net`), added resource limits (`mem_limit: 512m`, `cpus: 1.0`), switched from remote image to local `build: .`
 

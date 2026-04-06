@@ -19,7 +19,7 @@ Strategic improvements to architecture and scalability.
 - [x] **Parallel Source Execution**: Implemented `parallel_search_node` using `ThreadPoolExecutor` for concurrent source execution. All planned sources run in parallel.
 - [ ] **Redis Caching**: Implement a distributed caching layer (Redis) to replace/augment the file-based cache for better performance in scale-out scenarios.
 - [x] **Health Check Endpoint**: Added `HEALTHCHECK` in Dockerfile using Streamlit's `/_stcore/health` endpoint.
-- [ ] **Monitoring Dashboard**: Integrate open-source monitoring (Grafana/Prometheus) to track agent performance, success rates, and latency.
+- [ ] **Monitoring Dashboard**: Integrate open-source monitoring (Visualization Service/Monitoring Service) to track agent performance, success rates, and latency.
 - [ ] **API Authentication**: Implement JWT or API Key authentication for the backend API.
 
 ## 🔭 Extended Roadmap (Vision)

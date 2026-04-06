@@ -152,7 +152,7 @@ Research-Agent/
 ├── tests/                      # 49 tests (agent, tools, RAG, security, resilience, load)
 ├── docs/                       # Architecture, Testing, Security, Deployment, Troubleshooting
 ├── docker-compose.yml          # With resource limits and health check
-├── Jenkinsfile                 # CI pipeline (build, test, push to registry)
+├── CI/CDfile                 # CI pipeline (build, test, push to registry)
 ├── env.example                 # API key template
 └── requirements.txt
 ```

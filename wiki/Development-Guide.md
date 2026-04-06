@@ -150,7 +150,7 @@ data/
 
 ## CI/CD
 
-Jenkins pipeline targets `192.168.1.86:5000` (private registry). SonarQube integration via `sonar-project.properties`. Stages: lint → test → build → push → deploy.
+CI/CD pipeline targets `[REGISTRY_IP]:5000` (private registry). Quality Analysis integration via `sonar-project.properties`. Stages: lint → test → build → push → deploy.
 
 ## Debugging
 
