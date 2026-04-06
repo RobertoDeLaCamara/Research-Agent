@@ -1,3 +1,14 @@
+---
+title: Research Agent
+emoji: 🔍
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+short_description: Autonomous AI research agent with LangGraph + Streamlit
+---
+
 # Research-Agent
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
