@@ -9,9 +9,9 @@ pipeline {
     }
 
     environment {
-        REGISTRY = "localhost:5000"
+        REGISTRY = "127.0.0.1:5000"
         IMAGE_NAME = "research-agent"
-        NO_PROXY = 'localhost,127.0.0.1,192.168.1.0/24,192.168.1.48,192.168.1.62,192.168.1.45'
+        NO_PROXY = 'localhost,127.0.0.1,192.168.1.0/24,192.168.1.48,192.168.1.62'
         no_proxy = 'localhost,127.0.0.1,192.168.1.0/24,192.168.1.48,192.168.1.62,192.168.1.45'
     }
 
@@ -61,8 +61,8 @@ pipeline {
         stage('Push to Registry') {
             steps {
                 echo "Pushing image to ${REGISTRY}..."
-                sh "docker push ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}"
-                sh "docker push ${REGISTRY}/${IMAGE_NAME}:latest"
+                sh "DOCKER_CONFIG=/tmp docker push ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}"
+                sh "DOCKER_CONFIG=/tmp docker push ${REGISTRY}/${IMAGE_NAME}:latest"
             }
         }
     }
