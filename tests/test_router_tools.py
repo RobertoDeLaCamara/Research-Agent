@@ -21,25 +21,40 @@ def test_update_next_node_basic(mock_agent_state):
     next_node = update_next_node(mock_agent_state, "nonexistent")
     assert next_node == "END"
 
+@patch("src.llm.get_llm")
 @patch("src.tools.router_tools.get_llm")
-def test_plan_research_node(mock_ollama, mock_agent_state):
-    mock_llm = mock_ollama.return_value
+def test_plan_research_node(mock_router_llm_func, mock_global_llm_func, mock_agent_state):
+    # Both mocks return the same mock LLM object for simplicity
+    mock_llm = mock_router_llm_func.return_value
+    mock_global_llm_func.return_value = mock_llm
+    
     mock_response = MagicMock()
     mock_response.content = '["wiki", "web"]'
-    mock_llm.invoke.return_value = mock_response
+    
+    mock_trans_response = MagicMock()
+    mock_trans_response.content = '{"en": "topic", "es": "tema"}'
+    
+    mock_llm.invoke.side_effect = [mock_response, mock_trans_response]
     
     result = plan_research_node(mock_agent_state)
     
     assert result["research_plan"] == ["wiki", "web"]
-    assert result["next_node"] == "wiki"
+    assert result["next_node"] == "parallel_search"
     assert result["iteration_count"] == 0
 
+@patch("src.llm.get_llm")
 @patch("src.tools.router_tools.get_llm")
-def test_plan_research_node_persona(mock_ollama, mock_agent_state):
-    mock_llm = mock_ollama.return_value
+def test_plan_research_node_persona(mock_router_llm_func, mock_global_llm_func, mock_agent_state):
+    mock_llm = mock_router_llm_func.return_value
+    mock_global_llm_func.return_value = mock_llm
+    
     mock_response = MagicMock()
     mock_response.content = '["web"]'
-    mock_llm.invoke.return_value = mock_response
+    
+    mock_trans_response = MagicMock()
+    mock_trans_response.content = '{"en": "topic", "es": "tema"}'
+    
+    mock_llm.invoke.side_effect = [mock_response, mock_trans_response]
     
     # Test PM persona
     mock_agent_state["persona"] = "pm"
@@ -48,7 +63,8 @@ def test_plan_research_node_persona(mock_ollama, mock_agent_state):
     assert mock_llm.invoke.called
     
     # Get the prompt from call args
-    prompt = mock_llm.invoke.call_args[0][0][0].content
+    # Note: invoke was called twice, we want the first call for the persona check
+    prompt = mock_llm.invoke.call_args_list[0][0][0][0].content
     assert "Product Manager" in prompt or "necesidades del usuario" in prompt
 
 def test_router_node_mapping(mock_agent_state):

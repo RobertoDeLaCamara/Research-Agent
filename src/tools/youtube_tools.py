@@ -117,8 +117,7 @@ def summarize_videos_node(state: AgentState) -> dict:
             if thread.is_alive() or not docs:
                 if thread.is_alive():
                     logger.warning("transcript_loading_timeout")
-                logger.warning("transcript_unavailable_skipping_video")
-                continue
+                raise ValueError("transcript_unavailable_skipping_video")
 
             summary = ""
             summary_container = {"data": ""}
