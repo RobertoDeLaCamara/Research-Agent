@@ -194,10 +194,8 @@ Research-Agent/
 ├── knowledge_base/             # User-uploaded documents (PDF/TXT)
 ├── reports/                    # Generated research reports
 ├── data/                       # Persistent data (SQLite, ChromaDB)
-├── tests/                      # 49 tests (agent, tools, RAG, security, resilience, load)
-├── docs/                       # Architecture, Testing, Security, Deployment, Troubleshooting
+├── docs/                       # Architecture, Security, Deployment, Troubleshooting
 ├── docker-compose.yml          # With resource limits and health check
-├── CI/CDfile                 # CI pipeline (build, test, push to registry)
 ├── env.example                 # API key template
 └── requirements.txt
 ```
@@ -216,41 +214,12 @@ Research-Agent/
 
 See `env.example` for the full list.
 
-## Testing
-
-```bash
-# Inside Docker
-docker compose run --rm research-agent python -m pytest tests/ -v
-
-# Local
-pytest tests/ -v
-```
-**Coverage**: 37 tests passing (100% success rate), including:
-- Agent workflow and routing
-- All research tools (web, wiki, arXiv, scholar, GitHub, HN, SO, Reddit, YouTube)
-- RAG and local knowledge integration
-- Report generation and export
-- Database persistence
-- Input validation and security
-
-**Test Quality**: 
-- 100% pass rate (37/37)
-- Comprehensive mocking for external APIs
-- Integration and unit tests
-- Type-safe with full coverage
-
-49 tests covering agent workflow, all research tools, RAG, report generation, persistence, security validation, resilience, and load.
-
-## CI/CD
-
-GitHub Actions runs the test suite on every push and pull request across Python 3.10 and 3.12 — see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## Documentation
 
 | Document | Description |
 | :--- | :--- |
 | [Architecture](docs/ARCHITECTURE.md) | System design, workflow, and extension points |
-| [Testing](docs/TESTING.md) | Test guide, fixtures, and CI setup |
 | [Security](docs/SECURITY.md) | Input validation, credentials, deployment |
 | [Developer Reference](docs/DEVELOPER_REFERENCE.md) | Internal modules, state, and configuration |
 | [Deployment](docs/DEPLOYMENT.md) | Docker and production setup |
