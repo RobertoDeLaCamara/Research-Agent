@@ -8,13 +8,6 @@
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20this%20project-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/bobelsilencioso)
 [![HF Space](https://img.shields.io/badge/🤗%20Live%20Demo-HF%20Spaces-FFD21E)](https://huggingface.co/spaces/ecerocg/research-agent)
 
-## ✨ Recent Improvements (January 2026)
-
-*   **100% Test Coverage**: All 37 tests passing with comprehensive test suite
-*   **Enhanced Security**: Input validation, file upload security, injection prevention (7/10 security score)
-*   **Production Ready**: Centralized configuration, robust error handling, comprehensive logging
-*   **Type Safety**: Full type hints across codebase for better IDE support
-*   **Code Quality**: 9/10 rating with consistent patterns and best practices
 
 ## 🌟 Key Features
 
