@@ -106,18 +106,24 @@ def summarize_videos_node(state: AgentState) -> dict:
                     loader = YoutubeLoader.from_youtube_url(url, add_video_info=False, language=["es", "en"])
                     docs_container["data"] = loader.load()
                 except Exception as e_load:
-                    logger.warning("transcript_loader_error", exc_info=e_load)
+                    # Detect if we are blocked by YouTube
+                    if "RequestBlocked" in str(e_load) or "Could not retrieve a transcript" in str(e_load):
+                        logger.warning(f"YouTube transcript blocked for {url}. Switching to fast fallback.")
+                    else:
+                        logger.warning("transcript_loader_error", exc_info=e_load)
 
             thread = threading.Thread(target=load_transcript)
             thread.start()
-            thread.join(timeout=20) # 20 seconds for transcript loading
+            thread.join(timeout=10) # Reduced timeout for faster failure
 
             if not thread.is_alive():
                 docs = docs_container["data"]
-            if thread.is_alive() or not docs:
+            
+            if not docs:
                 if thread.is_alive():
                     logger.warning("transcript_loading_timeout")
-                raise ValueError("transcript_unavailable_skipping_video")
+                # Instead of raising ValueError, we directly trigger the metadata fallback
+                raise StopIteration("use_metadata_fallback")
 
             summary = ""
             summary_container = {"data": ""}
@@ -129,71 +135,57 @@ def summarize_videos_node(state: AgentState) -> dict:
 
             thread_sum = threading.Thread(target=run_summarize)
             thread_sum.start()
-            thread_sum.join(timeout=30) # 30 seconds per video
+            thread_sum.join(timeout=25)
 
             if not thread_sum.is_alive():
                 summary = summary_container["data"]
-            if thread_sum.is_alive() or not summary:
-                if thread_sum.is_alive():
-                    logger.warning("summarization_timeout")
-                raise ValueError("Resumen fallido o lento.")
+            
+            if not summary:
+                raise StopIteration("use_metadata_fallback")
 
             summaries.append(summary.strip())
             logger.info("summary_from_transcript")
 
-        except Exception as e:
-            logger.warning("video_processing_failed_using_fallback", exc_info=e)
+        except (StopIteration, Exception) as e:
+            if str(e) != "use_metadata_fallback":
+                 logger.warning("video_processing_failed_using_fallback", exc_info=e)
 
+            # --- ROBUST FALLBACK ---
             try:
-                # Use a more forceful prompt with XML tags and SystemMessage
-                system_rules = "Eres un asistente de investigación experto. Tu tarea es generar UN solo párrafo conciso. REGLA ESTRICTA: NO incluyas preámbulos, razonamientos ni introducciones. SOLO entrega el párrafo final envuelto en etiquetas <summary> y </summary>."
-                human_prompt = f"Genera un breve párrafo explicando de qué trata este vídeo basándote solo en su título: '{metadata.get('title')}'. Menciona que es una fuente audiovisual relevante para el tema {state.get('original_topic', state.get('topic', ''))}."
-
-                import threading
-                raw_fallback = ""
-                fallback_container = {"data": ""}
-                def run_fallback():
+                # Use metadata if transcript is blocked
+                title = metadata.get('title', 'Video')
+                author = metadata.get('author', 'YouTube')
+                
+                # Try simple LLM prompt with short timeout
+                system_rules = "Genera un solo párrafo conciso (máximo 3 frases) sobre el tema."
+                human_prompt = f"Resume de qué trata un vídeo titulado '{title}' para una investigación sobre '{state.get('topic')}'. Menciona que es de {author}."
+                
+                fallback_summary = ""
+                def fast_fallback():
                     try:
-                        from langchain_core.messages import SystemMessage, HumanMessage
-                        response = llm.invoke([
-                            SystemMessage(content=system_rules),
-                            HumanMessage(content=human_prompt)
-                        ])
-                        fallback_container["data"] = response.content.strip()
-                    except Exception:
-                        pass
+                        resp = llm.invoke(human_prompt)
+                        return resp.content.strip()
+                    except:
+                        return None
 
-                thread_fb = threading.Thread(target=run_fallback)
-                thread_fb.start()
-                thread_fb.join(timeout=30)
+                # Non-threaded fast check
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(fast_fallback)
+                    try:
+                        fallback_summary = future.result(timeout=10)
+                    except:
+                        fallback_summary = None
 
-                if not thread_fb.is_alive():
-                    raw_fallback = fallback_container["data"]
-                if thread_fb.is_alive() or not raw_fallback:
-                    raise ValueError("Fallback timed out.")
-
-                # Blinded extraction with Regex
-                import re
-                match = re.search(r'<summary>(.*?)</summary>', raw_fallback, re.DOTALL)
-
-                if match:
-                    fallback_summary = match.group(1).strip()
-                elif "<summary>" in raw_fallback:
-                    fallback_summary = raw_fallback.split("<summary>")[1].strip()
-                else:
-                    # Defensive cleaning for Qwen 3 if tags are missing
-                    reasoning_prefixes = ["okay", "entendido", "primero", "voy a", "analizando", "basado en el"]
-                    lines = raw_fallback.split('\n')
-                    if lines and any(lines[0].lower().startswith(p) for p in reasoning_prefixes):
-                        fallback_summary = "\n".join(lines[1:]).strip()
-                    else:
-                        fallback_summary = raw_fallback
-
+                if not fallback_summary:
+                    # Hardcoded zero-dependency fallback
+                    fallback_summary = f"Vídeo titulado '{title}' de {author}. Contenido extraído de metadatos debido a restricciones de acceso a la transcripción en este entorno."
+                
                 summaries.append(fallback_summary)
-                logger.info("summary_from_metadata_fallback")
-            except Exception as e_inner:
-                logger.error("fallback_summary_failed", exc_info=e_inner)
-                summaries.append(f"Vídeo titulado '{metadata.get('title')}' por {metadata.get('author')}. No fue posible extraer el contenido detallado debido a restricciones de YouTube.")
+                logger.info("summary_from_metadata_fallback_completed")
+            except Exception as e_final:
+                logger.error("extreme_fallback_failed", exc_info=e_final)
+                summaries.append(f"Referencia visual: '{metadata.get('title', 'YouTube Video')}'.")
 
     from .router_tools import update_next_node
     return {"summaries": summaries, "next_node": update_next_node(state, "youtube")}
