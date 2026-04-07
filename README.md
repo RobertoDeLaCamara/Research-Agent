@@ -257,22 +257,6 @@ GitHub Actions runs the test suite on every push and pull request across Python 
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Common issues |
 | [Changelog](CHANGELOG.md) | Version history |
 
-## Roadmap
-
-Contributions welcome — pick up any of these or open an issue to propose your own.
-
-| Priority | Item | Difficulty |
-| :--- | :--- | :--- |
-| High | **Add PubMed / MEDLINE source** for biomedical research | Easy |
-| High | **Streaming output** — show results token-by-token in the Streamlit UI | Medium |
-| High | **REST API** — expose research as a POST endpoint for headless use | Medium |
-| Medium | **New persona: Legal Analyst** — case law, regulatory sources | Easy |
-| Medium | **LM Studio / any OpenAI-compatible backend** support | Easy |
-| Medium | **LaTeX export** for academic paper formatting | Medium |
-| Medium | **Scheduled research** — recurring reports via cron | Hard |
-| Low | **Report comparison view** — diff two reports on the same topic over time | Hard |
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) to get started. New research source? The pattern lives in `src/tools/research_tools.py` — adding one is ~50 lines.
 
 ## License
 
