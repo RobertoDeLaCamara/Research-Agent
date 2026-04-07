@@ -194,8 +194,19 @@ youtube_summarizer/
 # Generated reports
 reporte_*
 
+.aider*
+CODE_REVIEW*
+COMMIT_MESSAGE*
+fix_*
+FIX_SUMMARY.md
+MERGE_CHECKLIST*
+REVIEW_SUMMARY*
+ACTION_ITEMS.md
+IMPROVEMENTS.md
+QUICK_REFERENCE.md
+code_review_summary.py
+
 # Local data and knowledge base
 data/
 knowledge_base/
 research_sessions.db
-.aider.tags.cache.v4/
