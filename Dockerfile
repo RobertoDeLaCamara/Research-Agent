@@ -20,11 +20,11 @@ COPY --chown=app:app . .
 
 USER app
 
-EXPOSE 8501
+EXPOSE 7860
 
 ENV PYTHONUNBUFFERED=1
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+    CMD curl -f http://localhost:7860/_stcore/health || exit 1
 
-CMD ["streamlit", "run", "src/app.py", "--server.address=0.0.0.0", "--server.fileWatcherType=none"]
+CMD ["streamlit", "run", "src/app.py", "--server.address=0.0.0.0", "--server.port=7860", "--server.fileWatcherType=none"]
