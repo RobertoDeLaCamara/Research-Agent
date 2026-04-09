@@ -1,0 +1,39 @@
+name: Sync to HuggingFace Spaces
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Push to HuggingFace Spaces
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Actions"
+          git config --global credential.helper store
+
+          # Clone the HF Space repo
+          git clone https://user:${HF_TOKEN}@huggingface.co/spaces/ecerocg/research-agent hf_repo
+
+          # Sync all repo files (excluding .git and hf_spaces/)
+          rsync -av --exclude='.git' --exclude='hf_spaces' --exclude='venv' --exclude='.venv' \
+            ./ hf_repo/
+
+          # Override root README with the HF-specific one (contains Space metadata)
+          cp hf_spaces/README.md hf_repo/README.md
+
+          cd hf_repo
+          git add -A
+          git diff --cached --quiet && echo "No changes to sync" && exit 0
+          git commit -m "Sync from GitHub @ ${{ github.sha }}"
+          git push https://user:${HF_TOKEN}@huggingface.co/spaces/ecerocg/research-agent main
