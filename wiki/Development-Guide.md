@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.10+
+- Python 3.12+
 - Ollama with `qwen3:14b` pulled (`ollama pull qwen3:14b`)
 - Optional: Tavily API key (`TAVILY_API_KEY`), GitHub token (`GITHUB_TOKEN`)
 
@@ -18,7 +18,7 @@ docker compose exec ollama ollama pull qwen3:14b
 # Local
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
+cp env.example .env
 # Edit .env: OLLAMA_BASE_URL, TAVILY_API_KEY, GITHUB_TOKEN, etc.
 
 streamlit run src/app.py --server.address=0.0.0.0

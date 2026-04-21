@@ -5,7 +5,7 @@ Thank you for your interest in contributing to Research-Agent! This document pro
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.11+
+- Python 3.12+
 - Git
 - Docker (optional but recommended)
 
@@ -329,7 +329,9 @@ test(tools): add tests for research tools
 
 ### Documentation
 - [README.md](README.md) - Main documentation
-- [API.md](API.md) - API reference
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - System design and workflow
+- [docs/DEVELOPER_REFERENCE.md](docs/DEVELOPER_REFERENCE.md) - Module reference
+- [docs/TESTING.md](docs/TESTING.md) - Testing guide
 - [CHANGELOG.md](CHANGELOG.md) - Version history
 
 ### Tools

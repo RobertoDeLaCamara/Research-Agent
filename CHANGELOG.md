@@ -2,49 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 2026-01-14
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-### Fixed
-- **Critical**: Resolved Citation Hallucinations by enforcing strict Source extraction and Prompt engineering.
-- **Critical**: Fixed Web Research Context to include Title and URL explicitly.
-- **Critical**: Fixed HTML Report rendering for Web sources (References displayed as links with titles).
-- **Critical**: Corrected Report Storage location (now saves to `./reports/` instead of root).
-- **Critical**: Fixed Infinite Loops by limiting research to 2 iterations.
-- **Critical**: Fixed RAG Logic to only appear/execute if local files exist.
-- Resolved all import path inconsistencies (9 import errors → 0)
-- Fixed all test failures (0% → 100% pass rate)
-- Added missing dependencies (python-docx, PyPDF2)
-- Fixed bare except clauses with specific exception handling
-- Fixed thread safety issues in research tools
-- Fixed skipped test to achieve 100% test coverage
+## [Unreleased]
 
 ### Added
-- **Input Validation**: Pydantic ResearchRequest model with injection prevention
-- **File Upload Validation**: Extension whitelist, size limits, filename sanitization
-- **Centralized Configuration**: All timeouts, limits, and constants in config.py
-- **Type Hints**: Comprehensive type annotations across utils, db_manager, and agent
-- **Logging**: Consistent logger usage (replaced 27+ print statements)
-- **Error Handling**: Specific exceptions with context logging
+- Deployment to Hugging Face Spaces (`docker-compose.full.yml`, `Dockerfile` on port 7860).
+- Bilingual UI (Spanish / English) switcher in the sidebar (`src/i18n.py`).
+- News Editor persona (`news_editor`) for breaking-news research with 24h Reddit filtering.
+- Semantic RAG via ChromaDB + `all-MiniLM-L6-v2` embeddings (`src/tools/vector_store.py`).
+- OpenAI-compatible LLM backend support (Groq, Gemini, OpenAI, LM Studio, Together, OpenRouter).
 
 ### Changed
-- Replaced all hardcoded values with centralized config
-- Improved error messages with detailed context
-- Enhanced security with input validation (2/10 → 7/10)
-- Improved code quality (6/10 → 9/10)
-- Updated all tests to pass (37/37 passing)
+- LangGraph workflow consolidated into `src/agent.py` (9 nodes, conditional re-plan edge).
+- Report generation centralized in `src/tools/reporting_tools.py` (PDF, DOCX, Markdown, HTML).
+- YouTube transcript fetcher now handles transcript blocks with fallback timeouts.
+- Default Docker port aligned with Hugging Face Spaces (7860).
+
+### Fixed
+- Citation hallucinations — sources and URLs are now passed verbatim to the synthesis prompt.
+- Infinite re-plan loops — capped at 2 iterations via conditional edges in `agent.py`.
+- Report output location — reports saved to `./reports/` (mounted volume).
+- RAG pipeline only runs when local files exist.
+- Thread-safety of parallel research tools (container-based result capture).
 
 ### Security
-- Added injection attack prevention in topic validation
-- Added file upload security (extension whitelist, size limits)
-- Improved error handling to prevent information leakage
-- **WARNING**: Exposed credentials in .env must be revoked before deployment
-
-## [Previous] - Before 2026-01-14
-
-### Known Issues
-- Import path inconsistencies causing test failures
-- Missing dependencies
-- Hardcoded configuration values
-- Bare except clauses
-- Inconsistent logging with print statements
-- Minimal type hints
+- Input validation via Pydantic `ResearchRequest` model (injection prevention).
+- File upload whitelist (`.pdf`, `.txt`, `.md`), 10 MB size cap, filename sanitization.
+- Parameterized SQLite queries; no user input interpolated into SQL.

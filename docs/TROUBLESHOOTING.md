@@ -20,7 +20,7 @@ pip install -r requirements.txt
 
 **Solution:**
 ```bash
-pip install python-docx PyPDF2
+pip install python-docx pypdf
 ```
 
 ### Ollama Connection Issues
@@ -551,7 +551,7 @@ rm research_sessions.db
 |---------|-----------|
 | Import errors | `export PYTHONPATH="${PYTHONPATH}:$(pwd)"` |
 | Ollama not found | `ollama serve` |
-| Tests fail | `pip install python-docx PyPDF2` |
+| Tests fail | `pip install python-docx pypdf` |
 | Slow research | Use `research_depth="quick"` |
 | Database locked | `rm research_sessions.db-journal` |
 | Port in use | `lsof -i :8501` then kill process |

@@ -116,6 +116,7 @@ def search_X_node(state: AgentState) -> dict:
 - `tech`: Implementation details
 - `academic`: Rigor and methodology
 - `pm`: User needs and prioritization
+- `news_editor`: Breaking news — 24h Reddit filter, skips evaluation node for speed
 
 ### 5. Reporting Tools (`src/tools/reporting_tools.py`)
 
@@ -128,9 +129,10 @@ def search_X_node(state: AgentState) -> dict:
 ### 6. RAG Tools (`src/tools/rag_tools.py`)
 
 **Local Knowledge Integration:**
-- PDF parsing (pypdf)
+- PDF parsing (pypdf, up to 50 pages/doc)
 - Text file ingestion
-- Vector search (future: embeddings)
+- Semantic vector search via ChromaDB + `all-MiniLM-L6-v2` embeddings (`src/tools/vector_store.py`)
+- Hybrid retrieval: semantic + SQLite keyword matching, merged and scored
 - Citation tracking
 
 ## Workflow Execution
@@ -267,7 +269,7 @@ class Settings(BaseSettings):
 
     # Security
     max_file_size_mb: int = 10
-    allowed_file_extensions: List[str] = ['.pdf', '.txt']
+    allowed_file_extensions: List[str] = ['.pdf', '.txt', '.md']
 ```
 
 ### Research Depth Mapping
@@ -346,9 +348,10 @@ tavily_api_key = os.getenv("TAVILY_API_KEY")
 3. Add tests
 
 ### Adding New Personas
-1. Add persona config in `src/tools/synthesis_tools.py`
-2. Update UI in `src/app.py`
-3. Document in `docs/PERSONAS.md`
+1. Add persona config in `src/tools/synthesis_tools.py` and `src/tools/router_tools.py`
+2. Add its code to the `Literal[...]` in `src/validators.py`
+3. Update UI labels in `src/app.py` and `src/i18n.py`
+4. Document in `wiki/Personas-and-Depth-Modes.md`
 
 ### Adding New Export Formats
 1. Add generator in `src/tools/reporting_tools.py`

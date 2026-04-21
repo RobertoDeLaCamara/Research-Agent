@@ -18,7 +18,7 @@ license: mit
 
 # Research-Agent
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/RobertoDeLaCamara/Research-Agent?style=social)](https://github.com/RobertoDeLaCamara/Research-Agent/stargazers)
 [![Release](https://img.shields.io/github/v/release/RobertoDeLaCamara/Research-Agent)](https://github.com/RobertoDeLaCamara/Research-Agent/releases)
@@ -36,7 +36,7 @@ Research-Agent is a LangGraph-based autonomous agent that searches **10 sources 
 ## Features
 
 - **Parallel Multi-Source Research**: Web, Wikipedia, arXiv, Semantic Scholar, GitHub, Hacker News, Stack Overflow, Reddit, YouTube, and local RAG -- all execute concurrently via `ThreadPoolExecutor`.
-- **Research Personas**: Product Manager, Software Architect, Market Analyst, Scientific Reviewer, or Generalist -- each shapes source selection and analysis style.
+- **Research Personas**: Generalist, Market Analyst, Software Architect, Scientific Reviewer, Product Manager, or News Editor -- each shapes source selection and analysis style.
 - **Local Knowledge (RAG)**: Upload PDFs/TXT files through the dashboard or place them in `./knowledge_base`. Indexed with SQLite cache and ChromaDB vector search.
 - **Self-Correction Loop**: Evaluation node detects information gaps and triggers re-planning automatically (max 2 iterations).
 - **Export Center**: One-click reports in PDF, Word, Markdown, and HTML, saved to `./reports/`.
@@ -171,24 +171,36 @@ All generated reports are automatically saved to the `./reports/` directory.
 Research-Agent/
 ├── src/
 │   ├── app.py                  # Streamlit UI entry point
-│   ├── graph.py                # LangGraph workflow definition
+│   ├── main.py                 # CLI entry point
+│   ├── agent.py                # LangGraph workflow definition (9 nodes)
 │   ├── state.py                # AgentState schema
 │   ├── config.py               # Settings (Pydantic v2)
 │   ├── validators.py           # Input validation
-│   ├── nodes/                  # Graph nodes (plan, search, consolidate, evaluate, report)
-│   ├── tools/
-│   │   ├── parallel_tools.py   # ThreadPoolExecutor parallel search
-│   │   ├── research_tools.py   # Web, arXiv, Semantic Scholar, HN, SO
-│   │   ├── reddit_tools.py     # Reddit search
-│   │   ├── youtube_tools.py    # YouTube transcript search
-│   │   └── rag_tools.py        # ChromaDB local knowledge RAG
-│   └── report/                 # PDF, Word, Markdown, HTML generators
+│   ├── db_manager.py           # SQLite session persistence
+│   ├── llm.py                  # LLM factory (Ollama / OpenAI-compatible)
+│   ├── i18n.py                 # Spanish / English UI strings
+│   └── tools/
+│       ├── parallel_tools.py   # ThreadPoolExecutor parallel search
+│       ├── research_tools.py   # Web, Wiki, arXiv, Scholar, GitHub, HN, SO
+│       ├── reddit_tools.py     # Reddit search
+│       ├── youtube_tools.py    # YouTube transcript search + summarize
+│       ├── rag_tools.py        # Local knowledge ingestion
+│       ├── vector_store.py     # ChromaDB + all-MiniLM-L6-v2 embeddings
+│       ├── router_tools.py     # plan_research, evaluate_research, personas
+│       ├── synthesis_tools.py  # Consolidation + persona prompts
+│       ├── reporting_tools.py  # PDF / Word / Markdown / HTML
+│       ├── chat_tools.py       # Interactive Q&A on findings
+│       └── translation_tools.py # Multilingual query expansion
 ├── knowledge_base/             # User-uploaded documents (PDF/TXT)
 ├── reports/                    # Generated research reports
 ├── data/                       # Persistent data (SQLite, ChromaDB)
 ├── docs/                       # Architecture, Security, Deployment, Troubleshooting
-├── docker-compose.yml          # With resource limits and health check
-├── env.example                 # API key template
+├── wiki/                       # Internal developer wiki
+├── tests/                      # pytest suite
+├── docker-compose.yml          # Minimal (bring your own Ollama)
+├── docker-compose.full.yml     # Batteries-included (Ollama + model pre-pull)
+├── Dockerfile                  # Python 3.12 slim, Streamlit on port 7860
+├── env.example                 # Config template
 └── requirements.txt
 ```
 
@@ -198,7 +210,7 @@ Research-Agent/
 | :--- | :--- | :--- |
 | `OLLAMA_MODEL` | LLM model | `qwen3:14b` |
 | `OLLAMA_BASE_URL` | Ollama endpoint | `http://localhost:11434` |
-| `TAVILY_API_KEY` | Web search (Tavily) | Required |
+| `TAVILY_API_KEY` | Web search (Tavily); DuckDuckGo used if absent | Optional |
 | `GITHUB_TOKEN` | GitHub API access | Optional |
 | `EMAIL_USERNAME` | Report delivery (SMTP) | Optional |
 | `EMAIL_PASSWORD` | SMTP password | Optional |

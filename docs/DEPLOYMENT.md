@@ -2,32 +2,27 @@
 
 ## Pre-Deployment Checklist
 
-### 🔴 Critical Security Tasks
+### Environment Setup
 
-Before deploying to production, you **MUST** complete these security tasks:
+1. **Create Credentials** (obtain the ones relevant to your setup)
+   - Tavily (web search, optional): https://tavily.com/
+   - GitHub token (higher rate limits, optional): https://github.com/settings/tokens
+   - Gmail App Password (email delivery, optional): https://myaccount.google.com/apppasswords
+   - YouTube Data API (better video search, optional): https://console.cloud.google.com/
+   - LLM: Ollama (local, default) or any OpenAI-compatible key (Groq / Gemini / OpenAI)
 
-1. **Revoke Exposed Credentials**
-   - The `.env` file contains exposed API keys that must be revoked immediately
-   - Revoke: TAVILY_API_KEY, GITHUB_TOKEN, EMAIL_PASSWORD, YOUTUBE_API_KEY
-
-2. **Generate New Credentials**
-   - Tavily: https://tavily.com/
-   - GitHub: https://github.com/settings/tokens
-   - Gmail App Password: https://myaccount.google.com/apppasswords
-   - YouTube: https://console.cloud.google.com/
-
-3. **Update Environment Variables**
+2. **Configure Environment**
    ```bash
-   cp .env.example .env
-   # Edit .env with your NEW credentials
+   cp env.example .env
+   # Edit .env with the credentials above
    ```
 
-4. **Verify .env is in .gitignore**
+3. **Verify `.env` is ignored**
    ```bash
    git check-ignore .env  # Should output: .env
    ```
 
-### ✅ Pre-Deployment Tests
+### Pre-Deployment Tests
 
 ```bash
 # Run all tests

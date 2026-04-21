@@ -12,7 +12,7 @@ docker compose up -d
 # Local
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
+cp env.example .env
 
 # CLI
 docker compose run --rm research-agent python src/main.py "Your Topic"
