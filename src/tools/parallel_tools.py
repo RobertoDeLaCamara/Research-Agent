@@ -46,6 +46,13 @@ def parallel_search_node(state: AgentState) -> dict:
     from .rag_tools import local_rag_node
 
     plan = state.get("research_plan", [])
+
+    # Enforce user RAG preference: if the checkbox is off, strip local_rag
+    # from the plan even if a prior node slipped it in.
+    if not state.get("use_rag", False) and "local_rag" in plan:
+        plan = [s for s in plan if s != "local_rag"]
+        logger.warning("parallel_search: dropped local_rag (use_rag=False)")
+
     logger.info(f"Parallel search starting for sources: {plan}")
 
     source_functions = {

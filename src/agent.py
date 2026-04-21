@@ -48,7 +48,8 @@ def initialize_state_node(state: AgentState) -> dict:
         "persona": state.get("persona", "general"),
         "evaluation_report": state.get("evaluation_report", ""),
         "queries": state.get("queries", {}),
-        "source_metadata": state.get("source_metadata", {})
+        "source_metadata": state.get("source_metadata", {}),
+        "use_rag": state.get("use_rag", False)
     }
 
     return defaults

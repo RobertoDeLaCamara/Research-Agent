@@ -64,12 +64,13 @@ def plan_research_node(state: AgentState) -> dict:
     - reddit: Para opiniones de la comunidad, experiencias reales y discusiones informales.
     """
     
-    # Conditionally add local_rag if files exist
+    # Conditionally add local_rag only if the user opted in AND files exist
     kb_path = "./knowledge_base"
     has_local_files = False
-    if os.path.exists(kb_path) and any(f for f in os.listdir(kb_path) if not f.startswith('.')):
-        has_local_files = True
-        prompt += "\n    - local_rag: Para consultar la base de conocimientos local y archivos proporcionados por el usuario."
+    if state.get("use_rag", False):
+        if os.path.exists(kb_path) and any(f for f in os.listdir(kb_path) if not f.startswith('.')):
+            has_local_files = True
+            prompt += "\n    - local_rag: Para consultar la base de conocimientos local y archivos proporcionados por el usuario."
     
     prompt += """
     
@@ -94,6 +95,15 @@ def plan_research_node(state: AgentState) -> dict:
             content = content[content.find("["):content.rfind("]")+1]
 
         selected_sources = json.loads(content)
+
+        # Belt-and-suspenders: strip local_rag if the user did not opt in,
+        # regardless of what the LLM returned.
+        if not state.get("use_rag", False):
+            before = len(selected_sources)
+            selected_sources = [s for s in selected_sources if s != "local_rag"]
+            if len(selected_sources) != before:
+                logger.warning("Filtered local_rag from plan: user did not enable RAG")
+
         logger.info(f"Sources selected: {selected_sources}")
 
         # Multilingual expansion

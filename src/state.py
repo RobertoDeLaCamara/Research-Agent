@@ -32,3 +32,4 @@ class AgentState(TypedDict):
     last_email_hash: str
     queries: Dict[str, str]
     source_metadata: Dict[str, dict]
+    use_rag: bool  # User-controlled flag: whether to include local RAG as a source
