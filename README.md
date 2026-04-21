@@ -8,19 +8,11 @@ app_port: 7860
 pinned: false
 short_description: LangGraph research agent — 10 sources, RAG, Streamlit
 tags:
-  - langchain
   - langgraph
   - rag
-  - research
   - streamlit
-  - agent
-  - multi-source
-  - nlp
   - llm
-  - groq
-  - ollama
-  - arxiv
-  - wikipedia
+  - agent
 license: mit
 ---
 
