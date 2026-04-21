@@ -17,13 +17,8 @@ services:
       - "8501:8501"
     mem_limit: 512m
     cpus: "1.0"
-    networks:
-      - agent-net
     extra_hosts:
       - "host.docker.internal:host-gateway"
     # Run Dashboard (default): docker compose up
     # Run CLI: docker compose run --rm research-agent python src/main.py "Topic"
 
-networks:
-  agent-net:
-    driver: bridge
