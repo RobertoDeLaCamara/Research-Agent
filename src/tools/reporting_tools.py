@@ -1,6 +1,8 @@
 # src/tools/reporting_tools.py
 
 import os
+import re
+import html as _html
 import smtplib
 import logging
 from email.mime.multipart import MIMEMultipart
@@ -16,8 +18,6 @@ logger = logging.getLogger(__name__)
 
 from ..state import AgentState # noqa: E402
 
-# Helper to sanitize text (surrogate fix)
-
 
 def sanitize_text(text):
     if not isinstance(text, str):
@@ -25,11 +25,66 @@ def sanitize_text(text):
     # Encode to UTF-8 ignoring errors (strips surrogates), then decode back
     return text.encode('utf-8', 'replace').decode('utf-8')
 
-# Helper to sanitize text (surrogate fix)
-def sanitize_text(text):
-    if not isinstance(text, str): return text
-    # Encode to UTF-8 ignoring errors (strips surrogates), then decode back
-    return text.encode('utf-8', 'replace').decode('utf-8')
+
+def html_to_markdown(text: str) -> str:
+    """Convert common HTML tags to Markdown so PDF/DOCX generators don't show raw tags.
+
+    The LLM sometimes returns HTML despite being asked for Markdown. This is a
+    defensive converter: handles headings, bold/italic, lists, line breaks,
+    paragraphs and anchors, strips everything else, and decodes entities.
+    """
+    if not isinstance(text, str) or not text:
+        return text or ""
+
+    # Fast path: if no tags at all, assume it's already Markdown.
+    if "<" not in text:
+        return text
+
+    t = text
+
+    # Drop script/style blocks entirely.
+    t = re.sub(r"<(script|style)\b[^>]*>.*?</\1>", "", t, flags=re.DOTALL | re.IGNORECASE)
+
+    # Headings -> Markdown (#, ##, ...). Use group capture for level.
+    def _heading(m):
+        level = int(m.group(1))
+        inner = m.group(2).strip()
+        return "\n\n" + ("#" * level) + " " + inner + "\n\n"
+
+    t = re.sub(r"<h([1-6])\b[^>]*>(.*?)</h\1>", _heading, t, flags=re.DOTALL | re.IGNORECASE)
+
+    # Bold / italic / code.
+    t = re.sub(r"<(strong|b)\b[^>]*>(.*?)</\1>", r"**\2**", t, flags=re.DOTALL | re.IGNORECASE)
+    t = re.sub(r"<(em|i)\b[^>]*>(.*?)</\1>", r"*\2*", t, flags=re.DOTALL | re.IGNORECASE)
+    t = re.sub(r"<code\b[^>]*>(.*?)</code>", r"`\1`", t, flags=re.DOTALL | re.IGNORECASE)
+
+    # Links -> [text](href). Fallback to plain text if href missing.
+    def _link(m):
+        href = m.group(1).strip() if m.group(1) else ""
+        inner = re.sub(r"<[^>]+>", "", m.group(2)).strip()
+        if href:
+            return f"[{inner}]({href})"
+        return inner
+
+    t = re.sub(r'<a\b[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)</a>', _link, t, flags=re.DOTALL | re.IGNORECASE)
+    t = re.sub(r"<a\b[^>]*>(.*?)</a>", lambda m: re.sub(r"<[^>]+>", "", m.group(1)).strip(), t, flags=re.DOTALL | re.IGNORECASE)
+
+    # List items -> "* ..." (flatten ul/ol, we don't preserve ordered numbering).
+    t = re.sub(r"<li\b[^>]*>(.*?)</li>", lambda m: "\n* " + re.sub(r"\s+", " ", m.group(1)).strip(), t, flags=re.DOTALL | re.IGNORECASE)
+    t = re.sub(r"</?(ul|ol)\b[^>]*>", "\n", t, flags=re.IGNORECASE)
+
+    # Paragraphs and breaks.
+    t = re.sub(r"<br\s*/?>", "\n", t, flags=re.IGNORECASE)
+    t = re.sub(r"<p\b[^>]*>", "\n\n", t, flags=re.IGNORECASE)
+    t = re.sub(r"</p>", "\n\n", t, flags=re.IGNORECASE)
+
+    # Strip all remaining tags (divs, spans, styles, etc.).
+    t = re.sub(r"<[^>]+>", "", t)
+
+    # Decode entities and collapse excessive blank lines.
+    t = _html.unescape(t)
+    t = re.sub(r"\n{3,}", "\n\n", t).strip()
+    return t
 
 # --------------------------------------------------------------------------
 # NODO 3: GENERACIÓN DEL INFORME EN HTML
@@ -584,19 +639,61 @@ def generate_report_node(state: AgentState) -> dict:
 
 
 def generate_docx(state: AgentState, topic: str, output_path: str, bibliography: list):
-    """Genera un archivo Word (.docx) profesional."""
+    """Genera un archivo Word (.docx) profesional, parseando Markdown básico."""
     doc = Document()
     doc.add_heading(f'Informe de Investigación: {topic}', 0)
 
-    if state.get("consolidated_summary"):
+    summary = state.get("consolidated_summary") or ""
+    if summary:
         doc.add_heading('Síntesis Ejecutiva', level=1)
-        doc.add_paragraph(state["consolidated_summary"])
+        # Normalize: if the LLM emitted HTML, convert it to Markdown first.
+        md = html_to_markdown(summary)
+        _render_markdown_to_docx(doc, md)
 
     doc.add_heading('Bibliografía', level=1)
     for ref in bibliography:
         doc.add_paragraph(ref, style='List Bullet')
 
     doc.save(output_path)
+
+
+def _render_markdown_to_docx(doc, md_text: str) -> None:
+    """Minimal Markdown renderer for python-docx: headings, bullets, paragraphs."""
+    if not md_text:
+        return
+
+    for raw_line in md_text.split("\n"):
+        line = raw_line.rstrip()
+        if not line.strip():
+            continue
+
+        # Remove stray bold markers; python-docx paragraphs don't need them.
+        stripped = line.strip()
+
+        if stripped.startswith("#### "):
+            doc.add_heading(stripped[5:].strip(), level=4)
+        elif stripped.startswith("### "):
+            doc.add_heading(stripped[4:].strip(), level=3)
+        elif stripped.startswith("## "):
+            doc.add_heading(stripped[3:].strip(), level=2)
+        elif stripped.startswith("# "):
+            doc.add_heading(stripped[2:].strip(), level=1)
+        elif stripped.startswith(("* ", "- ")):
+            doc.add_paragraph(_strip_md_inline(stripped[2:].strip()), style='List Bullet')
+        elif re.match(r"^\d+\.\s+", stripped):
+            doc.add_paragraph(_strip_md_inline(re.sub(r"^\d+\.\s+", "", stripped)), style='List Number')
+        else:
+            doc.add_paragraph(_strip_md_inline(stripped))
+
+
+def _strip_md_inline(text: str) -> str:
+    """Remove bold/italic/code markers for plain docx paragraphs."""
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"\1", text)
+    text = re.sub(r"`([^`]+)`", r"\1", text)
+    # Markdown link: keep text + " (url)".
+    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"\1 (\2)", text)
+    return text.strip()
 
 
 def generate_pdf(state: AgentState, topic: str, output_path: str, bibliography_list: list = None):
@@ -637,6 +734,8 @@ def generate_pdf(state: AgentState, topic: str, output_path: str, bibliography_l
     add_section_header("Sintesis Ejecutiva Consolidada")
 
     summary_md = state.get("consolidated_summary", "No disponible")
+    # Defensive: LLM occasionally returns HTML instead of Markdown. Normalize.
+    summary_md = html_to_markdown(summary_md)
 
     # Simple Markdown Parser for PDF
     for line in summary_md.split("\n"):
