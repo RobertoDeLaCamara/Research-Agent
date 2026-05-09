@@ -33,3 +33,5 @@ class AgentState(TypedDict):
     queries: Dict[str, str]
     source_metadata: Dict[str, dict]
     use_rag: bool  # User-controlled flag: whether to include local RAG as a source
+    docx_path: str  # Path to generated DOCX report (set by generate_report_node)
+    md_path: str    # Path to generated Markdown report

@@ -42,5 +42,6 @@ pytest-mock
 pytest-asyncio
 pytest-cov
 python-docx>=0.8.11
+bleach>=6.0.0
 pypdf>=3.0.0
 structlog

@@ -4,7 +4,7 @@ import os
 import time
 from functools import wraps
 from typing import Any, Optional
-from config import settings
+from .config import settings
 
 CACHE_DIR = "cache"
 

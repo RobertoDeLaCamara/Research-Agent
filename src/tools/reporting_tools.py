@@ -26,6 +26,42 @@ def sanitize_text(text):
     return text.encode('utf-8', 'replace').decode('utf-8')
 
 
+def sanitize_html(html_content: str) -> str:
+    """Sanitize HTML output to prevent XSS in rendered reports.
+
+    Permits a safe subset of tags/attributes suitable for research reports.
+    Uses bleach for whitelist-based sanitization.
+    """
+    import bleach
+    allowed_tags = [
+        "h1", "h2", "h3", "h4", "h5", "h6",
+        "p", "br", "hr",
+        "ul", "ol", "li",
+        "strong", "em", "b", "i", "u",
+        "a", "span", "div",
+        "code", "pre",
+        "blockquote",
+        "table", "thead", "tbody", "tr", "th", "td",
+    ]
+    allowed_attrs = {
+        "a": ["href", "title", "class", "id"],
+        "span": ["class"],
+        "div": ["class"],
+        "code": ["class"],
+        "pre": ["class"],
+        "th": ["class"],
+        "td": ["class"],
+        "h1": ["id"], "h2": ["id"], "h3": ["id"],
+        "h4": ["id"], "h5": ["id"], "h6": ["id"],
+    }
+    return bleach.clean(
+        html_content,
+        tags=allowed_tags,
+        attributes=allowed_attrs,
+        strip=True,
+    )
+
+
 def html_to_markdown(text: str) -> str:
     """Convert common HTML tags to Markdown so PDF/DOCX generators don't show raw tags.
 
@@ -575,20 +611,12 @@ def generate_report_node(state: AgentState) -> dict:
     if not os.path.exists(reports_dir):
         os.makedirs(reports_dir)
 
-    # Sanitize markdown
-    markdown_text = sanitize_text(markdown_text)
-
-    # Ensure reports directory exists
-    reports_dir = "reports"
-    if not os.path.exists(reports_dir):
-        os.makedirs(reports_dir)
-
     # Guardamos el HTML
     report_path = os.path.join(reports_dir, "reporte_final.html")
-    # ENFORCE SANITIZATION ON FINAL WRITE
     try:
+        safe_html = sanitize_html(html_content)
         with open(report_path, "w", encoding="utf-8") as f:
-            f.write(sanitize_text(html_content))
+            f.write(safe_html)
     except Exception as e:
         logger.error(f"Error saving HTML (surrogate check): {e}")
     
@@ -848,6 +876,7 @@ def send_email_node(state: AgentState) -> dict:
         except Exception as e:
             logger.warning("pdf_attachment_failed", exc_info=e)
 
+    server = None
     try:
         # Iniciamos la conexión con el servidor SMTP.
         logger.info(f"smtp_connecting host={host} port={port}")

@@ -1,23 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 import requests
-from src.tools.research_tools import search_web_node, search_wiki_node, search_arxiv_node, translate_to_english
-
-def test_translate_to_english():
-    """Test the translation utility."""
-    with patch("langchain_ollama.ChatOllama") as mock_ollama:
-        mock_llm = mock_ollama.return_value
-        mock_response = MagicMock()
-        mock_response.content = "English Topic"
-        mock_llm.invoke.return_value = mock_response
-        
-        # Test translation from Spanish
-        result = translate_to_english("Tema en español")
-        assert result == "English Topic"
-        
-        # Test that English/ASCII skip translation
-        result = translate_to_english("Already English")
-        assert result == "Already English"
+from src.tools.research_tools import search_web_node, search_wiki_node, search_arxiv_node
 
 @patch("requests.get")
 def test_search_web_node_tavily(mock_get, mock_agent_state):

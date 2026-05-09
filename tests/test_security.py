@@ -70,13 +70,9 @@ def test_validate_file_upload_filename_sanitization():
     # `_, ext = os.path.splitext(filename)` might keep path components
     # But `safe_name` logic checks it.
     
-    # If the function is robust, it should handle this.
-    # Reading validators.py again:
-    # safe_name = "".join(c for c in filename if c.isalnum() or c in '._- ')
-    # if not safe_name or safe_name.startswith('.'): return False
-    
     # "../" would become ".." which starts with . -> False. Good.
-    pass
+    valid, msg = validate_file_upload("../../../etc/passwd.txt", 1000)
+    assert valid is False
 
 def test_sanitize_content():
     """Test html/script cleanup in content."""

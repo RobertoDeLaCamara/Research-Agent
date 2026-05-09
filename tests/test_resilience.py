@@ -15,7 +15,7 @@ def test_api_call_with_retry_success():
 def test_api_call_with_retry_failure_then_success():
     """Test that it retries on failure."""
     mock_func = MagicMock(side_effect=[ValueError("Fail"), "Success"])
-    result = api_call_with_retry(mock_func, max_retries=3, delay=0.01)
+    result = api_call_with_retry(mock_func)
     assert result == "Success"
     assert mock_func.call_count == 2
 

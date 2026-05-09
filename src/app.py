@@ -528,8 +528,9 @@ if st.session_state.investigation_done:
 
     # Mostrar el reporte HTML persistido
     if st.session_state.report_html:
+        from src.tools.reporting_tools import sanitize_html
         with st.expander(_["report_expander"], expanded=False):
-            components.html(st.session_state.report_html, height=800, scrolling=True)
+            components.html(sanitize_html(st.session_state.report_html), height=800, scrolling=True)
 
     # --- EXPLORADOR DE FUENTES (Source Explorer) ---
     st.divider()

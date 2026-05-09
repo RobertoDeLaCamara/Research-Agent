@@ -61,7 +61,6 @@ def plan_research_node(state: AgentState) -> dict:
     - so: Para problemas técnicos específicos y soluciones de programación.
     - youtube: Para explicaciones visuales, tutoriales y comparativas.
     - reddit: Para opiniones de la comunidad, experiencias reales y discusiones informales.
-    - reddit: Para opiniones de la comunidad, experiencias reales y discusiones informales.
     """
     
     # Conditionally add local_rag only if the user opted in AND files exist
@@ -173,12 +172,8 @@ def evaluate_research_node(state: AgentState) -> dict:
     {{"sufficient": false, "gaps": [], "shallow_topics": ["Impacto en rendimiento"], "fact_check_queries": ["¿Es cierto que X soporta Y?"], "reasoning": "El tema de rendimiento se menciona pero no se analiza con datos concretos."}}
     """
     
-    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    ollama_model = os.getenv("OLLAMA_MODEL", "qwen3:14b")
-    
-    from langchain_ollama import ChatOllama
     from ..config import settings
-    llm = ChatOllama(base_url=ollama_base_url, model=ollama_model, temperature=0.1, request_timeout=settings.llm_request_timeout)
+    llm = get_llm(temperature=0.1, timeout=settings.llm_request_timeout)
     
     try:
         response = llm.invoke([HumanMessage(content=prompt)])
@@ -214,24 +209,4 @@ def evaluate_research_node(state: AgentState) -> dict:
     }
 
 
-def router_node(state: AgentState):
-    """Router function to decide the next step in LangGraph."""
-    current_node = state.get("next_node", "END")
 
-    if current_node == "END":
-        return "consolidate_research"
-
-    mapping = {
-        "wiki": "search_wiki",
-        "web": "search_web",
-        "arxiv": "search_arxiv",
-        "scholar": "search_scholar",
-        "github": "search_github",
-        "hn": "search_hn",
-        "so": "search_so",
-        "youtube": "search_videos",
-        "reddit": "search_reddit",
-        "local_rag": "local_rag"
-    }
-
-    return mapping.get(current_node, "consolidate_research")

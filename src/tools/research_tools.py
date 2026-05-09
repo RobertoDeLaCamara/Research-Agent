@@ -168,24 +168,6 @@ def search_wiki_node(state: AgentState) -> dict:
     return {"wiki_research": results, "next_node": update_next_node(state, "wiki"), "source_metadata": {"wiki": {"source_type": "official", "reliability": 5}}}
 
 
-def translate_to_english(text: str) -> str:
-    """Simple translation to English using LLM for technical queries."""
-    if not re.search(r'[áéíóúÁÉÍÓÚñÑ]', text):
-        return text # Already in English or simple ASCII
-
-    logger.info(f"Translating query to English: {text}")
-    try:
-        from ..utils import bypass_proxy_for_ollama
-        bypass_proxy_for_ollama()
-        from ..llm import get_llm
-        llm = get_llm(temperature=0, timeout=30)
-        prompt = f"Translate the following research topic to English for a technical search on arXiv/GitHub. respond ONLY with the translation: {text}"
-        return llm.invoke(prompt).content.strip()
-    except Exception as e:
-        logger.warning(f"Translation failed: {e}, using original text")
-        return text
-
-
 def search_arxiv_node(state: AgentState) -> dict:
     """Busca artículos científicos en arXiv usando la librería arxiv directamente."""
     logger.info("arxiv_search_started")

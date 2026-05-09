@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from src.tools.router_tools import plan_research_node, update_next_node, router_node
+from src.tools.router_tools import plan_research_node, update_next_node
 
 def test_update_next_node_basic(mock_agent_state):
     mock_agent_state["research_plan"] = ["wiki", "web", "arxiv"]
@@ -67,25 +67,4 @@ def test_plan_research_node_persona(mock_router_llm_func, mock_global_llm_func, 
     prompt = mock_llm.invoke.call_args_list[0][0][0][0].content
     assert "Product Manager" in prompt or "necesidades del usuario" in prompt
 
-def test_router_node_mapping(mock_agent_state):
-    mock_agent_state["research_plan"] = ["wiki", "youtube", "local_rag", "reddit"]
-    
-    # Test mapping for wiki
-    mock_agent_state["next_node"] = "wiki"
-    assert router_node(mock_agent_state) == "search_wiki"
-    
-    # Test mapping for youtube
-    mock_agent_state["next_node"] = "youtube"
-    assert router_node(mock_agent_state) == "search_videos"
-    
-    # Test mapping for reddit
-    mock_agent_state["next_node"] = "reddit"
-    assert router_node(mock_agent_state) == "search_reddit"
-    
-    # Test mapping for local_rag
-    mock_agent_state["next_node"] = "local_rag"
-    assert router_node(mock_agent_state) == "local_rag"
-    
-    # Test END
-    mock_agent_state["next_node"] = "END"
-    assert router_node(mock_agent_state) == "consolidate_research"
+

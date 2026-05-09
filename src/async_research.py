@@ -2,8 +2,8 @@ import asyncio
 import aiohttp
 import logging
 from typing import Dict, List, Optional
-from config import settings
-from metrics import metrics
+from .config import settings
+from .metrics import metrics
 
 logger = logging.getLogger(__name__)
 
