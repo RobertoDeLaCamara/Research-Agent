@@ -6,7 +6,7 @@ colorTo: indigo
 sdk: docker
 app_port: 7860
 pinned: false
-short_description: LangGraph research agent — 10 parallel sources, fact-checking, cross-session memory, MCP server
+short_description: LangGraph agent — 10 sources, fact-checking, memory, MCP
 tags:
   - langgraph
   - rag
