@@ -38,7 +38,7 @@ Research-Agent is a LangGraph-based autonomous agent that searches **10 sources 
 - **Parallel Multi-Source Research**: Web, Wikipedia, arXiv, Semantic Scholar, GitHub, Hacker News, Stack Overflow, Reddit, YouTube, and local RAG -- all execute concurrently via `ThreadPoolExecutor`.
 - **Research Personas**: Generalist, Market Analyst, Software Architect, Scientific Reviewer, Product Manager, or News Editor -- each shapes source selection and analysis style.
 - **Local Knowledge (RAG)**: Upload PDFs/TXT files through the dashboard or place them in `./knowledge_base`. Indexed with SQLite cache and ChromaDB vector search.
-- **Self-Correction Loop**: Evaluation node detects information gaps and triggers re-planning automatically (max 2 iterations).
+- **Self-Correction Loop**: Evaluation node detects factually dubious claims and triggers re-planning automatically (max 1 iteration). Skipped entirely for Quick depth.
 - **Export Center**: One-click reports in PDF, Word, Markdown, and HTML, saved to `./reports/`.
 - **Configurable Depth**: Quick (2 results/source), Standard (5), or Deep (10).
 - **Multilingual**: Auto-expands queries to English for global academic/technical coverage.

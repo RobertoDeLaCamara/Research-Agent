@@ -132,6 +132,11 @@ def evaluate_research_node(state: AgentState) -> dict:
     summary = state.get("consolidated_summary", "")
     research_depth = state.get("research_depth", "standard")
 
+    # Skip evaluation entirely for quick depth — single pass is enough
+    if research_depth == "quick":
+        logger.info("Quick depth — skipping evaluation loop for speed.")
+        return {"next_node": "END", "evaluation_report": "Salto de evaluación para modo quick."}
+
     # Phase 7: News Digest should be fast. Skip refinement loops for News Editor.
     if state.get("persona") == "news_editor":
         logger.info("News Editor persona detected. Skipping refinement loops for speed.")
@@ -148,28 +153,26 @@ def evaluate_research_node(state: AgentState) -> dict:
         }
     
     prompt = f"""
-    Eres un Crítico de Investigación y Fact-Checker experto. Tu tarea es evaluar si la siguiente síntesis es completa y, sobre todo, si las afirmaciones críticas están debidamente verificadas.
+    Eres un Crítico de Investigación y Fact-Checker experto. Tu tarea es evaluar si la síntesis es completa y las afirmaciones principales están verificadas con fuentes.
 
     TEMA ORIGINAL: {topic}
     NIVEL DE PROFUNDIDAD SOLICITADO: {research_depth}
     SÍNTESIS ACTUAL:
     {summary}
 
-    INSTRUCCIONES DE EVALUACIÓN (PHASE 5):
-    1. Revisa la sección "## Verificación de Datos" de la síntesis (si existe).
-    2. Identifica si hay afirmaciones de ALTO IMPACTO que parezcan dudosas o solo tengan una fuente informal.
-    3. EVALUACIÓN DE PROFUNDIDAD: Revisa si los puntos principales del informe tienen análisis suficientemente profundo para el nivel "{research_depth}". Un informe superficial que solo lista datos sin analizarlos NO es suficiente para niveles "standard" o "deep".
+    INSTRUCCIONES DE EVALUACIÓN:
+    1. Identifica si hay afirmaciones de ALTO IMPACTO que parezcan inventadas o sin fuente creíble.
+    2. Una investigación puede ser ACEPTABLE incluso sin cubrir todos los subtemas posibles. No penalices por omisión de aspectos periféricos.
+    3. "Falta de profundidad" NO es razón para marcar insuficiente. El nivel de detalle depende del tiempo de búsqueda.
     4. Responde en formato JSON:
-       - "sufficient": booleano (true si es sólido Y tiene profundidad adecuada, false si falta verificación o profundidad).
-       - "gaps": lista de temas a profundizar (opcional).
-       - "shallow_topics": lista de temas que fueron tratados superficialmente y necesitan más análisis (opcional).
-       - "fact_check_queries": lista de consultas específicas para VERIFICAR las dudas encontradas.
-       - "reasoning": explicación breve.
-
-    Si no hay dudas críticas y la profundidad es adecuada, marca "sufficient": true.
+       - "sufficient": booleano (true si las afirmaciones principales están respaldadas por fuentes, false solo si hay afirmaciones factualmente dudosas o claramente inventadas).
+       - "fact_check_queries": lista de consultas específicas para VERIFICAR afirmaciones dudosas (máximo 3, solo las más críticas).
+       - "reasoning": explicación breve (máximo 2 líneas).
 
     EJEMPLO:
-    {{"sufficient": false, "gaps": [], "shallow_topics": ["Impacto en rendimiento"], "fact_check_queries": ["¿Es cierto que X soporta Y?"], "reasoning": "El tema de rendimiento se menciona pero no se analiza con datos concretos."}}
+    {{"sufficient": true, "fact_check_queries": [], "reasoning": "Afirmaciones respaldadas por fuentes, investigación aceptable."}}
+
+    Si no hay afirmaciones factualmente dudosas, marca "sufficient": true.
     """
     
     from ..config import settings
@@ -183,16 +186,13 @@ def evaluate_research_node(state: AgentState) -> dict:
 
         evaluation = json.loads(content)
         sufficient = evaluation.get("sufficient", True)
-        gaps = evaluation.get("gaps", [])
-        shallow_topics = evaluation.get("shallow_topics", [])
         fact_check_queries = evaluation.get("fact_check_queries", [])
         reasoning = evaluation.get("reasoning", "")
 
-        if not sufficient and (gaps or fact_check_queries or shallow_topics):
-            logger.info(f"Fact-checking required. Queries: {fact_check_queries}, Shallow: {shallow_topics}")
-            # Trigger RE-PLAN with gaps, shallow topics and queries
-            all_items = gaps + shallow_topics + fact_check_queries
-            combined_gap = f"VERIFICAR Y PROFUNDIZAR: {', '.join(all_items)}"
+        # Only re-plan if there are concrete factual doubts, not for "shallow coverage"
+        if not sufficient and fact_check_queries:
+            logger.info(f"Fact-checking required. Queries: {fact_check_queries}")
+            combined_gap = f"VERIFICAR: {' '.join(fact_check_queries)}"
             return {
                 "next_node": "plan_research",
                 "topic": combined_gap,
