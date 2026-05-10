@@ -5,6 +5,68 @@ from ..llm import get_llm
 logger = logging.getLogger(__name__)
 
 
+def _deduplicate_sections(text: str) -> str:
+    """Detect and collapse repeated H2/H3 sections in synthesized Markdown.
+
+    When the LLM enters a repetitive generation loop (common with small models
+    given sparse input data), the same heading + content block gets emitted
+    multiple times.  This function keeps only the *first* occurrence of each
+    unique H2 heading text and discards later duplicates.
+
+    H3 deduplication is scoped within each H2 so that the same sub-heading
+    under different parents is preserved.
+    """
+    if not text or "## " not in text:
+        return text
+
+    import re
+
+    # Split on H2 boundaries:  "\n## " (or "^## " at start of text)
+    h2_parts = re.split(r"\n(?=## )", text)
+
+    if len(h2_parts) <= 1:
+        return text  # Nothing to deduplicate
+
+    seen_h2 = {}  # normalized heading → original heading text
+    deduped: list[str] = []
+
+    for part in h2_parts:
+        m = re.match(r"## (.+?)(?:\n|$)", part)
+        if not m:
+            deduped.append(part)
+            continue
+
+        heading_text = m.group(1).strip()
+        heading_key = heading_text.lower().rstrip(":")
+
+        if heading_key in seen_h2:
+            logger.debug(f"Dedup: removing duplicate H2 section: {heading_text[:60]}")
+            continue  # Skip duplicate
+
+        seen_h2[heading_key] = heading_text
+
+        # Within this H2 block, deduplicate H3 headings
+        body = part[m.end():]
+        h3_parts = re.split(r"\n(?=### )", body)
+        if len(h3_parts) > 1:
+            seen_h3 = set()
+            clean_h3: list[str] = []
+            for h3 in h3_parts:
+                hm = re.match(r"### (.+?)(?:\n|$)", h3)
+                if hm:
+                    h3_key = hm.group(1).strip().lower()
+                    if h3_key in seen_h3:
+                        logger.debug(f"Dedup: removing duplicate H3: {hm.group(1)[:60]}")
+                        continue
+                    seen_h3.add(h3_key)
+                clean_h3.append(h3)
+            part = part[:m.end()] + "".join(clean_h3)
+
+        deduped.append(part)
+
+    return "".join(deduped)
+
+
 def consolidate_research_node(state: AgentState) -> dict:
     """Synthesize all collected information into a consolidated report."""
     logger.info("Starting research synthesis...")
@@ -168,7 +230,10 @@ FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
 
     llm = get_llm(
         temperature=0.4,
-        timeout=360  # 6 minutes timeout for synthesis
+        timeout=360,  # 6 minutes timeout for synthesis
+        repeat_penalty=1.15,   # Discourage repetitive loops
+        num_predict=4096,      # Hard cap on output tokens
+        stop=["</report>", "\n\n\n\n"],  # Stop on closing tag or excessive newlines
     )
 
     try:
@@ -223,6 +288,9 @@ FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
                         break # Encontramos la primera línea que NO parece ruido
 
                 consolidated_text = "\n".join(lines[start_idx:]).strip()
+
+        # ── Post-processing: deduplicate repeated sections ──────────
+        consolidated_text = _deduplicate_sections(consolidated_text)
 
         logger.info("synthesis_completed")
 

@@ -124,10 +124,15 @@ def plan_research_node(state: AgentState) -> dict:
 
 
 def evaluate_research_node(state: AgentState) -> dict:
-    """Evaluate if the gathered research is sufficient or if more is needed."""
+    """Evaluate the gathered research for factual accuracy.
+
+    This node runs a fact-check pass on the consolidated synthesis.  It does NOT
+    trigger re-plans — re-searching for verification of hallucinated claims only
+    propagates garbage.  Instead, dubious claims are flagged as warnings in the
+    report so the user can judge them.
+    """
     logger.info("Evaluating research sufficiency with LLM...")
 
-    iteration = state.get("iteration_count", 0)
     topic = state["topic"]
     summary = state.get("consolidated_summary", "")
     research_depth = state.get("research_depth", "standard")
@@ -137,21 +142,11 @@ def evaluate_research_node(state: AgentState) -> dict:
         logger.info("Quick depth — skipping evaluation loop for speed.")
         return {"next_node": "END", "evaluation_report": "Salto de evaluación para modo quick."}
 
-    # Phase 7: News Digest should be fast. Skip refinement loops for News Editor.
+    # Phase 7: News Digest should be fast. Skip evaluation for News Editor.
     if state.get("persona") == "news_editor":
-        logger.info("News Editor persona detected. Skipping refinement loops for speed.")
+        logger.info("News Editor persona detected. Skipping evaluation for speed.")
         return {"next_node": "END", "evaluation_report": "Salto de evaluación para modo noticias."}
 
-    # Safety: Hard limit on iterations to ensure we don't loop infinitely
-    # User requested max 2 loops (Iteration 0 and Iteration 1)
-    if iteration >= 1:
-        logger.info("Maximum iterations (2) reached. Finalizing.")
-        return {
-            "next_node": "END", 
-            "evaluation_report": "Límite de 2 iteraciones alcanzado.",
-            "topic": state.get("original_topic", state.get("topic", ""))
-        }
-    
     prompt = f"""
     Eres un Crítico de Investigación y Fact-Checker experto. Tu tarea es evaluar si la síntesis es completa y las afirmaciones principales están verificadas con fuentes.
 
@@ -165,19 +160,18 @@ def evaluate_research_node(state: AgentState) -> dict:
     2. Una investigación puede ser ACEPTABLE incluso sin cubrir todos los subtemas posibles. No penalices por omisión de aspectos periféricos.
     3. "Falta de profundidad" NO es razón para marcar insuficiente. El nivel de detalle depende del tiempo de búsqueda.
     4. Responde en formato JSON:
-       - "sufficient": booleano (true si las afirmaciones principales están respaldadas por fuentes, false solo si hay afirmaciones factualmente dudosas o claramente inventadas).
-       - "fact_check_queries": lista de consultas específicas para VERIFICAR afirmaciones dudosas (máximo 3, solo las más críticas).
+       - "dubious_claims": lista de afirmaciones que parecen inventadas o sin respaldo (máximo 3, solo las más críticas).
        - "reasoning": explicación breve (máximo 2 líneas).
 
     EJEMPLO:
-    {{"sufficient": true, "fact_check_queries": [], "reasoning": "Afirmaciones respaldadas por fuentes, investigación aceptable."}}
+    {{"dubious_claims": [], "reasoning": "Afirmaciones respaldadas por fuentes, investigación aceptable."}}
 
-    Si no hay afirmaciones factualmente dudosas, marca "sufficient": true.
+    Si no hay afirmaciones factualmente dudosas, devuelve lista vacía.
     """
-    
+
     from ..config import settings
     llm = get_llm(temperature=0.1, timeout=settings.llm_request_timeout)
-    
+
     try:
         response = llm.invoke([HumanMessage(content=prompt)])
         content = response.content.strip()
@@ -185,26 +179,27 @@ def evaluate_research_node(state: AgentState) -> dict:
             content = content[content.find("{"):content.rfind("}")+1]
 
         evaluation = json.loads(content)
-        sufficient = evaluation.get("sufficient", True)
-        fact_check_queries = evaluation.get("fact_check_queries", [])
+        dubious_claims = evaluation.get("dubious_claims", [])
         reasoning = evaluation.get("reasoning", "")
 
-        # Only re-plan if there are concrete factual doubts, not for "shallow coverage"
-        if not sufficient and fact_check_queries:
-            logger.info(f"Fact-checking required. Queries: {fact_check_queries}")
-            combined_gap = f"VERIFICAR: {' '.join(fact_check_queries)}"
+        if dubious_claims:
+            logger.info(f"Found {len(dubious_claims)} dubious claims — flagging in report (no re-plan)")
+            warning = "\n\n---\n⚠️ **Advertencia del fact-checker**: las siguientes afirmaciones no pudieron ser verificadas y podrían ser inexactas:\n\n"
+            for claim in dubious_claims:
+                warning += f"- {claim}\n"
+            warning += f"\n*Razonamiento del evaluador: {reasoning}*\n"
             return {
-                "next_node": "plan_research",
-                "topic": combined_gap,
-                "iteration_count": iteration + 1,
-                "evaluation_report": reasoning
+                "next_node": "END",
+                "topic": state.get("original_topic", state.get("topic", "")),
+                "evaluation_report": reasoning,
+                "consolidated_summary": summary + warning,
             }
     except Exception as e:
         logger.error(f"Evaluation failed: {e}")
 
     return {
         "next_node": "END",
-        "topic": state.get("original_topic", state.get("topic", "")), # Reset to original if sufficient
+        "topic": state.get("original_topic", state.get("topic", "")),
         "evaluation_report": "Investigación considerada suficiente o error en evaluación."
     }
 

@@ -40,12 +40,15 @@ def _is_cloud_endpoint(base_url: str) -> bool:
     return any(frag in base_url.lower() for frag in _CLOUD_URL_FRAGMENTS)
 
 
-def get_llm(temperature: float = 0, timeout: int = None):
+def get_llm(temperature: float = 0, timeout: int = None, **extra_kwargs):
     """
     Return a LangChain chat model configured from environment variables.
 
     Reads os.environ at call time so runtime overrides (e.g. from the
     HF Spaces sidebar key input) take effect without restarting the process.
+
+    Extra keyword arguments (repeat_penalty, num_predict, stop, etc.) are
+    forwarded to the underlying ChatOllama / ChatOpenAI constructor.
     """
     t = timeout or settings.llm_request_timeout
 
@@ -67,6 +70,7 @@ def get_llm(temperature: float = 0, timeout: int = None):
             model=model,
             temperature=temperature,
             timeout=t,
+            **extra_kwargs,
         )
 
     else:
@@ -78,4 +82,5 @@ def get_llm(temperature: float = 0, timeout: int = None):
             model=model,
             temperature=temperature,
             request_timeout=t,
+            **extra_kwargs,
         )
