@@ -6,7 +6,7 @@ colorTo: indigo
 sdk: docker
 app_port: 7860
 pinned: false
-short_description: LangGraph research agent — 10 sources, RAG, Streamlit
+short_description: LangGraph research agent — 10 parallel sources, fact-checking, cross-session memory, MCP server
 tags:
   - langgraph
   - rag
@@ -31,7 +31,7 @@ license: mit
 
 ![Research-Agent demo](docs/demo.gif)
 
-Research-Agent is a LangGraph-based autonomous agent that searches **10 sources in parallel** (Tavily, arXiv, Wikipedia, Semantic Scholar, GitHub, Hacker News, Stack Overflow, Reddit, YouTube, local RAG), detects knowledge gaps and re-plans automatically, then exports a cited report in PDF, Word, Markdown, or HTML — all through a Streamlit UI backed by a local Ollama LLM.
+Research-Agent is a LangGraph-based autonomous agent that searches **10 sources in parallel** (Tavily, arXiv, Wikipedia, Semantic Scholar, GitHub, Hacker News, Stack Overflow, Reddit, YouTube, local RAG), fact-checks the synthesis and flags dubious claims, then exports a cited report with word count and reading time in PDF, Word, Markdown, or HTML — all through a Streamlit UI backed by a local Ollama LLM. Cross-session memory prevents re-investigating past topics.
 
 ## Features
 
@@ -39,7 +39,10 @@ Research-Agent is a LangGraph-based autonomous agent that searches **10 sources 
 - **Research Personas**: Generalist, Market Analyst, Software Architect, Scientific Reviewer, Product Manager, or News Editor -- each shapes source selection and analysis style.
 - **Local Knowledge (RAG)**: Upload PDFs/TXT files through the dashboard or place them in `./knowledge_base`. Indexed with SQLite cache and ChromaDB vector search.
 - **Fact-Check Layer**: Evaluation node scans the synthesis for dubious claims and flags them as warnings in the report — no re-plan loops, no garbage propagation. Skipped entirely for Quick depth.
+- **Cross-Session Memory**: Past research is stored in a ChromaDB collection (`session_memory`). New queries automatically retrieve and cite relevant findings from previous sessions, avoiding redundant re-investigation.
+- **Report Metadata**: Every report includes an automatic word count and estimated reading time.
 - **Export Center**: One-click reports in PDF, Word, Markdown, and HTML, saved to `./reports/`.
+- **MCP Server**: Exposes the agent as a tool via the Model Context Protocol (JSON-RPC over stdio) for use with Claude Desktop, Continue, Cline, and other MCP clients.
 - **Configurable Depth**: Quick (2 results/source), Standard (5), or Deep (10).
 - **Multilingual**: Auto-expands queries to English for global academic/technical coverage.
 - **UI Language Switcher**: Toggle the dashboard between English and Spanish with one click (🇪🇸/🇬🇧 buttons in the sidebar).
@@ -169,8 +172,8 @@ All generated reports are automatically saved to the `./reports/` directory.
 Research-Agent/
 ├── src/
 │   ├── app.py                  # Streamlit UI entry point
-│   ├── main.py                 # CLI entry point
-│   ├── agent.py                # LangGraph workflow definition (9 nodes)
+│   ├── main.py                 # CLI entry point (python -m src.main)
+│   ├── agent.py                # LangGraph workflow definition (8 nodes)
 │   ├── state.py                # AgentState schema
 │   ├── config.py               # Settings (Pydantic v2)
 │   ├── validators.py           # Input validation
@@ -185,13 +188,16 @@ Research-Agent/
 │       ├── rag_tools.py        # Local knowledge ingestion
 │       ├── vector_store.py     # ChromaDB + all-MiniLM-L6-v2 embeddings
 │       ├── router_tools.py     # plan_research, evaluate_research, personas
-│       ├── synthesis_tools.py  # Consolidation + persona prompts
-│       ├── reporting_tools.py  # PDF / Word / Markdown / HTML
+│       ├── synthesis_tools.py  # Consolidation + persona prompts + dedup
+│       ├── reporting_tools.py  # PDF / Word / Markdown / HTML + word count
 │       ├── chat_tools.py       # Interactive Q&A on findings
 │       └── translation_tools.py # Multilingual query expansion
+├── mcp_server.py               # MCP server (JSON-RPC/stdio) for external clients
 ├── knowledge_base/             # User-uploaded documents (PDF/TXT)
 ├── reports/                    # Generated research reports
-├── data/                       # Persistent data (SQLite, ChromaDB)
+├── data/
+│   ├── chroma_db/              # ChromaDB vector store (RAG)
+│   └── session_memory/         # Cross-session memory (past research)
 ├── docs/                       # Architecture, Security, Deployment, Troubleshooting
 ├── wiki/                       # Internal developer wiki
 ├── tests/                      # pytest suite
