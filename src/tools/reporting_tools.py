@@ -650,7 +650,7 @@ def generate_report_node(state: AgentState) -> dict:
 
     # Phase 6: Save finalized research state to database for persistence
     try:
-        from db_manager import save_session
+        from src.db_manager import save_session
         save_session(topic, state.get("persona", "general"), state)
         logger.info(f"✅ Research session persisted for: {topic}")
     except Exception as e_db:

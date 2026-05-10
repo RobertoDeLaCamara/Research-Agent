@@ -1,14 +1,22 @@
 # src/main.py
 
 import argparse
+import os
+import sys
+
+# Ensure project root is on sys.path so 'src' package is importable
+_project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
 from dotenv import load_dotenv
-from agent import app
-from utils import setup_logging, validate_env_vars
-from validators import validate_topic
-from health import check_dependencies
-from progress import init_progress
-from metrics import metrics
-from config import settings
+from src.agent import app
+from src.utils import setup_logging, validate_env_vars
+from src.validators import validate_topic
+from src.health import check_dependencies
+from src.progress import init_progress
+from src.metrics import metrics
+from src.config import settings
 
 
 def parse_args():
@@ -43,7 +51,7 @@ def run_agent():
     logger = setup_logging(args.log_level)
 
     # Bypass proxy for Ollama before any service calls
-    from utils import bypass_proxy_for_ollama
+    from src.utils import bypass_proxy_for_ollama
     bypass_proxy_for_ollama()
 
     try:
