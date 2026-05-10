@@ -9,7 +9,10 @@ from ..state import AgentState
 logger = logging.getLogger(__name__)
 
 # ── Session memory (cross-session ChromaDB) ──────────────────────────────
-_SESSION_MEMORY_DIR = "/app/data/session_memory"
+_SESSION_MEMORY_DIR = os.environ.get(
+    "SESSION_MEMORY_DIR",
+    os.path.join(os.path.dirname(__file__), "..", "..", "data", "session_memory"),
+)
 _MEMORY_CLIENT = None
 _MEMORY_COLLECTION = None
 

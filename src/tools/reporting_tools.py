@@ -27,12 +27,11 @@ def sanitize_text(text):
 
 
 def sanitize_html(html_content: str) -> str:
-    """Sanitize HTML output to prevent XSS in rendered reports.
-
-    Permits a safe subset of tags/attributes suitable for research reports.
-    Uses bleach for whitelist-based sanitization.
-    """
-    import bleach
+    """Sanitize HTML output to prevent XSS in rendered reports."""
+    try:
+        import bleach
+    except ImportError:
+        return _html.escape(html_content)
     allowed_tags = [
         "h1", "h2", "h3", "h4", "h5", "h6",
         "p", "br", "hr",

@@ -26,7 +26,16 @@ from typing import Any
 
 # ── Project root (where this script lives) ────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent
-VENV_PYTHON = PROJECT_ROOT / ".venv" / "bin" / "python"
+VENV_PYTHON = PROJECT_ROOT / "venv" / "bin" / "python"
+
+# Load .env so subprocesses inherit API keys (TAVILY, YOUTUBE, etc.)
+_env_file = PROJECT_ROOT / ".env"
+if _env_file.exists():
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(_env_file, override=False)
+    except ImportError:
+        pass
 MAIN_SCRIPT = PROJECT_ROOT / "src" / "main.py"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 
@@ -55,7 +64,7 @@ def run_research(topic: str, log_level: str = "INFO") -> dict[str, Any]:
             env=env,
             capture_output=True,
             text=True,
-            timeout=180,  # 3-minute hard timeout
+            timeout=420,  # 7-minute hard timeout (qwen3:14b on CPU needs ~6 min)
         )
     except subprocess.TimeoutExpired:
         return {"error": "Research agent timed out after 180 seconds", "topic": topic}
