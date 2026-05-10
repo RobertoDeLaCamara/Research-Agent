@@ -10,18 +10,21 @@ User Input (topic, persona, depth, sources)
 │  LangGraph StateGraph — src/agent.py                            │
 │                                                                 │
 │  initialize_state → plan_research → parallel_search             │
-│        │                                    │                   │
-│        │              ┌─────────────────────┘                   │
-│        │              ▼                                         │
-│        │    consolidate_research (Ollama LLM, 360s timeout)     │
-│        │              │                                         │
-│        │              ▼                                         │
-│        │    evaluate_research ──── if gaps + iter < 2 ──→ plan  │
-│        │              │                                         │
-│        │              ▼ (sufficient OR iter == 2)               │
-│        │    generate_report → send_email → save_db → END        │
+│        │           │                │                           │
+│        │           │  ┌─────────────┘                           │
+│        │           │  ▼                                         │
+│        │           │  consolidate_research (Ollama LLM, 360s)   │
+│        │           │  │                                         │
+│        │           │  ▼                                         │
+│        │           │  evaluate_research ─── if dubious facts     │
+│        │           │      └─→ plan (re-plan, max 1)             │
+│        │           │      └─→ generate_report                   │
+│        │           │                                            │
+│        │           ▼                                            │
+│        │  generate_report → send_email → save_db → store_memory │
+│        │                                    → END               │
 │        │                                                        │
-│        └──── news_editor persona: skip evaluate loop ───────────┘
+│        ├── news_editor / quick: skip evaluate_research ──────────┤
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -34,8 +37,8 @@ User Input (topic, persona, depth, sources)
 | `plan_research` | `plan_research_node()` | LLM selects sources from plan; expands queries multilingual |
 | `parallel_search` | `parallel_search_node()` | ThreadPoolExecutor fan-out; one thread per source |
 | `consolidate_research` | `consolidate_research_node()` | Ollama LLM synthesis with persona + depth prompt |
-| `evaluate_research` | `evaluate_research_node()` | LLM evaluates sufficiency; returns JSON with gaps list |
-| `generate_report` | `generate_report_node()` | Renders HTML/PDF/DOCX/MD from consolidated summary |
+| `evaluate_research` | `evaluate_research_node()` | LLM evaluates sufficiency; returns JSON with fact_check_queries. Skipped for quick depth and news_editor persona. |
+| `generate_report` | `generate_report_node()` | Renders HTML/PDF/DOCX/MD from consolidated summary. Includes word count and reading time. Triggers `store_session_memory()` for cross-session ChromaDB persistence. |
 | `send_email` | `send_email_node()` | SMTP dispatch; skips if hash matches `last_email_hash` |
 | `save_db` | `save_db_node()` | Inserts session JSON into `research_sessions.db` |
 | `chat` | `chat_node()` | Conversational follow-up; detects "INVESTIGACIÓN:" trigger |
@@ -46,7 +49,8 @@ User Input (topic, persona, depth, sources)
 evaluate_research → route_evaluation()
   │
   ├─ state["next_node"] == "plan_research"
-  │   AND iteration_count < 2 → plan_research (re-plan loop)
+  │   AND iteration_count < 1
+  │   AND fact_check_queries is non-empty → plan_research
   │
   └─ otherwise → generate_report
 ```

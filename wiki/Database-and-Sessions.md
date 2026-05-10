@@ -1,6 +1,6 @@
 # Database and Sessions
 
-## Session Storage
+## Session Storage (SQLite)
 
 Research sessions are persisted in SQLite via `src/db_manager.py`.
 
@@ -82,6 +82,42 @@ The sidebar "Session History" section shows the 10 most recent sessions:
 **Load**: clicking "Load" restores the full state from `state_json` into `st.session_state`. The previous consolidated summary, report, and research results are all restored. Messages are empty (not persisted).
 
 **Clear**: calls `clear_history()` — deletes all rows from `sessions` table.
+
+## Cross-Session Memory (ChromaDB)
+
+In addition to the session browser, each completed research is automatically stored in a dedicated ChromaDB collection (`session_memory`) with semantic embeddings.
+
+### Storage
+
+```python
+def store_session_memory(topic, summary, bibliography, persona):
+    text = f"Topic: {topic}\nSummary: {summary}\nSources: {'; '.join(bibliography[:5])}"
+    collection.upsert(ids=[session_id], documents=[text], metadatas=[...])
+```
+
+Each document includes metadata: `topic`, `persona`, `timestamp`, and `citation_count`.
+
+### Retrieval
+
+On new research queries, `retrieve_session_memory(topic)` is called from `plan_research_node`. It queries the collection by semantic similarity and returns up to 3 relevant past sessions.
+
+The retrieved context is injected into the planner's LLM prompt:
+
+```
+INVESTIGACIONES PREVIAS RELACIONADAS:
+- Topic: Graph Neural Networks (2026-04-01)
+  Summary: GNNs are used in drug discovery...
+  Sources: 12 citations
+
+NOTA: Usa esta información para evitar re-investigar lo mismo.
+Enfócate en aspectos nuevos o complementarios.
+```
+
+### Persistence
+
+- ChromaDB data lives at `/app/data/session_memory/`
+- The SQLite session table (`research_sessions.db`) still exists for the manual session browser in the Streamlit sidebar
+- The ChromaDB memory is separate — it's used for automatic context injection, not for manual browsing
 
 ## Configuration
 

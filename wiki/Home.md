@@ -1,6 +1,6 @@
 # Research-Agent — Wiki
 
-LangGraph-based research orchestration system. Fans out queries across 10 sources in parallel (ThreadPoolExecutor), synthesizes results with an Ollama LLM, and self-corrects up to 2 times if quality evaluation finds gaps. Outputs HTML/PDF/DOCX/Markdown reports. Streamlit UI + CLI mode.
+LangGraph-based research orchestration system. Fans out queries across 10 sources in parallel (ThreadPoolExecutor), synthesizes results with an Ollama LLM, and self-corrects (max 1 re-plan, skipped for Quick depth) if factually dubious claims are detected. Each session is persisted to a ChromaDB memory collection; the planner retrieves past findings on subsequent queries to avoid re-investigating the same ground. Outputs HTML/PDF/DOCX/Markdown reports. Streamlit UI + CLI mode.
 
 ## Quick Start
 
@@ -106,8 +106,10 @@ reports/                    Generated output files
 ## Non-Obvious Facts
 
 - **YouTube runs sequentially within its thread** — transcript summarization depends on search results, so `search_videos_node` and `summarize_videos_node` run in series inside one thread.
-- **`news_editor` skips quality evaluation** — the re-plan loop is bypassed entirely for this persona; immediacy takes priority over depth.
-- **Self-correction is capped at 2 iterations** — `iteration_count` is checked before re-planning; hitting the cap goes directly to report generation regardless of evaluation result.
+- **`news_editor` and `quick` depth skip quality evaluation** — the re-plan loop is bypassed entirely; immediacy takes priority over depth.
+- **Self-correction is capped at 1 iteration** and only triggers for factually dubious claims (not "shallow coverage"). `iteration_count` is checked before re-planning.
+- **Cross-session memory**: each completed research is stored in ChromaDB collection `session_memory`. The planner retrieves up to 3 semantically similar past sessions to avoid re-investigating the same ground.
+- **Word count and reading time** are shown in every report (200 words/min estimate).
 - **Email is idempotent** — an MD5 hash of the report content is stored in state; if `last_email_hash` matches, the send is skipped.
 - **Thread-safe results use container dicts** — each source function writes to `container = {"data": []}` inside its thread rather than returning a value; the main thread reads after `join(timeout=X)`.
 - **LLM synthesis timeout is 6 minutes** — `synthesis_request_timeout = 360s`; this is the single longest operation.
