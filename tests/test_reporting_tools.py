@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from src.tools.reporting_tools import generate_report_node
+from src.tools.reporting_tools import generate_report_node, _word_count_and_reading_time
 
 def test_generate_report_node_completely_empty(mock_agent_state):
     """Test when no information at all is found."""
@@ -56,3 +56,27 @@ def test_generate_pdf(mock_fpdf, mock_agent_state):
     
     # Assert FPDF was called
     assert mock_fpdf.called
+
+def test_word_count_and_reading_time_empty():
+    words, minutes = _word_count_and_reading_time("")
+    assert words == 0
+    assert minutes == 1
+
+def test_word_count_and_reading_time_short():
+    words, minutes = _word_count_and_reading_time("Hello world")
+    assert words == 2
+    assert minutes >= 1
+
+def test_word_count_and_reading_time_long():
+    text = "word " * 500
+    words, minutes = _word_count_and_reading_time(text)
+    assert words == 500
+    assert minutes == 2  # round(500 / 200) = 2
+
+def test_word_count_and_reading_time_appears_in_report(mock_agent_state):
+    mock_agent_state["summaries"] = []
+    mock_agent_state["consolidated_summary"] = "Executive summary with several interesting words about research."
+    mock_agent_state["topic"] = "Test Topic"
+    result = generate_report_node(mock_agent_state)
+    assert "palabras" in result["report"]
+    assert "Lectura estimada" in result["report"]

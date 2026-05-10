@@ -8,6 +8,82 @@ from ..state import AgentState
 
 logger = logging.getLogger(__name__)
 
+# ── Session memory (cross-session ChromaDB) ──────────────────────────────
+_SESSION_MEMORY_DIR = "/app/data/session_memory"
+_MEMORY_CLIENT = None
+_MEMORY_COLLECTION = None
+
+
+def _get_memory_collection():
+    """Lazy-init the session memory ChromaDB collection."""
+    global _MEMORY_CLIENT, _MEMORY_COLLECTION
+    if _MEMORY_COLLECTION is not None:
+        return _MEMORY_COLLECTION
+    try:
+        import chromadb
+        from chromadb.utils import embedding_functions
+        os.makedirs(_SESSION_MEMORY_DIR, exist_ok=True)
+        _MEMORY_CLIENT = chromadb.PersistentClient(path=_SESSION_MEMORY_DIR)
+        _MEMORY_COLLECTION = _MEMORY_CLIENT.get_or_create_collection(
+            name="session_memory",
+            embedding_function=embedding_functions.DefaultEmbeddingFunction(),
+            metadata={"hnsw:space": "cosine"},
+        )
+        logger.info("Session memory collection initialized.")
+    except Exception as e:
+        logger.warning(f"Session memory not available: {e}")
+        _MEMORY_COLLECTION = None
+    return _MEMORY_COLLECTION
+
+
+def store_session_memory(topic: str, summary: str, bibliography: list, persona: str):
+    """Store a completed research session into cross-session memory."""
+    import uuid
+    from datetime import datetime
+    coll = _get_memory_collection()
+    if coll is None:
+        return
+    doc_id = f"session_{uuid.uuid4().hex[:12]}"
+    try:
+        coll.upsert(
+            ids=[doc_id],
+            documents=[f"{topic}\n\n{summary}"],
+            metadatas=[{
+                "topic": topic,
+                "persona": persona,
+                "timestamp": datetime.now().isoformat(),
+                "citation_count": len(bibliography),
+            }],
+        )
+        logger.info(f"Stored session memory: {topic}")
+    except Exception as e:
+        logger.warning(f"Failed to store session memory: {e}")
+
+
+def retrieve_session_memory(query: str, n_results: int = 3) -> str:
+    """Retrieve relevant past research sessions as context string."""
+    coll = _get_memory_collection()
+    if coll is None:
+        return ""
+    try:
+        results = coll.query(query_texts=[query], n_results=n_results)
+        if not results["ids"] or not results["ids"][0]:
+            return ""
+        snippets = []
+        for i in range(len(results["ids"][0])):
+            doc = results["documents"][0][i][:500] if results["documents"][0][i] else ""
+            meta = results["metadatas"][0][i] if results["metadatas"][0][i] else {}
+            snippets.append(
+                f"--- Investigación previa: {meta.get('topic', 'desconocida')} "
+                f"({meta.get('timestamp', '?')[:10]}) ---\n{doc}\n"
+            )
+        return "\n".join(snippets)
+    except Exception as e:
+        logger.warning(f"Session memory retrieval failed: {e}")
+        return ""
+
+logger = logging.getLogger(__name__)
+
 
 def update_next_node(state: AgentState, current_step: str) -> str:
     """Determine the next node in the plan after the current step."""
@@ -46,11 +122,23 @@ def plan_research_node(state: AgentState) -> dict:
     }
     persona_context = persona_configs.get(persona, persona_configs["general"])
 
+    # Retrieve cross-session memory
+    memory_context = retrieve_session_memory(topic)
+    memory_block = ""
+    if memory_context:
+        memory_block = f"""
+    INVESTIGACIONES PREVIAS RELACIONADAS:
+    {memory_context}
+    
+    NOTA: Usa esta información para evitar re-investigar lo mismo. Enfócate en
+    aspectos nuevos o complementarios que no estén cubiertos en investigaciones anteriores.
+    """
+
     prompt = f"""
     Eres {persona_context} Tu tarea es analizar un tema y decidir qué fuentes de información son las más pertinentes para investigar.
     
     TEMA DE INVESTIGACIÓN: {topic}
-    
+    {memory_block}
     FUENTES DISPONIBLES:
     - wiki: Para contexto general, definiciones e historia.
     - web: Para noticias recientes, blogs y artículos generales.

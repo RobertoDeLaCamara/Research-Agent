@@ -127,6 +127,13 @@ def html_to_markdown(text: str) -> str:
 # --------------------------------------------------------------------------
 
 
+def _word_count_and_reading_time(text: str) -> tuple[int, str]:
+    """Calculate word count and estimated reading time from markdown/plain text."""
+    words = len(re.findall(r'\b\w+\b', text))
+    minutes = max(1, round(words / 200))
+    return words, minutes
+
+
 def generate_report_node(state: AgentState) -> dict:
     """
     Toma los resúmenes y metadatos del estado para crear un informe completo en formato HTML.
@@ -332,6 +339,17 @@ def generate_report_node(state: AgentState) -> dict:
                 <h1>Investigación Inteligente</h1>
                 <div class="subtitle">{topic}</div>
             </header>
+    """
+
+    # Add word count and reading time
+    full_text_for_stats = consolidated + " " + " ".join(
+        str(s.get("title", "")) for s in state.get("wiki_research", [])
+    )
+    word_count, read_min = _word_count_and_reading_time(full_text_for_stats)
+    html_content += f"""
+        <div style="text-align:center;color:var(--text-light);font-size:0.9rem;margin-bottom:30px;">
+            {word_count:,} palabras | Lectura estimada: {read_min} min
+        </div>
     """
 
     # --- SECCIÓN: SÍNTESIS EJECUTIVA ---
@@ -596,6 +614,7 @@ def generate_report_node(state: AgentState) -> dict:
 
     # Preparamos los textos para otros formatos
     markdown_text = f"# Informe de Investigación: {topic}\n\n"
+    markdown_text += f"> {word_count:,} palabras | Lectura estimada: {read_min} min\n\n"
     if consolidated:
         markdown_text += f"## Síntesis Ejecutiva\n{consolidated}\n\n"
 
@@ -655,6 +674,13 @@ def generate_report_node(state: AgentState) -> dict:
         logger.info(f"✅ Research session persisted for: {topic}")
     except Exception as e_db:
         logger.error(f"Failed to persist research session: {e_db}")
+
+    # Store in cross-session memory (ChromaDB)
+    try:
+        from .router_tools import store_session_memory
+        store_session_memory(topic, consolidated, bibliography, state.get("persona", "general"))
+    except Exception as e_mem:
+        logger.warning(f"Failed to store session memory: {e_mem}")
 
     logger.info("html_report_generated")
     return {
