@@ -30,6 +30,15 @@ cp env.example .env
 # Edit .env with your configuration
 ```
 
+### Docker Setup (alternative to venv)
+```bash
+# Streamlit UI with live reload (volume-mounted source)
+docker compose up -d
+
+# Full stack (adds any auxiliary services, e.g. ChromaDB)
+docker compose -f docker-compose.full.yml up
+```
+
 ## 🧪 Testing
 
 ### Running Tests
@@ -108,13 +117,19 @@ def search_web_node(state: AgentState) -> dict:
 
 ### Code Organization
 ```
+mcp_server.py           # MCP server exposing the agent's tools to external clients
 src/
 ├── config.py          # Configuration management
 ├── state.py           # Shared state definitions
 ├── utils.py           # Utility functions
 ├── cache.py           # Caching system
-├── metrics.py         # Performance monitoring
-├── progress.py        # Progress tracking
+├── db_manager.py       # Cross-session memory / persistence
+├── i18n.py             # Internationalization
+├── llm.py              # LLM provider wiring (Ollama/OpenAI/cloud)
+├── logging_config.py   # Logging setup
+├── thread_utils.py     # Threading helpers
+├── metrics.py          # Performance monitoring
+├── progress.py         # Progress tracking
 ├── validators.py      # Input validation
 ├── health.py          # Health checks
 ├── quality.py         # Content quality scoring
@@ -126,6 +141,8 @@ src/
     ├── research_tools.py
     ├── synthesis_tools.py
     ├── reporting_tools.py
+    ├── parallel_tools.py
+    ├── vector_store.py
     ├── youtube_tools.py
     ├── reddit_tools.py
     ├── rag_tools.py
