@@ -13,7 +13,7 @@ services:
       - ./src:/app/src
       - ./tests:/app/tests
     ports:
-      - "8501:8501"
+      - "8501:7860"
     mem_limit: 512m
     cpus: "1.0"
     extra_hosts:
