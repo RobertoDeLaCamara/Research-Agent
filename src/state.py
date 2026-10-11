@@ -28,6 +28,7 @@ class AgentState(TypedDict):
     iteration_count: int
     research_depth: str # 'quick', 'standard', 'deep'
     persona: str # 'general', 'academic', 'tech', 'business'
+    report_language: str # 'es' | 'en' — language of the generated report (follows the UI toggle)
     evaluation_report: str
     last_email_hash: str
     queries: Dict[str, str]

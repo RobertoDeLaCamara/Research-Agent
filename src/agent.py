@@ -46,6 +46,7 @@ def initialize_state_node(state: AgentState) -> dict:
         "last_email_hash": state.get("last_email_hash", ""),
         "research_depth": state.get("research_depth", "standard"),
         "persona": state.get("persona", "general"),
+        "report_language": state.get("report_language", "es"),
         "evaluation_report": state.get("evaluation_report", ""),
         "queries": state.get("queries", {}),
         "source_metadata": state.get("source_metadata", {}),

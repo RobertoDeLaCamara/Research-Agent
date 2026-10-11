@@ -36,6 +36,12 @@ def parse_args():
         help="Set logging level"
     )
     parser.add_argument(
+        "--lang",
+        choices=["es", "en"],
+        default="es",
+        help="Language of the generated report (default: es)"
+    )
+    parser.add_argument(
         "--skip-health-check",
         action="store_true",
         help="Skip health checks on startup"
@@ -71,7 +77,7 @@ def run_agent():
         validate_env_vars()
         logger.info(f"Starting research agent for topic: '{validated_topic}'")
 
-        initial_state = {"topic": validated_topic, "messages": []}
+        initial_state = {"topic": validated_topic, "messages": [], "report_language": args.lang}
         app.invoke(initial_state)
 
         # Log final metrics

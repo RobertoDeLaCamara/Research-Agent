@@ -327,6 +327,7 @@ if st.button(_["start_btn"]):
                     "original_topic": topic, # Preserve original for titles
                     "research_depth": research_depth,
                     "persona": persona,
+                    "report_language": st.session_state.lang,
                     "time_range": time_range,
                     "use_rag": use_rag
                 }

@@ -222,7 +222,24 @@ INSTRUCCIONES DE ANÁLISIS ESPECIALISTA (PHASE 6 & 7):
 FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
 """
 
+    # The rules above are in Spanish, so without an explicit directive the
+    # model always answers in Spanish regardless of the UI language. Small
+    # local models ignore a directive buried at the end of a long system
+    # prompt, so it goes at the start of the system prompt AND at the very
+    # end of the user message (closest to generation).
+    english = state.get("report_language", "es") == "en"
+    language_directive = (
+        "OUTPUT LANGUAGE (MANDATORY): Write the ENTIRE report in ENGLISH — "
+        "headings, body text and the closing section — even though these "
+        "instructions and some sources are in Spanish. Name the closing "
+        'section "## Fact Check" instead of "## Verificación de Datos".'
+    )
+    if english:
+        system_rules = language_directive + "\n" + system_rules
+
     human_query = f"INFORMACIÓN PARA SINTETIZAR:\n{context}"
+    if english:
+        human_query += f"\n\n{language_directive} Start now with <report> and write in English."
 
     # Inicialización del LLM
     from ..utils import bypass_proxy_for_ollama
