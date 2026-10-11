@@ -40,6 +40,18 @@ def _is_cloud_endpoint(base_url: str) -> bool:
     return any(frag in base_url.lower() for frag in _CLOUD_URL_FRAGMENTS)
 
 
+def _approx_token_ids(text: str) -> list:
+    """Cheap token-count stand-in for ChatOllama.
+
+    ChatOllama has no tokenizer, so LangChain's get_num_tokens() falls back to
+    the GPT-2 tokenizer from `transformers` (not installed -> ImportError, e.g.
+    in the map_reduce summarize chain). Callers only use the count for size
+    thresholds, so ~3 chars/token is enough; it deliberately overestimates for
+    English/Spanish so chunks get collapsed early rather than overflow num_ctx.
+    """
+    return [0] * (len(text) // 3 + 1)
+
+
 def get_llm(temperature: float = 0, timeout: int = None, **extra_kwargs):
     """
     Return a LangChain chat model configured from environment variables.
@@ -85,6 +97,7 @@ def get_llm(temperature: float = 0, timeout: int = None, **extra_kwargs):
         extra_kwargs.setdefault(
             "reasoning", os.environ.get("OLLAMA_REASONING", "false").lower() == "true"
         )
+        extra_kwargs.setdefault("custom_get_token_ids", _approx_token_ids)
 
         logger.debug(f"LLM: ChatOllama base_url={base_url} model={model}")
         return ChatOllama(
