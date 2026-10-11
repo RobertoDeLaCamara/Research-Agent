@@ -61,8 +61,8 @@ pipeline {
         stage('Push to Registry') {
             steps {
                 echo "Pushing image to ${REGISTRY}..."
-                sh "DOCKER_CONFIG=/tmp docker push ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}"
-                sh "DOCKER_CONFIG=/tmp docker push ${REGISTRY}/${IMAGE_NAME}:latest"
+                retry(3) { sh "DOCKER_CONFIG=/tmp docker push ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}" }
+                retry(3) { sh "DOCKER_CONFIG=/tmp docker push ${REGISTRY}/${IMAGE_NAME}:latest" }
             }
         }
     }
