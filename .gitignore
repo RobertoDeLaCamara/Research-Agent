@@ -210,3 +210,6 @@ code_review_summary.py
 data/
 knowledge_base/
 research_sessions.db
+
+# Local Claude Code settings
+.claude/
