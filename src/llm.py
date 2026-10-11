@@ -76,11 +76,20 @@ def get_llm(temperature: float = 0, timeout: int = None, **extra_kwargs):
     else:
         from langchain_ollama import ChatOllama
 
+        # ChatOllama has no `request_timeout` field and silently drops it;
+        # the timeout must go to the underlying httpx client via client_kwargs.
+        extra_kwargs.setdefault("client_kwargs", {"timeout": t})
+        # Thinking models (qwen3.x) can spend minutes in the reasoning phase,
+        # and since langchain-ollama streams internally the httpx timeout
+        # never fires. Off by default; set OLLAMA_REASONING=true to enable.
+        extra_kwargs.setdefault(
+            "reasoning", os.environ.get("OLLAMA_REASONING", "false").lower() == "true"
+        )
+
         logger.debug(f"LLM: ChatOllama base_url={base_url} model={model}")
         return ChatOllama(
             base_url=base_url,
             model=model,
             temperature=temperature,
-            request_timeout=t,
             **extra_kwargs,
         )
