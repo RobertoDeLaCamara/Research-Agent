@@ -63,18 +63,33 @@ def sanitize_text(text):
     return text.encode('utf-8', 'replace').decode('utf-8')
 
 
-def sanitize_html(html_content: str) -> str:
-    """Sanitize HTML output to prevent XSS in rendered reports."""
+_BODY_RE = re.compile(r"(<body[^>]*>)(.*)(</body>)", re.S | re.I)
+
+
+def _strip_dangerous_html(fragment: str) -> str:
+    """Fallback when bleach is unavailable: remove active content only.
+
+    Escaping the whole document (the previous fallback) rendered the report
+    as raw HTML source in the UI and in the saved .html file.
+    """
+    fragment = re.sub(r"<(script|iframe|object|embed|style)\b.*?</\1\s*>", "", fragment, flags=re.S | re.I)
+    fragment = re.sub(r"<(script|iframe|object|embed|base|meta|link)\b[^>]*/?>", "", fragment, flags=re.I)
+    fragment = re.sub(r"""\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)""", "", fragment, flags=re.I)
+    fragment = re.sub(r"""(href|src)\s*=\s*(["']?)\s*(javascript|vbscript|data):""", r"\1=\2#blocked:", fragment, flags=re.I)
+    return fragment
+
+
+def _clean_fragment(fragment: str) -> str:
     try:
         import bleach
     except ImportError:
-        return _html.escape(html_content)
+        return _strip_dangerous_html(fragment)
     allowed_tags = [
         "h1", "h2", "h3", "h4", "h5", "h6",
         "p", "br", "hr",
         "ul", "ol", "li",
         "strong", "em", "b", "i", "u",
-        "a", "span", "div",
+        "a", "span", "div", "header",
         "code", "pre",
         "blockquote",
         "table", "thead", "tbody", "tr", "th", "td",
@@ -83,6 +98,10 @@ def sanitize_html(html_content: str) -> str:
         "a": ["href", "title", "class", "id"],
         "span": ["class"],
         "div": ["class"],
+        "header": ["id", "class"],
+        "p": ["class"],
+        "ul": ["class"],
+        "li": ["class"],
         "code": ["class"],
         "pre": ["class"],
         "th": ["class"],
@@ -91,11 +110,36 @@ def sanitize_html(html_content: str) -> str:
         "h4": ["id"], "h5": ["id"], "h6": ["id"],
     }
     return bleach.clean(
-        html_content,
+        fragment,
         tags=allowed_tags,
         attributes=allowed_attrs,
+        protocols=["http", "https", "mailto", "file"],  # file:// for local RAG sources
         strip=True,
     )
+
+
+def sanitize_html(html_content: str) -> str:
+    """Sanitize HTML output to prevent XSS in rendered reports.
+
+    Accepts either a fragment or a full document. For a full document only
+    the <body> is cleaned: the <head> (charset, fonts, <style>) comes from our
+    own template, and bleach — a fragment sanitizer — would otherwise strip
+    it and leak the CSS as visible text. Idempotent, so sanitizing an
+    already-sanitized report (file on disk, then again in the UI) is safe.
+    """
+    m = _BODY_RE.search(html_content)
+    if not m:
+        return _clean_fragment(html_content)
+    head = _strip_dangerous_html_head(html_content[: m.start()])
+    return head + m.group(1) + _clean_fragment(m.group(2)) + m.group(3) + html_content[m.end():]
+
+
+def _strip_dangerous_html_head(head: str) -> str:
+    """The template's <head> is trusted except for interpolated values; still
+    drop any <script>/<iframe> and inline handlers that could sneak in."""
+    head = re.sub(r"<(script|iframe|object|embed)\b.*?</\1\s*>", "", head, flags=re.S | re.I)
+    head = re.sub(r"<(script|iframe|object|embed|base)\b[^>]*/?>", "", head, flags=re.I)
+    return re.sub(r"""\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)""", "", head, flags=re.I)
 
 
 def html_to_markdown(text: str) -> str:
@@ -211,7 +255,7 @@ def generate_report_node(state: AgentState) -> dict:
 
     if not has_content:
         logger.warning("No information found to generate report.")
-        report_html = f"<h1>{L['about']}: {topic}</h1><p>{L['no_info']}</p>"
+        report_html = f"<h1>{L['about']}: {_html.escape(topic)}</h1><p>{L['no_info']}</p>"
         return {"report": report_html}
 
     # Usamos f-strings de varias líneas para construir el HTML de manera legible.
@@ -223,7 +267,7 @@ def generate_report_node(state: AgentState) -> dict:
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>{L['title']}: {topic}</title>
+        <title>{L['title']}: {_html.escape(topic)}</title>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
         <style>
             /* (Styles preserved) */
@@ -357,6 +401,7 @@ def generate_report_node(state: AgentState) -> dict:
             }}
             
             .bib-list {{ list-style: none; padding: 0; }}
+            .reading-meta {{ text-align: center; color: var(--text-light); font-size: 0.9rem; margin-bottom: 30px; }}
             .bib-list li {{ 
                 padding: 12px 0; 
                 border-bottom: 1px solid var(--border);
@@ -374,7 +419,7 @@ def generate_report_node(state: AgentState) -> dict:
         <div class="container">
             <header id="top">
                 <h1>{L['hero']}</h1>
-                <div class="subtitle">{topic}</div>
+                <div class="subtitle">{_html.escape(topic)}</div>
             </header>
     """
 
@@ -384,7 +429,7 @@ def generate_report_node(state: AgentState) -> dict:
     )
     word_count, read_min = _word_count_and_reading_time(full_text_for_stats)
     html_content += f"""
-        <div style="text-align:center;color:var(--text-light);font-size:0.9rem;margin-bottom:30px;">
+        <div class="reading-meta">
             {word_count:,} {L['words']} | {L['reading']}: {read_min} min
         </div>
     """
