@@ -74,7 +74,17 @@ def parallel_search_node(state: AgentState) -> dict:
 
     _write_status(done=[], running=list(plan), total=len(plan))
 
-    with ThreadPoolExecutor(max_workers=len(plan) or 1) as executor:
+    # Not using `with` on purpose: ThreadPoolExecutor.__exit__ calls
+    # shutdown(wait=True), which blocks until every submitted worker
+    # thread returns — even ones we've already given up on below via
+    # the as_completed(timeout=60) + FutureTimeoutError path. A slow
+    # source (e.g. youtube, looping over several videos with its own
+    # internal join-timeouts) can keep its worker thread alive well
+    # past 60s, which silently re-introduced an unbounded wait here
+    # and froze the whole node (and the UI progress file) past the
+    # point where we'd already logged "timed out, skipping".
+    executor = ThreadPoolExecutor(max_workers=len(plan) or 1)
+    try:
         for source_name in plan:
             fn = source_functions.get(source_name)
             if fn:
@@ -101,6 +111,17 @@ def parallel_search_node(state: AgentState) -> dict:
             for future, source_name in futures_map.items():
                 if not future.done():
                     logger.warning(f"Source '{source_name}' timed out after 60s, skipping")
+                    if source_name not in done_sources:
+                        done_sources.append(source_name)
+            running = [s for s in plan if s not in done_sources]
+            _write_status(done=done_sources, running=running, total=len(plan))
+    finally:
+        # wait=False: don't let lingering worker threads (see comment
+        # above) block node completion. cancel_futures only drops
+        # queued-but-not-yet-started work; already-running threads are
+        # daemon-independent and will simply finish in the background
+        # and get garbage collected.
+        executor.shutdown(wait=False, cancel_futures=True)
 
     # Cleanup status file
     try:
