@@ -233,6 +233,7 @@ FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
         timeout=360,  # 6 minutes timeout for synthesis
         repeat_penalty=1.15,   # Discourage repetitive loops
         num_predict=4096,      # Hard cap on output tokens
+        num_ctx=settings.synthesis_num_ctx,  # Server default (8192) truncates the instructions
         stop=["</report>", "\n\n\n\n"],  # Stop on closing tag or excessive newlines
     )
 

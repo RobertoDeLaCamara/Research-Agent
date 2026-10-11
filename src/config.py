@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     
     # Content Limits
     max_synthesis_context_chars: int = 25000
+    # Ollama context window for the synthesis call. Must fit the system prompt
+    # + up to max_synthesis_context_chars of sources (~8k tokens) + num_predict
+    # output; otherwise Ollama silently drops the *start* of the prompt (the
+    # instructions) and the model just echoes raw source text.
+    synthesis_num_ctx: int = 16384
     max_content_preview_chars: int = 5000
     
     # File Upload Limits
