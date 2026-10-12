@@ -222,6 +222,29 @@ Research-Agent/
 
 See `env.example` for the full list.
 
+## MCP Server
+
+`mcp_server.py` exposes the agent to MCP clients (Claude Desktop, Claude Code, Continue, Cline) over stdio:
+
+| Tool | Purpose |
+| :--- | :--- |
+| `research` | Run a research job and wait for the full Markdown report |
+| `start_research` | Start a job in the background and return a `job_id` (use for standard/deep runs) |
+| `get_research_result` | Poll a job; returns the report when `status` is `done` |
+
+Arguments: `topic` (required), `depth` (`quick`/`standard`/`deep`), `persona` (`general`, `business`, `tech`, `academic`, `pm`, `news_editor`), `lang` (`es`/`en`), `include_report` (full report vs. 3000-char preview) and `output_dir`.
+
+`output_dir` writes a copy of the report, with YAML frontmatter, into a directory such as an Obsidian vault. It must be inside `RESEARCH_AGENT_OUTPUT_ROOT`; if that variable is unset, `output_dir` is rejected. Runs are serialized (one at a time) and time out after `RESEARCH_AGENT_TIMEOUT` seconds (default 900).
+
+Claude Desktop on Windows with the agent installed in WSL:
+
+```json
+"research-agent": {
+  "command": "wsl.exe",
+  "args": ["-e", "bash", "-lc", "cd ~/repos/Research-Agent && RESEARCH_AGENT_OUTPUT_ROOT=/mnt/c/path/to/Vault venv/bin/python mcp_server.py"]
+}
+```
+
 
 ## Documentation
 

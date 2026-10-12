@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- MCP server 1.1.0: `start_research` / `get_research_result` background jobs, `depth`, `persona`, `lang`,
+  `include_report` and sandboxed `output_dir` export (with YAML frontmatter) under `RESEARCH_AGENT_OUTPUT_ROOT`.
+- CLI flags `--depth` and `--persona` in `src/main.py`.
+
+### Fixed
+- MCP server: the timeout error reported 180 s while the real limit was 420 s; the limit is now configurable
+  (`RESEARCH_AGENT_TIMEOUT`, default 900 s) and reported accurately. The full Markdown report is returned
+  instead of a 3000-char preview, and the report is located by modification time instead of a fragile
+  topic-derived filename.
 - Deployment to Hugging Face Spaces (`docker-compose.full.yml`, `Dockerfile` on port 7860).
 - Bilingual UI (Spanish / English) switcher in the sidebar (`src/i18n.py`).
 - News Editor persona (`news_editor`) for breaking-news research with 24h Reddit filtering.

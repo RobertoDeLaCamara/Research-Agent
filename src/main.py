@@ -42,6 +42,18 @@ def parse_args():
         help="Language of the generated report (default: es)"
     )
     parser.add_argument(
+        "--depth",
+        choices=["quick", "standard", "deep"],
+        default="standard",
+        help="Research depth: results per source and synthesis detail (default: standard)"
+    )
+    parser.add_argument(
+        "--persona",
+        choices=["general", "business", "tech", "academic", "pm", "news_editor"],
+        default="general",
+        help="Research persona that shapes source selection and analysis style (default: general)"
+    )
+    parser.add_argument(
         "--skip-health-check",
         action="store_true",
         help="Skip health checks on startup"
@@ -77,7 +89,13 @@ def run_agent():
         validate_env_vars()
         logger.info(f"Starting research agent for topic: '{validated_topic}'")
 
-        initial_state = {"topic": validated_topic, "messages": [], "report_language": args.lang}
+        initial_state = {
+            "topic": validated_topic,
+            "messages": [],
+            "report_language": args.lang,
+            "research_depth": args.depth,
+            "persona": args.persona,
+        }
         app.invoke(initial_state)
 
         # Log final metrics
