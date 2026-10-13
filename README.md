@@ -29,8 +29,6 @@ license: mit
 
 ## 🌟 Key Features
 
-![Research-Agent demo](docs/demo.gif)
-
 Research-Agent is a LangGraph-based autonomous agent that searches **10 sources in parallel** (Tavily, arXiv, Wikipedia, Semantic Scholar, GitHub, Hacker News, Stack Overflow, Reddit, YouTube, local RAG), fact-checks the synthesis and flags dubious claims, then exports a cited report with word count and reading time in PDF, Word, Markdown, or HTML — all through a Streamlit UI backed by a local Ollama LLM. Cross-session memory prevents re-investigating past topics.
 
 ## Features
