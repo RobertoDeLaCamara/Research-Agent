@@ -1,6 +1,6 @@
 // Webhook: notifyCommit via Gitea webhook #4
 pipeline {
-    agent any
+    agent { label 'agent-45' }  // Docker builds/pushes must run on agent-45 (its daemon trusts the HTTP registry 192.168.1.147:5000)
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '5'))
