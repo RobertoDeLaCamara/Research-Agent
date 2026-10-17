@@ -4,8 +4,11 @@ import requests
 from src.tools.research_tools import search_web_node, search_wiki_node, search_arxiv_node
 
 @patch("requests.get")
-def test_search_web_node_tavily(mock_get, mock_agent_state):
+def test_search_web_node_tavily(mock_get, mock_agent_state, monkeypatch):
     """Test web search node with Jina extraction."""
+    # The Tavily branch is only taken when a key is configured; do not depend on
+    # the developer's .env or on the CI environment providing one.
+    monkeypatch.setattr("src.config.settings.tavily_api_key", "test-key")
     with patch("langchain_community.tools.tavily_search.TavilySearchResults") as mock_tavily:
         mock_search = mock_tavily.return_value
         mock_search.run.return_value = [{"url": "http://test.com", "content": "Raw content"}]
