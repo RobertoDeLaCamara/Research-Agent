@@ -2,7 +2,8 @@
 import pytest
 from unittest.mock import MagicMock, patch
 import time
-from src.tools.research_tools import search_web_node, search_wiki_node
+from tenacity import RetryError
+from src.tools.research_tools import search_web_node
 from src.utils import api_call_with_retry
 
 def test_api_call_with_retry_success():
@@ -19,7 +20,6 @@ def test_api_call_with_retry_failure_then_success():
     assert result == "Success"
     assert mock_func.call_count == 2
 
-from tenacity import RetryError
 
 def test_api_call_with_retry_max_retries():
     """Test that it raises RetryError (or original) after max retries."""
@@ -64,7 +64,7 @@ def test_search_web_node_timeout(mock_settings, mock_next_node):
         mock_tavily_instance.run.side_effect = slow_run
         
         # Configure logging to verify timeout warning
-        with patch('src.tools.research_tools.logger') as mock_logger:
+        with patch('src.tools.research_tools.logger'):
             result = search_web_node(state)
             
             assert "web_research" in result

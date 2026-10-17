@@ -1,5 +1,4 @@
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from src.tools.reporting_tools import generate_report_node, _word_count_and_reading_time
 
 def test_generate_report_node_completely_empty(mock_agent_state):

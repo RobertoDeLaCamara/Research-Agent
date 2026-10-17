@@ -1,7 +1,7 @@
 import pytest
 import os
 import sqlite3
-from src.db_manager import init_db, save_session, get_recent_sessions, load_session, DB_PATH
+from src.db_manager import init_db, save_session, get_recent_sessions, load_session
 
 @pytest.fixture
 def clean_db():

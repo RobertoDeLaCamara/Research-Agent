@@ -1,8 +1,6 @@
 # src/tools/youtube_tools.py
 
 import logging
-from langchain_ollama import ChatOllama
-import os
 from youtube_search import YoutubeSearch
 from langchain_classic.chains.summarize import load_summarize_chain
 from langchain_community.document_loaders import YoutubeLoader
@@ -158,7 +156,7 @@ def summarize_videos_node(state: AgentState) -> dict:
                 
                 # Try simple LLM prompt with short timeout
                 system_rules = "Genera un solo párrafo conciso (máximo 3 frases) sobre el tema."
-                human_prompt = f"Resume de qué trata un vídeo titulado '{title}' para una investigación sobre '{state.get('topic')}'. Menciona que es de {author}."
+                human_prompt = f"{system_rules}\n\nResume de qué trata un vídeo titulado '{title}' para una investigación sobre '{state.get('topic')}'. Menciona que es de {author}."
                 
                 fallback_summary = ""
                 def fast_fallback():

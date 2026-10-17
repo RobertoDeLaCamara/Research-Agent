@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch
 from src.agent import app, initialize_state_node, route_chat
 from langchain_core.messages import HumanMessage

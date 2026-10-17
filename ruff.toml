@@ -1,0 +1,11 @@
+# Lint gate used by CI (see Jenkinsfile). Keep it to rules that catch real bugs.
+target-version = "py312"
+extend-exclude = ["venv", "hf_spaces"]
+
+[lint]
+select = ["E4", "E7", "E9", "F"]
+
+[lint.per-file-ignores]
+# These entry points put the project root on sys.path before importing `src`.
+"src/main.py" = ["E402"]
+"src/app.py" = ["E402"]

@@ -156,10 +156,8 @@ def plan_research_node(state: AgentState) -> dict:
     
     # Conditionally add local_rag only if the user opted in AND files exist
     kb_path = "./knowledge_base"
-    has_local_files = False
     if state.get("use_rag", False):
         if os.path.exists(kb_path) and any(f for f in os.listdir(kb_path) if not f.startswith('.')):
-            has_local_files = True
             prompt += "\n    - local_rag: Para consultar la base de conocimientos local y archivos proporcionados por el usuario."
     
     prompt += """

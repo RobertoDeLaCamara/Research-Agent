@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import MagicMock, patch
 from src.tools.youtube_tools import search_videos_node, summarize_videos_node
 

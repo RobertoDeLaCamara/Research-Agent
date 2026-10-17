@@ -1,5 +1,4 @@
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from src.tools.chat_tools import chat_node
 from langchain_core.messages import HumanMessage, AIMessage
 
