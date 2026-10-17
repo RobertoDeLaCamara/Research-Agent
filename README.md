@@ -171,7 +171,7 @@ Research-Agent/
 ├── src/
 │   ├── app.py                  # Streamlit UI entry point
 │   ├── main.py                 # CLI entry point (python -m src.main)
-│   ├── agent.py                # LangGraph workflow definition (8 nodes)
+│   ├── agent.py                # LangGraph workflow definition (9 nodes)
 │   ├── state.py                # AgentState schema
 │   ├── config.py               # Settings (Pydantic v2)
 │   ├── validators.py           # Input validation

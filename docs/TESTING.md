@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Research-Agent has comprehensive test coverage with **49 tests, all passing**. This guide explains how to run tests, write new tests, and maintain test quality.
+The Research-Agent has comprehensive test coverage with **67 tests, all passing**. This guide explains how to run tests, write new tests, and maintain test quality.
 
 ## Running Tests
 
@@ -52,20 +52,21 @@ pytest -n auto
 tests/
 ├── conftest.py                  # Shared fixtures
 ├── test_agent.py                # Workflow & graph tests (5 tests)
-├── test_research_tools.py       # Research sources (9 tests)
-├── test_router_tools.py         # Planning/routing (4 tests)
+├── test_research_tools.py       # Research sources (8 tests)
+├── test_router_tools.py         # Planning/routing (3 tests)
 ├── test_synthesis_tools.py      # Consolidation (2 tests)
-├── test_reporting_tools.py      # Export generation (4 tests)
+├── test_reporting_tools.py      # Export generation (8 tests)
 ├── test_chat_tools.py           # Interactive chat (2 tests)
 ├── test_rag_tools.py            # Local knowledge (2 tests)
 ├── test_reddit_tools.py         # Reddit search (2 tests)
 ├── test_youtube_tools.py        # Video summaries (3 tests)
-├── test_persistence.py          # Database (5 tests)
+├── test_persistence.py          # Database (4 tests)
 ├── test_resilience.py           # Timeouts & retries (4 tests)
 ├── test_security.py             # Input validation & XSS (7 tests)
+├── test_mcp_server.py           # MCP server: tools, jobs, export sandbox (16 tests)
 └── test_load.py                 # Concurrent load (1 test)
 
-Total: 49 tests (all passing)
+Total: 67 tests (all passing)
 ```
 
 ## Writing Tests
@@ -468,7 +469,7 @@ rm -rf .pytest_cache
 pip install -r requirements.txt --force-reinstall
 
 # Check Python version
-python --version  # Should be 3.10+
+python --version  # Should be 3.12+
 ```
 
 ### Import Errors
@@ -511,4 +512,4 @@ pytest tests/ --import-mode=importlib
 ---
 
 **Last Updated:** February 14, 2026
-**Test Count:** 49 tests (all passing)
+**Test Count:** 67 tests (all passing)

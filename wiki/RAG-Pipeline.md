@@ -26,23 +26,12 @@ pages = reader.pages[:50]  # 50 page limit
 text = " ".join(page.extract_text() or "" for page in pages)
 ```
 
-### Caching (SQLite `rag_cache.db`)
+### Caching (JSON file `/app/data/rag_cache.json`)
 
-```sql
-CREATE TABLE files (
-    path TEXT PRIMARY KEY,
-    hash TEXT,              -- "{st_mtime}_{st_size}"
-    last_seen REAL
-);
-
-CREATE TABLE content (
-    path TEXT PRIMARY KEY,
-    text TEXT
-);
-```
+A JSON dict keyed by file path; each entry stores the file hash (`"{st_mtime}_{st_size}"`) and the extracted text (see `local_rag_node` in `src/tools/rag_tools.py`).
 
 Cache hit: `hash == f"{stats.st_mtime}_{stats.st_size}"` — no re-parse.
-Cache miss: re-read file, update both tables.
+Cache miss: re-read file, update the cache entry.
 Batch save: 5 files per batch.
 
 ## Text Chunking

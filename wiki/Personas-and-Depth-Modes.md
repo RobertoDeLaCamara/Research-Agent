@@ -40,7 +40,7 @@ The persona is passed as a system prompt modifier to the Ollama LLM during the `
 **Style:** Immediacy, impact, clarity. Output is structured as Daily Digest + TL;DR. Recency is prioritized over depth.
 **Source behavior:**
 - Reddit: time range forced to "d" (last 24 hours)
-- **Evaluation loop skipped entirely** — no quality re-plan step
+- **Fact-check evaluation skipped entirely**
 
 ## Research Depths
 
@@ -91,18 +91,15 @@ r'^analizando,?\s.*'
 
 ## Quality Evaluation
 
-After synthesis, `evaluate_research_node()` runs a second LLM call that returns:
+After synthesis, `evaluate_research_node()` runs a second LLM call (fact-check) that returns:
 
 ```json
 {
-  "sufficient": true,
-  "gaps": [],
-  "shallow_topics": ["implementation details"],
-  "fact_check_queries": ["verify claim X"],
-  "reasoning": "Coverage is adequate for standard depth"
+  "dubious_claims": [],
+  "reasoning": "Claims are backed by sources, research acceptable."
 }
 ```
 
-If `sufficient == false` and `iteration_count < 2`: the system re-runs `plan_research_node()` with the evaluation report injected as context, then repeats parallel search and synthesis. The LLM can select different sources in the re-plan to fill identified gaps.
+If `dubious_claims` is non-empty, a fact-checker warning listing them is appended to the consolidated summary. The node always routes to `generate_report`; there is no re-plan loop.
 
-`news_editor` skips this node entirely.
+`news_editor` personas and `quick` depth skip this node.

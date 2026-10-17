@@ -28,7 +28,7 @@
 # Run all tests
 python3 -m pytest tests/ -v
 
-# Verify all 49 tests pass
+# Verify all 67 tests pass
 # Expected: 49 passed, 0 failed, 0 skipped
 
 # Test the application locally
@@ -209,7 +209,7 @@ cache_expiry_hours: int = 48
 2. **Use environment-specific configs** (.env.production, .env.staging)
 3. **Rotate credentials regularly**
 4. **Use HTTPS in production**
-5. **Implement rate limiting** (see ACTION_ITEMS.md)
+5. **Implement rate limiting** at the reverse proxy (not built into the app)
 6. **Regular security audits**
    ```bash
    bandit -r src/
