@@ -469,7 +469,7 @@ if st.button(_["start_btn"]):
                             if total > 0:
                                 progress = min(current / total, 1.0)
                                 rag_progress_bar.progress(progress, text=f"📂 RAG: Analizando {current}/{total}: {fname}")
-                        except:
+                        except Exception:
                             pass # Ignore read errors during race conditions
                     
                     time.sleep(0.2) # Yield to allow thread to work
@@ -478,7 +478,8 @@ if st.button(_["start_btn"]):
                 if os.path.exists(rag_status_file):
                     try:
                         os.remove(rag_status_file)
-                    except: pass
+                    except OSError:
+                        pass
                     
                 st.session_state.agent_state = final_state
 

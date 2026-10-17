@@ -165,7 +165,7 @@ def summarize_videos_node(state: AgentState) -> dict:
                     try:
                         resp = llm.invoke(human_prompt)
                         return resp.content.strip()
-                    except:
+                    except Exception:
                         return None
 
                 # Non-threaded fast check
@@ -174,7 +174,7 @@ def summarize_videos_node(state: AgentState) -> dict:
                     future = executor.submit(fast_fallback)
                     try:
                         fallback_summary = future.result(timeout=10)
-                    except:
+                    except Exception:
                         fallback_summary = None
 
                 if not fallback_summary:
