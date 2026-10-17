@@ -29,6 +29,17 @@ pipeline {
             }
         }
 
+        stage('Lint') {
+            steps {
+                echo 'Linting with ruff (rules in ruff.toml)...'
+                // ruff is not a runtime dependency, so install it into the throwaway container only.
+                sh """
+                docker run --rm ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} \
+                    sh -c "pip install -q --no-warn-script-location ruff==0.15.7 && python -m ruff check src tests mcp_server.py"
+                """
+            }
+        }
+
         stage('Run Tests') {
             steps {
                 echo 'Running unit tests inside built image...'
@@ -40,7 +51,9 @@ pipeline {
                             ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} \
                             python -m pytest tests/ -v \
                                 --cov=src \
+                                --cov-report=term \
                                 --cov-report=xml:coverage.xml \
+                                --cov-fail-under=45 \
                                 --junitxml=test-results.xml \
                                 --disable-warnings
                         """
@@ -54,6 +67,24 @@ pipeline {
             post {
                 always {
                     junit allowEmptyResults: true, testResults: 'test-results.xml'
+                    archiveArtifacts artifacts: 'coverage.xml', allowEmptyArchive: true
+                }
+            }
+        }
+
+        stage('Dependency Audit') {
+            steps {
+                echo 'Auditing the dependencies installed in the image (a finding marks the build UNSTABLE, it does not block the push)...'
+                // Accepted risk: these 4 chromadb advisories affect the ChromaDB *server*
+                // (HTTP API, multi-tenant RBAC). The app only uses the embedded PersistentClient,
+                // and no fixed release exists. Revisit when chromadb publishes a fix.
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    sh """
+                    docker run --rm ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} \
+                        sh -c "pip install -q --no-warn-script-location pip-audit && python -m pip_audit --skip-editable \
+                            --ignore-vuln PYSEC-2026-311 --ignore-vuln PYSEC-2026-3813 \
+                            --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815"
+                    """
                 }
             }
         }
