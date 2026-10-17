@@ -1,7 +1,5 @@
-import pytest
 from unittest.mock import MagicMock, patch
 import os
-import sys
 from src.tools.reddit_tools import search_reddit_node
 
 def test_search_reddit_node_tavily(mock_agent_state):

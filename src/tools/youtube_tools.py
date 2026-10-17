@@ -1,8 +1,6 @@
 # src/tools/youtube_tools.py
 
 import logging
-from langchain_ollama import ChatOllama
-import os
 from youtube_search import YoutubeSearch
 from langchain_classic.chains.summarize import load_summarize_chain
 from langchain_community.document_loaders import YoutubeLoader

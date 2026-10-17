@@ -1,5 +1,4 @@
 
-import pytest
 from unittest.mock import MagicMock, patch
 import concurrent.futures
 from src.tools.research_tools import search_web_node

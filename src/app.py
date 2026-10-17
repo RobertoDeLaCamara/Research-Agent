@@ -152,7 +152,7 @@ with st.sidebar:
         for uploaded_file in uploaded_files:
             with open(os.path.join(kb_path, uploaded_file.name), "wb") as f:
                 f.write(uploaded_file.getbuffer())
-        st.success(f"✅ " + _["upload_success"].format(n=len(uploaded_files)))
+        st.success("✅ " + _["upload_success"].format(n=len(uploaded_files)))
 
     st.divider()
     st.write(_["history_header"])
@@ -628,5 +628,6 @@ st.markdown(f"""
 
 def main():
     """Entry point for research-agent-ui CLI command."""
-    import subprocess, sys
+    import subprocess
+    import sys
     subprocess.run([sys.executable, "-m", "streamlit", "run", __file__, "--server.address=0.0.0.0"])

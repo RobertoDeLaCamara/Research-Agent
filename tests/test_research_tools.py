@@ -1,6 +1,4 @@
-import pytest
 from unittest.mock import MagicMock, patch
-import requests
 from src.tools.research_tools import search_web_node, search_wiki_node, search_arxiv_node
 
 @patch("requests.get")

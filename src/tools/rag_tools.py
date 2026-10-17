@@ -22,7 +22,6 @@ def local_rag_node(state: AgentState) -> dict:
     topic = state.get("topic", "").lower()
     
     import json
-    import time
     
     # ---------------------------------------------------------
     # CACHE IMPLEMENTATION

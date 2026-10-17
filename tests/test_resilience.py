@@ -2,7 +2,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 import time
-from src.tools.research_tools import search_web_node, search_wiki_node
+from src.tools.research_tools import search_web_node
 from src.utils import api_call_with_retry
 
 def test_api_call_with_retry_success():

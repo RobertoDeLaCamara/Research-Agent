@@ -1,7 +1,6 @@
 
 import pytest
 from src.validators import validate_topic, validate_file_upload, ResearchRequest, sanitize_content
-from pydantic import ValidationError
 
 def test_validate_topic_clean_success():
     """Test standard valid topics."""

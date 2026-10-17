@@ -1,5 +1,3 @@
-import pytest
-import os
 from unittest.mock import patch, MagicMock
 from src.tools.rag_tools import local_rag_node
 
