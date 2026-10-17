@@ -5,7 +5,7 @@ def test_local_rag_node_no_kb(mock_agent_state):
     # Test when knowledge_base doesn't exist (it should be created but return empty)
     with patch("os.path.exists", return_value=False), \
          patch("os.makedirs") as mock_makedirs, \
-         patch("sqlite3.connect") as mock_sqlite:
+         patch("sqlite3.connect"):
         result = local_rag_node(mock_agent_state)
         assert result["local_research"] == []
         mock_makedirs.assert_called_once_with("./knowledge_base")
@@ -27,7 +27,7 @@ def test_local_rag_node_with_files(mock_agent_state):
          patch("builtins.open", MagicMock()) as mock_builtin_open, \
          patch("src.tools.rag_tools.pypdf.PdfReader") as mock_pdf, \
          patch("os.stat") as mock_stat, \
-         patch("json.dump") as mock_json_dump:
+         patch("json.dump"):
          
         mock_stat.return_value.st_mtime = 12345
         mock_stat.return_value.st_size = 100

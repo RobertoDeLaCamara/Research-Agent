@@ -83,7 +83,8 @@ def local_rag_node(state: AgentState) -> dict:
                         max_pages = 50 
                         count = 0
                         for page in reader.pages:
-                            if count >= max_pages: break
+                            if count >= max_pages:
+                                break
                             text = page.extract_text()
                             if text:
                                 content += text + "\n"

@@ -4,9 +4,9 @@ import logging
 from datetime import datetime
 from typing import Optional, List, Tuple, Dict, Any
 
-logger = logging.getLogger(__name__)
-
 from .config import settings
+
+logger = logging.getLogger(__name__)
 
 DB_PATH = settings.db_path
 
