@@ -273,7 +273,7 @@ def safe_llm_prompt(user_input: str) -> str:
 **Dockerfile best practices:**
 ```dockerfile
 # Use specific versions, not 'latest'
-FROM python:3.10-slim
+FROM python:3.12-slim
 
 # Run as non-root user
 RUN useradd -m -u 1000 appuser

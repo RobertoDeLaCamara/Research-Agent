@@ -3,17 +3,16 @@
 ## Prerequisites
 
 - Python 3.12+
-- Ollama with `qwen3:14b` pulled (`ollama pull qwen3:14b`)
+- Ollama with a model pulled (code default `qwen3:14b`: `ollama pull qwen3:14b`; compose and `env.example` use `qwen2.5:1.5b`)
 - Optional: Tavily API key (`TAVILY_API_KEY`), GitHub token (`GITHUB_TOKEN`)
 
 ## Setup
 
 ```bash
 # Docker (recommended)
-docker compose up -d
+docker compose -f docker-compose.full.yml up -d   # Ollama + model pre-pull (qwen2.5:1.5b)
+# or: docker compose up -d   # app only; bring your own Ollama (OLLAMA_BASE_URL in .env)
 # Access Streamlit: http://localhost:8501
-# Pull model first if needed:
-docker compose exec ollama ollama pull qwen3:14b
 
 # Local
 python -m venv .venv && source .venv/bin/activate
@@ -26,6 +25,8 @@ streamlit run src/app.py --server.address=0.0.0.0
 python src/main.py "Your Research Topic"
 python src/main.py "Topic" --log-level DEBUG
 python src/main.py "Topic" --skip-health-check
+python src/main.py "Topic" --lang en --depth deep --persona tech
+# --lang es|en  --depth quick|standard|deep  --persona general|business|tech|academic|pm|news_editor
 ```
 
 ## Testing
@@ -102,7 +103,7 @@ Override via `OLLAMA_MODEL` env var or select in sidebar.
 ```
 src/
 ├── agent.py                 StateGraph: 9 nodes, conditional edges
-├── state.py                 AgentState TypedDict (24 fields)
+├── state.py                 AgentState TypedDict (32 fields)
 ├── config.py                Pydantic Settings, all timeouts and limits
 ├── db_manager.py            SQLite sessions: save/load/clear/cleanup
 ├── app.py                   Streamlit: sidebar config, progress display,
@@ -124,7 +125,7 @@ knowledge_base/             Place .pdf and .txt files here for RAG
 reports/                    Generated outputs (gitignored)
 data/
 ├── chroma_db/              ChromaDB persistence
-├── rag_cache.db            RAG file cache
+├── rag_cache.json          RAG file cache
 └── rag_status.json         RAG ingestion progress
 ```
 
@@ -132,21 +133,21 @@ data/
 
 | Constant | Value | Location |
 |----------|-------|----------|
-| `web_search_timeout` | 45s | config.py |
+| `web_search_timeout` | 12s | config.py |
 | `llm_request_timeout` | 60s | config.py |
 | `content_fetch_timeout` | 3s | config.py (Jina Reader per URL) |
-| `thread_execution_timeout` | 30s | config.py |
-| `synthesis_request_timeout` | 360s | config.py (6 min for LLM synthesis) |
+| `thread_execution_timeout` | 12s | config.py |
+| LLM synthesis | 360s | synthesis_tools.py (hard-coded, 6 min) |
 | Wikipedia | 10s | research_tools.py |
-| arXiv | 25s | research_tools.py |
+| arXiv | 12s | research_tools.py |
 | Semantic Scholar | 25s | research_tools.py |
 | GitHub | 20s | research_tools.py |
 | Hacker News | 10s | research_tools.py |
 | Stack Overflow | 15s | research_tools.py |
 | Reddit | 15s | research_tools.py |
-| YouTube search | 15s | research_tools.py |
-| YouTube transcript | 20s | research_tools.py |
-| YouTube summarization | 90s/video | research_tools.py |
+| YouTube search | 15s | youtube_tools.py |
+| YouTube transcript | 10s | youtube_tools.py |
+| YouTube summarization | 25s/video | youtube_tools.py |
 
 ## CI/CD
 
@@ -160,4 +161,4 @@ CI/CD pipeline targets `[REGISTRY_IP]:5000` (private registry). Quality Analysis
 
 **ChromaDB errors on startup:** Delete `/app/data/chroma_db/` and restart — it will be rebuilt on next RAG query.
 
-**LangGraph recursion limit exceeded:** The graph has `recursion_limit=100`. If hit, check that `iteration_count` is properly incremented and the exit condition (`>= 2`) is working.
+**LangGraph recursion limit exceeded:** The Streamlit app streams the graph with `recursion_limit=100` (`src/app.py`). The automated flow has no re-plan loop, so hitting it indicates a routing bug.

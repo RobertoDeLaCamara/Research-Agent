@@ -10,21 +10,19 @@ User Input (topic, persona, depth, sources)
 │  LangGraph StateGraph — src/agent.py                            │
 │                                                                 │
 │  initialize_state → plan_research → parallel_search             │
-│        │           │                │                           │
-│        │           │  ┌─────────────┘                           │
-│        │           │  ▼                                         │
-│        │           │  consolidate_research (Ollama LLM, 360s)   │
-│        │           │  │                                         │
-│        │           │  ▼                                         │
-│        │           │  evaluate_research ─── if dubious facts     │
-│        │           │      └─→ plan (re-plan, max 1)             │
-│        │           │      └─→ generate_report                   │
-│        │           │                                            │
-│        │           ▼                                            │
-│        │  generate_report → send_email → save_db → store_memory │
-│        │                                    → END               │
-│        │                                                        │
-│        ├── news_editor / quick: skip evaluate_research ──────────┤
+│                                           │                     │
+│                                           ▼                     │
+│                       consolidate_research (Ollama LLM, 360s)   │
+│                                           │                     │
+│                                           ▼                     │
+│                       evaluate_research (fact-check; dubious    │
+│                         claims appended as a report warning)    │
+│                                           │                     │
+│                                           ▼                     │
+│  generate_report → send_email → save_db → END                   │
+│  (store_session_memory() is called inside generate_report)      │
+│                                                                 │
+│  news_editor / quick: evaluate_research returns immediately     │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -37,7 +35,7 @@ User Input (topic, persona, depth, sources)
 | `plan_research` | `plan_research_node()` | LLM selects sources from plan; expands queries multilingual |
 | `parallel_search` | `parallel_search_node()` | ThreadPoolExecutor fan-out; one thread per source |
 | `consolidate_research` | `consolidate_research_node()` | Ollama LLM synthesis with persona + depth prompt |
-| `evaluate_research` | `evaluate_research_node()` | LLM evaluates sufficiency; returns JSON with fact_check_queries. Skipped for quick depth and news_editor persona. |
+| `evaluate_research` | `evaluate_research_node()` | LLM fact-check; returns JSON with `dubious_claims` and `reasoning`. Dubious claims are appended to the summary as a warning. Skipped for quick depth and news_editor persona. |
 | `generate_report` | `generate_report_node()` | Renders HTML/PDF/DOCX/MD from consolidated summary. Includes word count and reading time. Triggers `store_session_memory()` for cross-session ChromaDB persistence. |
 | `send_email` | `send_email_node()` | SMTP dispatch; skips if hash matches `last_email_hash` |
 | `save_db` | `save_db_node()` | Inserts session JSON into `research_sessions.db` |
@@ -48,11 +46,11 @@ User Input (topic, persona, depth, sources)
 ```
 evaluate_research → route_evaluation()
   │
-  ├─ state["next_node"] == "plan_research"
-  │   AND iteration_count < 1
-  │   AND fact_check_queries is non-empty → plan_research
+  ├─ state["next_node"] == "plan_research" → plan_research
+  │   (defined in the graph, but evaluate_research_node currently
+  │    always returns "END", so this branch is never taken)
   │
-  └─ otherwise → generate_report
+  └─ "END" → generate_report
 ```
 
 ```
@@ -72,9 +70,9 @@ parallel_search_node()
         │
         └─ ThreadPoolExecutor:
             │
-            ├─ web      → search_web_node()     (45s timeout)
+            ├─ web      → search_web_node()     (12s timeout)
             ├─ wiki     → search_wiki_node()    (10s timeout)
-            ├─ arxiv    → search_arxiv_node()   (25s timeout)
+            ├─ arxiv    → search_arxiv_node()   (12s timeout)
             ├─ scholar  → search_scholar_node() (25s timeout)
             ├─ github   → search_github_node()  (20s timeout)
             ├─ hn       → search_hn_node()      (10s timeout)
@@ -83,26 +81,26 @@ parallel_search_node()
             ├─ local_rag→ local_rag_node()      (no hard limit)
             └─ youtube  → _youtube_combined_node()
                             ├─ search_videos_node()   (15s)
-                            └─ summarize_videos_node() (90s/video)
+                            └─ summarize_videos_node() (25s/video)
 
-        All results collected via as_completed(futures_map)
+        All results collected via as_completed(futures_map, timeout=60)
         Timeout-safe: thread.join(timeout=X) + container dict
 ```
 
-## AgentState (24 fields)
+## AgentState (32 fields)
 
 ```python
 class AgentState(TypedDict):
     # Input
     topic: str
-    original_topic: str        # preserved across re-plan loops
+    original_topic: str        # preserved original request
     research_depth: str        # 'quick' | 'standard' | 'deep'
     persona: str               # 'general' | 'business' | 'tech' | 'academic' | 'pm' | 'news_editor'
 
     # Planning
     research_plan: List[str]   # selected source codes
     next_node: str
-    iteration_count: int       # 0–2 (capped at 2)
+    iteration_count: int       # initialised to 0; not incremented by any current node
     queries: Dict[str, str]    # {'en': '...', 'es': '...'}
 
     # Research Results (per-source lists of dicts)
@@ -124,6 +122,10 @@ class AgentState(TypedDict):
     report: str                # HTML report
     bibliography: List[str]
     pdf_path: str
+    docx_path: str             # set by generate_report_node
+    md_path: str               # set by generate_report_node
+    report_language: str       # 'es' | 'en'
+    use_rag: bool              # include local RAG as a source
 
     # Chat
     messages: List[BaseMessage]
@@ -134,21 +136,15 @@ class AgentState(TypedDict):
     source_metadata: Dict[str, dict]  # {'source': {'reliability': 1-5}}
 ```
 
-## Self-Correction Loop
+## Fact-Check Step
 
 ```
-iteration 0:
-  parallel_search → consolidate → evaluate
-    → gaps found: iteration_count = 1 → plan_research (re-select sources)
-    → parallel_search → consolidate → evaluate
-    → still gaps: iteration_count = 2 → STOP (generate_report anyway)
-
-iteration 0:
-  parallel_search → consolidate → evaluate
-    → sufficient: True → generate_report (no loop)
+parallel_search → consolidate → evaluate
+  → dubious_claims found: warning appended to consolidated_summary → generate_report
+  → none / evaluation error:                                          → generate_report
 ```
 
-The re-plan step calls `plan_research_node()` again. The LLM receives the previous evaluation report (list of gaps and shallow topics) as context, and can select different or additional sources.
+There is no automatic re-plan loop: `evaluate_research_node` always returns `next_node = "END"`. The `evaluate_research → plan_research` conditional edge is still wired in `src/agent.py` but never taken.
 
 ## Report Generation
 
@@ -170,13 +166,14 @@ consolidated_summary
 ## Container Startup (Docker)
 
 ```
-docker-compose up:
-  - research-agent   (Streamlit :8501, src/app.py)
-  - ChromaDB         (vector store, persistent /app/data/chroma_db)
-  - Ollama           (LLM server :11434, model qwen3:14b)
+Compose services (docker-compose.full.yml):
+  - research-agent   (Streamlit, src/app.py; ChromaDB embedded,
+                      persisted in /app/data/chroma_db)
+  - ollama + ollama-init (LLM server :11434, model pre-pull)
 ```
 
-Ollama must have the model pulled before first run:
+In `docker-compose.full.yml` the `ollama-init` service pulls `qwen2.5:1.5b` automatically. To use another model:
 ```bash
-docker compose exec ollama ollama pull qwen3:14b
+docker compose -f docker-compose.full.yml exec ollama ollama pull qwen3:14b
 ```
+and set `OLLAMA_MODEL` accordingly.

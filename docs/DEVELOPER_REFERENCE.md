@@ -6,7 +6,7 @@
 Centralized configuration management using Pydantic.
 
 ```python
-from config import settings
+from src.config import settings
 
 # Access configuration
 print(settings.ollama_base_url)
@@ -17,7 +17,7 @@ print(settings.max_results_per_source)
 Intelligent caching system for research results.
 
 ```python
-from cache import cache_research
+from src.cache import cache_research
 
 @cache_research("web")
 def my_research_function(topic):
@@ -74,7 +74,7 @@ clean_content = sanitize_content(raw_content)
 System health monitoring.
 
 ```python
-from health import check_dependencies
+from src.health import check_dependencies
 
 healthy, checks = check_dependencies()
 if not healthy:
@@ -120,8 +120,9 @@ def search_github_node(state: AgentState) -> dict:
 The `AgentState` is the shared data structure passed between all nodes:
 
 ```python
-class AgentState(TypedDict):
+class AgentState(TypedDict):  # 32 fields; main ones shown, see src/state.py
     topic: str
+    original_topic: str
     video_urls: List[str]
     video_metadata: List[dict]
     summaries: List[str]
@@ -144,7 +145,14 @@ class AgentState(TypedDict):
     iteration_count: int
     persona: str
     research_depth: str
+    report_language: str  # 'es' | 'en'
+    evaluation_report: str
+    last_email_hash: str
+    queries: dict
     source_metadata: dict
+    use_rag: bool
+    docx_path: str
+    md_path: str
 ```
 
 ## Configuration Options
@@ -162,6 +170,8 @@ class AgentState(TypedDict):
 | `MAX_CONCURRENT_REQUESTS` | int | 5 | Concurrent API requests |
 | `CACHE_EXPIRY_HOURS` | int | 24 | Cache expiration time |
 | `REQUEST_TIMEOUT` | int | 30 | API request timeout |
+| `DB_PATH` | str | "research_sessions.db" | SQLite session database |
+| `RAG_KB_DIR` | str | "./knowledge_base" | Local RAG directory (read via `os.getenv`, not in `Settings`) |
 
 ### Performance Tuning
 
@@ -183,17 +193,18 @@ REQUEST_TIMEOUT=15
 
 ### Retry Logic
 ```python
-from utils import api_call_with_retry
+from src.utils import api_call_with_retry
 
-@api_call_with_retry
 def my_api_call():
-    # Will retry up to 3 times with exponential backoff
     return api_response
+
+# Retries up to 3 times with exponential backoff (tenacity)
+result = api_call_with_retry(my_api_call)
 ```
 
 ### Health Checks
 ```python
-from health import check_dependencies
+from src.health import check_dependencies
 
 # Check before execution
 healthy, checks = check_dependencies()

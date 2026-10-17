@@ -64,7 +64,7 @@ services:
       - ./data:/app/data
       - ./knowledge_base:/app/knowledge_base
     ports:
-      - "8501:8501"
+      - "8501:7860"
     mem_limit: 1g
     cpus: "2.0"
     networks:

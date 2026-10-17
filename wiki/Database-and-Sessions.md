@@ -52,20 +52,7 @@ db_path = "research_sessions.db"   # from settings
 
 ## RAG Cache Storage
 
-A separate SQLite database (`/app/data/rag_cache.db`) tracks which files have been indexed:
-
-```sql
-CREATE TABLE files (
-    path     TEXT PRIMARY KEY,
-    hash     TEXT,     -- "{st_mtime}_{st_size}"
-    last_seen REAL
-);
-
-CREATE TABLE content (
-    path TEXT PRIMARY KEY,
-    text TEXT           -- extracted text content
-);
-```
+A separate JSON file (`/app/data/rag_cache.json`) tracks which files have been indexed: one entry per file path holding its hash (`"{st_mtime}_{st_size}"`) and extracted text.
 
 This is internal to the RAG pipeline — not exposed via API or UI.
 

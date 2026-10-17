@@ -2,7 +2,7 @@
 
 ## Source Selection
 
-At the `plan_research` node, the LLM receives a list of available sources with descriptions and selects which ones to query based on the topic. Selection can differ between the initial plan and any re-plan iteration (re-plans receive the evaluation report with identified gaps as context).
+At the `plan_research` node, the LLM receives a list of available sources with descriptions and selects which ones to query based on the topic. The graph still contains a re-plan edge from `evaluate_research`, but the current evaluation node never takes it, so selection happens once per run.
 
 All sources are opt-in via the Streamlit sidebar. Local RAG is off by default.
 

@@ -52,7 +52,7 @@ The Research-Agent is built on **LangGraph**, a framework for creating stateful,
 
 **Responsibilities:**
 - `plan_research_node`: Analyzes topic and selects appropriate sources
-- `evaluate_research_node`: Assesses quality and identifies gaps
+- `evaluate_research_node`: Fact-checks the synthesis and appends a warning for dubious claims (never triggers a re-plan; skipped for `quick` depth and the `news_editor` persona)
 - `update_next_node`: Manages workflow navigation (used internally by search nodes)
 
 **Key Logic:**
@@ -63,7 +63,7 @@ def plan_research_node(state):
 
 def evaluate_research_node(state):
     # LLM evaluates completeness
-    # Returns: next_node = "plan_research" (gaps) or "END" (complete)
+    # Returns: next_node = "END" (currently always; dubious claims are appended as a warning)
 ```
 
 ### 2b. Parallel Tools (`src/tools/parallel_tools.py`)
@@ -265,7 +265,7 @@ class Settings(BaseSettings):
 
     # Performance
     max_results_per_source: int = 5
-    web_search_timeout: int = 45
+    web_search_timeout: int = 12
 
     # Security
     max_file_size_mb: int = 10
@@ -311,10 +311,12 @@ CREATE INDEX idx_sessions_topic ON sessions(topic);
 - Expiry: 24 hours (configurable)
 
 ### Timeouts
-- Web search: 45s
+- Web search: 12s
 - LLM requests: 60s
 - Content fetch: 3s
-- Thread execution: 30s
+- Thread execution: 12s
+- LLM synthesis: 360s (hard-coded in `synthesis_tools.py`)
+- Parallel search fan-out: 60s overall
 
 ## Security Architecture
 

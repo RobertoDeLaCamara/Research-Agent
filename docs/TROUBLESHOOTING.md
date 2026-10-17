@@ -469,7 +469,7 @@ print(result)
 
 ```bash
 # Check Python version
-python --version  # Should be 3.10+
+python --version  # Should be 3.12+
 
 # Check installed packages
 pip list | grep -E "langchain|ollama|streamlit"
