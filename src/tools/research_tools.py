@@ -70,7 +70,7 @@ def search_web_node(state: AgentState) -> dict:
                             raw_results = ast.literal_eval(raw_results)
                             if not isinstance(raw_results, list):
                                 raise ValueError
-                        except:
+                        except Exception:
                             raw_results = [{"url": "Unknown", "content": raw_results}]
                 except Exception as e_tavily:
                      logger.error(f"Tavily search execution failed: {e_tavily}")

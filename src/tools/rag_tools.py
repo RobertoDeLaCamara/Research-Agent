@@ -167,7 +167,8 @@ def local_rag_node(state: AgentState) -> dict:
     if os.path.exists(STATUS_FILE):
         try:
             os.remove(STATUS_FILE)
-        except: pass
+        except OSError:
+            pass
 
     # Save Cache...
     if cache_dirty:
