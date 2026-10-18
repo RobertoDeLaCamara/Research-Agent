@@ -34,7 +34,7 @@ def safe_thread_execution(timeout: int = 30):
 def execute_with_timeout(func: Callable, timeout: int = 30, *args, **kwargs) -> Optional[Any]:
     """Execute function with timeout using safe threading."""
     with safe_thread_execution(timeout) as (result, wrapper):
-        thread = threading.Thread(target=wrapper, args=(func,) + args, kwargs=kwargs)
+        thread = threading.Thread(target=wrapper, args=(func,) + args, kwargs=kwargs, daemon=True)
         thread.start()
 
     if result["error"]:

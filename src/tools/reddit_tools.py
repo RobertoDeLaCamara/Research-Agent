@@ -63,7 +63,7 @@ def search_reddit_node(state: AgentState) -> dict:
                 res_text = search.run(f"{search_topic} reddit")
                 container["data"] = [{"content": res_text, "url": "Reddit (via DDG)"}]
 
-        thread = threading.Thread(target=run_reddit_search)
+        thread = threading.Thread(target=run_reddit_search, daemon=True)
         thread.start()
         thread.join(timeout=15) # 15 seconds timeout
         if thread.is_alive():

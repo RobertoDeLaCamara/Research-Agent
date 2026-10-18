@@ -121,6 +121,13 @@ def parallel_search_node(state: AgentState) -> dict:
         # daemon-independent and will simply finish in the background
         # and get garbage collected.
         executor.shutdown(wait=False, cancel_futures=True)
+        # Prevent concurrent.futures.thread._python_exit (atexit) from blocking
+        # interpreter exit waiting on any timed-out worker threads.
+        try:
+            import concurrent.futures.thread as _cft
+            _cft._threads_queues.clear()
+        except Exception:
+            pass
 
     # Cleanup status file
     try:

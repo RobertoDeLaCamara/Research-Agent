@@ -36,7 +36,7 @@ def search_videos_node(state: AgentState) -> dict:
             except Exception as e_inner:
                 logger.error(f"YouTubeSearch error: {e_inner}")
 
-        thread = threading.Thread(target=run_search)
+        thread = threading.Thread(target=run_search, daemon=True)
         thread.start()
         thread.join(timeout=15) # 15 seconds for search
         if thread.is_alive():
@@ -110,7 +110,7 @@ def summarize_videos_node(state: AgentState) -> dict:
                     else:
                         logger.warning("transcript_loader_error", exc_info=e_load)
 
-            thread = threading.Thread(target=load_transcript)
+            thread = threading.Thread(target=load_transcript, daemon=True)
             thread.start()
             thread.join(timeout=10) # Reduced timeout for faster failure
 
@@ -131,7 +131,7 @@ def summarize_videos_node(state: AgentState) -> dict:
                 except Exception as e_sum:
                     logger.warning("summarization_error", exc_info=e_sum)
 
-            thread_sum = threading.Thread(target=run_summarize)
+            thread_sum = threading.Thread(target=run_summarize, daemon=True)
             thread_sum.start()
             thread_sum.join(timeout=25)
 

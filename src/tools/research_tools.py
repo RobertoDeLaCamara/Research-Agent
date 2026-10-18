@@ -104,7 +104,7 @@ def search_web_node(state: AgentState) -> dict:
         except Exception as e_inner:
             logger.error(f"Inner web search failed: {e_inner}")
 
-    thread = threading.Thread(target=run_web_search)
+    thread = threading.Thread(target=run_web_search, daemon=True)
     thread.start()
     from ..config import settings
     thread.join(timeout=settings.web_search_timeout)
@@ -153,7 +153,7 @@ def search_wiki_node(state: AgentState) -> dict:
                     "url": doc.metadata.get("source")
                 })
 
-        thread = threading.Thread(target=load_with_timeout)
+        thread = threading.Thread(target=load_with_timeout, daemon=True)
         thread.start()
         thread.join(timeout=10) # 10 seconds timeout
         if thread.is_alive():
@@ -202,7 +202,7 @@ def search_arxiv_node(state: AgentState) -> dict:
         except Exception as e_inner:
             logger.error(f"ArXiv inner search failed: {e_inner}")
 
-    thread = threading.Thread(target=run_arxiv_search)
+    thread = threading.Thread(target=run_arxiv_search, daemon=True)
     thread.start()
     thread.join(timeout=12) # 12s timeout
 
@@ -222,7 +222,7 @@ def search_scholar_node(state: AgentState) -> dict:
     topic = state["topic"]
     results = []
 
-    sch = SemanticScholar()
+    sch = SemanticScholar(timeout=10, retry=False)
     max_results = get_max_results(state)
     queries = state.get("queries", {})
     search_topic = queries.get("en", topic)
@@ -248,7 +248,7 @@ def search_scholar_node(state: AgentState) -> dict:
         except Exception as e_sch:
             logger.error(f"SemanticScholar API error: {e_sch}")
 
-    thread = threading.Thread(target=run_scholar_search)
+    thread = threading.Thread(target=run_scholar_search, daemon=True)
     thread.start()
     thread.join(timeout=25) # 25 seconds hard timeout for Scholar
 
@@ -325,7 +325,7 @@ def search_github_node(state: AgentState) -> dict:
             except Exception as e_inner:
                 logger.error(f"GitHub inner search failed: {e_inner}")
 
-        thread = threading.Thread(target=run_github_search)
+        thread = threading.Thread(target=run_github_search, daemon=True)
         thread.start()
         thread.join(timeout=20) # 20 seconds for GitHub
         if thread.is_alive():
@@ -422,7 +422,7 @@ def search_so_node(state: AgentState) -> dict:
             except Exception as e_inner:
                 logger.error(f"StackOverflow inner search failed: {e_inner}")
 
-        thread = threading.Thread(target=run_so_search)
+        thread = threading.Thread(target=run_so_search, daemon=True)
         thread.start()
         thread.join(timeout=15) # 15 seconds for SO
         if thread.is_alive():
