@@ -3,18 +3,36 @@ name: Sync to HuggingFace Spaces
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
+      # Without the HF_TOKEN secret the push can only fail (and did, on every push to main).
+      # Skip with a visible notice instead; set the secret to enable the sync:
+      #   gh secret set HF_TOKEN -R RobertoDeLaCamara/Research-Agent   (write token of the Space owner)
+      - name: Check HF_TOKEN
+        id: token
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::notice title=HF sync skipped::HF_TOKEN secret is not set; the Space is not updated."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.token.outputs.present == 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           lfs: true
 
       - name: Push to HuggingFace Spaces
+        if: steps.token.outputs.present == 'true'
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
