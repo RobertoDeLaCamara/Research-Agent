@@ -2,7 +2,14 @@
 
 ## Overview
 
-The local RAG source (`local_rag`) provides retrieval over user-uploaded documents. It combines ChromaDB vector search (semantic) with SQLite keyword matching. Both paths contribute scored results that are merged and passed to the LLM synthesis context.
+The local RAG source (`local_rag`) provides retrieval over user-uploaded documents. It has two modes, selected with `RAG_MODE`:
+
+| Mode | What it does |
+|------|--------------|
+| `legacy` (default) | Scans `./knowledge_base` on every run: first 50 pages per PDF, keeps every file that contains any word of the topic, returns the first 3000 characters of each. No ranking. |
+| `hybrid` | Returns the best `RAG_TOP_K` (default 8) **chunks** from an index: ChromaDB dense search (MiniLM) plus SQLite FTS5 keyword search (BM25), fused with Reciprocal Rank Fusion. Falls back to `legacy` if the index is missing or empty. |
+
+`hybrid` needs the knowledge base to be indexed once with `python -m src.tools.rag_index` (see *Indexing*).
 
 ## File Ingestion
 
@@ -67,21 +74,39 @@ Chunks are stored as ChromaDB documents with file path and chunk index as metada
 ## Hybrid Retrieval
 
 ```python
-# Semantic path (ChromaDB)
-vector_results = vector_store.query_similar(topic, n_results=5)
-# Score = 10.0 - cosine_distance
-
-# Keyword path (SQLite content table)
-for path, text in db.execute("SELECT path, text FROM content"):
-    filename = os.path.basename(path).lower()
-    topic_words = topic.lower().split()
-    filename_score = sum(1 for w in topic_words if w in filename)
-    # Include if: any topic word in text OR filename matches
-    # Content preview: 3000 chars
-
-# Merge and return both result sets
-# Result shape: {title, content, url (file://), score, type: "semantic"|"keyword"}
+# src/tools/vector_store.py: VectorStoreManager.query_hybrid(query, n_results, candidates=50)
+dense   = query_similar(query, candidates)    # Chroma, cosine over MiniLM embeddings
+lexical = query_lexical(query, candidates)    # SQLite FTS5, bm25(); stopwords removed, terms OR-ed
+score   = sum(1 / (60 + rank) for each list the chunk appears in)   # Reciprocal Rank Fusion
+# returns [{id, content, metadata, distance, score, found_by: ["dense", "lexical"]}]
 ```
+
+`local_rag_node` (mode `hybrid`) over-fetches 3 x `RAG_TOP_K` hits, drops junk chunks
+(table-of-contents dot leaders, broken characters, long runs without real words) and returns
+`{title: "book.pdf (p. 7)", content, url: "file://...#page=7", score}`.
+
+Why both retrievers: on a 198-question benchmark over 33,949 chunks of the real knowledge base,
+dense alone reached R@5 0.68 / R@10 0.73; BM25 alone 0.67 / 0.76; the fusion 0.73 / 0.85 (hybrid
+minus dense: +0.05 R@5 and +0.12 R@10, both with 95% bootstrap CIs above zero). Reproduce with
+`python scripts/eval_retrieval.py --persist-dir <copy of chroma_db> --questions questions.jsonl`.
+The benchmark questions were LLM-written from the chunks, which favours keyword matching, so treat
+the absolute numbers as optimistic.
+
+## Indexing
+
+```bash
+python -m src.tools.rag_index                  # new or changed files under $RAG_KB_DIR
+python -m src.tools.rag_index --only-missing   # skip files that already have chunks
+python -m src.tools.rag_index --max-pages 300  # cap pages per PDF (default: all)
+```
+
+- Chunks: 1000 characters, 100 overlap, id `<source>_<n>`, metadata `source`, `filename`, `page`.
+- Re-indexing a file first deletes its old chunks, so changed files are replaced, never duplicated.
+- Unchanged files are skipped using `mtime_size_maxpages`, stored in `indexed_files` inside the
+  keyword database (`rag_lexical.db`, next to `chroma_db`).
+- The keyword index is rebuilt from Chroma automatically when the two disagree on the chunk count,
+  so an existing Chroma collection works without re-embedding anything.
+- Encrypted PDFs are opened with an empty password; those that need a real one are reported as failed.
 
 ## Progress Tracking
 
@@ -117,6 +142,9 @@ Uploaded files are immediately available for the next research run. The cache is
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `RAG_KB_DIR` | `./knowledge_base` | Directory scanned for documents |
-| `CHROMA_PERSIST_DIR` | `/app/data/chroma_db` | ChromaDB persistence directory |
+| `CHROMA_PERSIST_DIR` | `/app/data/chroma_db` | ChromaDB persistence directory (keyword index goes next to it) |
+| `RAG_MODE` | `legacy` | `legacy` (file scan) or `hybrid` (Chroma + BM25 chunks) |
+| `RAG_TOP_K` | `8` | Chunks returned in `hybrid` mode |
+| `RAG_INDEX_MAX_PAGES` | all | Page cap per PDF for `rag_index` |
 | `max_file_size_mb` | 10 | Upload size limit |
 | `allowed_file_extensions` | `.pdf`, `.txt`, `.md` | Accepted formats |
