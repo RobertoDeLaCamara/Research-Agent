@@ -52,7 +52,7 @@ def _approx_token_ids(text: str) -> list:
     return [0] * (len(text) // 3 + 1)
 
 
-def get_llm(temperature: float = 0, timeout: int = None, **extra_kwargs):
+def get_llm(temperature: float = 0, timeout: int = None, tier: str = "heavy", **extra_kwargs):
     """
     Return a LangChain chat model configured from environment variables.
 
@@ -61,8 +61,22 @@ def get_llm(temperature: float = 0, timeout: int = None, **extra_kwargs):
 
     Extra keyword arguments (repeat_penalty, num_predict, stop, etc.) are
     forwarded to the underlying ChatOllama / ChatOpenAI constructor.
+
+    ``tier`` selects the hybrid routing. "heavy" (default) is the configured
+    main backend (e.g. an OpenAI-compatible cloud API). "light" is for cheap, verifiable steps
+    (query expansion, source routing, summarising) and goes to a local Ollama
+    model when LIGHT_LLM_MODEL is set (LIGHT_LLM_BASE_URL, default
+    http://localhost:11434). With LIGHT_LLM_MODEL unset, "light" behaves
+    exactly like "heavy", so the feature is opt-in.
     """
     t = timeout or settings.llm_request_timeout
+
+    if tier == "light":
+        light_model = os.environ.get("LIGHT_LLM_MODEL")
+        if light_model:
+            light_url = os.environ.get("LIGHT_LLM_BASE_URL") or "http://localhost:11434"
+            logger.debug(f"LLM: light tier -> ChatOllama base_url={light_url} model={light_model}")
+            return _build_ollama(light_url, light_model, temperature, t, extra_kwargs)
 
     # Read live env vars so runtime sidebar overrides work
     api_key = os.environ.get("OPENAI_API_KEY") or settings.openai_api_key
@@ -86,23 +100,28 @@ def get_llm(temperature: float = 0, timeout: int = None, **extra_kwargs):
         )
 
     else:
-        from langchain_ollama import ChatOllama
+        return _build_ollama(base_url, model, temperature, t, extra_kwargs)
 
-        # ChatOllama has no `request_timeout` field and silently drops it;
-        # the timeout must go to the underlying httpx client via client_kwargs.
-        extra_kwargs.setdefault("client_kwargs", {"timeout": t})
-        # Thinking models (qwen3.x) can spend minutes in the reasoning phase,
-        # and since langchain-ollama streams internally the httpx timeout
-        # never fires. Off by default; set OLLAMA_REASONING=true to enable.
-        extra_kwargs.setdefault(
-            "reasoning", os.environ.get("OLLAMA_REASONING", "false").lower() == "true"
-        )
-        extra_kwargs.setdefault("custom_get_token_ids", _approx_token_ids)
 
-        logger.debug(f"LLM: ChatOllama base_url={base_url} model={model}")
-        return ChatOllama(
-            base_url=base_url,
-            model=model,
-            temperature=temperature,
-            **extra_kwargs,
-        )
+def _build_ollama(base_url, model, temperature, t, extra_kwargs):
+    """Build a ChatOllama client (shared by the heavy and light tiers)."""
+    from langchain_ollama import ChatOllama
+
+    # ChatOllama has no `request_timeout` field and silently drops it;
+    # the timeout must go to the underlying httpx client via client_kwargs.
+    extra_kwargs.setdefault("client_kwargs", {"timeout": t})
+    # Thinking models (qwen3.x) can spend minutes in the reasoning phase,
+    # and since langchain-ollama streams internally the httpx timeout
+    # never fires. Off by default; set OLLAMA_REASONING=true to enable.
+    extra_kwargs.setdefault(
+        "reasoning", os.environ.get("OLLAMA_REASONING", "false").lower() == "true"
+    )
+    extra_kwargs.setdefault("custom_get_token_ids", _approx_token_ids)
+
+    logger.debug(f"LLM: ChatOllama base_url={base_url} model={model}")
+    return ChatOllama(
+        base_url=base_url,
+        model=model,
+        temperature=temperature,
+        **extra_kwargs,
+    )
