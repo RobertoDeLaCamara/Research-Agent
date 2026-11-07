@@ -174,7 +174,7 @@ def plan_research_node(state: AgentState) -> dict:
     LISTA DE FUENTES SELECCIONADAS:
     """
     
-    llm = get_llm(temperature=0.1)
+    llm = get_llm(temperature=0.1, tier="light")
     
     try:
         response = llm.invoke([HumanMessage(content=prompt)])

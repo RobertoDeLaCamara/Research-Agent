@@ -45,7 +45,7 @@ def expand_queries_multilingual(topic: str, target_languages: List[str] = ["en",
 
     from ..llm import get_llm
     bypass_proxy_for_ollama()
-    llm = get_llm(temperature=0.1, timeout=45)
+    llm = get_llm(temperature=0.1, timeout=45, tier="light")
 
     expanded = {lang: topic for lang in target_languages} # Fallback to original
 

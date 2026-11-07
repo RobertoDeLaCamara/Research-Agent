@@ -86,7 +86,7 @@ def summarize_videos_node(state: AgentState) -> dict:
     from ..utils import bypass_proxy_for_ollama
     bypass_proxy_for_ollama()
 
-    llm = get_llm(temperature=0)
+    llm = get_llm(temperature=0, tier="light")
 
     summarize_chain = load_summarize_chain(llm, chain_type="map_reduce")
 
