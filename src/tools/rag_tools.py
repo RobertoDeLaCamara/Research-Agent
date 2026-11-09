@@ -25,9 +25,16 @@ def _hybrid_local_research(topic: str):
         store = get_default_store()
         if store.count() == 0:
             return None
+        from .reranker import rerank_hits, rerank_url
         top_k = int(os.getenv("RAG_TOP_K", "8"))
+        reranking = rerank_url() is not None
+        # RERANK_URL set: rerank the hybrid top-N (default 30, as benchmarked) with the cross-encoder
+        pool = max(top_k, int(os.getenv("RERANK_CANDIDATES", "30"))) if reranking else top_k * 3
         # over-fetch, then drop index/TOC/garbled chunks that match keywords but say nothing
-        hits = [h for h in store.query_hybrid(topic, n_results=top_k * 3) if not looks_like_junk(h["content"])][:top_k]
+        hits = [h for h in store.query_hybrid(topic, n_results=pool) if not looks_like_junk(h["content"])]
+        if reranking:
+            hits = rerank_hits(topic, hits)
+        hits = hits[:top_k]
     except Exception as e:
         logger.error(f"hybrid_local_rag_failed: {e}")
         return None
