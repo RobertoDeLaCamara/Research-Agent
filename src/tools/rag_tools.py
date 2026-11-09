@@ -9,9 +9,67 @@ from .router_tools import update_next_node
 logger = logging.getLogger(__name__)
 
 
+LOCAL_RAG_META = {"local_rag": {"source_type": "user_provided_knowledge", "reliability": 5}}
+
+
+def _hybrid_local_research(topic: str):
+    """Best chunks for ``topic`` from the hybrid index (dense + BM25), in the shape local_research uses.
+
+    Returns None when the index is unavailable or empty so the caller can fall back to the file scan.
+    """
+    topic = (topic or "").strip()
+    if not topic:
+        return []
+    try:
+        from .vector_store import get_default_store, looks_like_junk
+        store = get_default_store()
+        if store.count() == 0:
+            return None
+        from .reranker import rerank_hits, rerank_url
+        top_k = int(os.getenv("RAG_TOP_K", "8"))
+        reranking = rerank_url() is not None
+        # RERANK_URL set: rerank the hybrid top-N (default 30, as benchmarked) with the cross-encoder
+        pool = max(top_k, int(os.getenv("RERANK_CANDIDATES", "30"))) if reranking else top_k * 3
+        # over-fetch, then drop index/TOC/garbled chunks that match keywords but say nothing
+        hits = [h for h in store.query_hybrid(topic, n_results=pool) if not looks_like_junk(h["content"])]
+        if reranking:
+            hits = rerank_hits(topic, hits)
+        hits = hits[:top_k]
+    except Exception as e:
+        logger.error(f"hybrid_local_rag_failed: {e}")
+        return None
+    results = []
+    for hit in hits:
+        meta = hit.get("metadata") or {}
+        source, page = meta.get("source") or "", meta.get("page")
+        name = meta.get("filename") or os.path.basename(source) or hit["id"]
+        url = f"file://{os.path.abspath(source)}" if source else ""
+        results.append({
+            "title": f"{name} (p. {page})" if page else name,
+            "content": hit["content"],
+            "url": f"{url}#page={page}" if url and page else url,
+            "score": hit.get("score", 0.0),
+        })
+    return results
+
+
 def local_rag_node(state: AgentState) -> dict:
-    """Scans ./knowledge_base and extracts text from PDF and TXT files."""
+    """Scans ./knowledge_base and extracts text from PDF and TXT files.
+
+    With RAG_MODE=hybrid it instead returns the best-matching chunks (RAG_TOP_K, default 8) from the
+    ChromaDB + BM25 index built by ``python -m src.tools.rag_index``.
+    """
     logger.info("local_rag_node_started")
+
+    if os.getenv("RAG_MODE", "legacy").strip().lower() == "hybrid":
+        hybrid = _hybrid_local_research(state.get("topic", ""))
+        if hybrid is not None:
+            return {
+                "local_research": hybrid,
+                "next_node": update_next_node(state, "local_rag"),
+                "source_metadata": LOCAL_RAG_META,
+            }
+        logger.warning("RAG_MODE=hybrid but the index is unavailable or empty; falling back to the file scan")
 
     kb_path = os.getenv("RAG_KB_DIR", "./knowledge_base")
     if not os.path.exists(kb_path):

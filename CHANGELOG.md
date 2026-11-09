@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Hybrid local RAG (`RAG_MODE=hybrid`): ChromaDB dense search + SQLite FTS5/BM25 fused with RRF, returning the
+  best chunks with book and page instead of whole files; `python -m src.tools.rag_index` builds and updates the
+  index (incremental, replaces changed files, skips table-of-contents/garbled chunks). Default stays `legacy`.
+  The semantic path had been dropped from `local_rag_node` in the 2026-04-06 merge (`824df11`); this restores it.
+- `scripts/eval_retrieval.py`: dense vs keyword vs hybrid recall/MRR with paired bootstrap confidence intervals.
 - MCP server 1.1.0: `start_research` / `get_research_result` background jobs, `depth`, `persona`, `lang`,
   `include_report` and sandboxed `output_dir` export (with YAML frontmatter) under `RESEARCH_AGENT_OUTPUT_ROOT`.
 - CLI flags `--depth` and `--persona` in `src/main.py`.
