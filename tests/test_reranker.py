@@ -43,7 +43,8 @@ def test_failures_keep_original_order():
             assert rerank_hits("q", hits) == hits
     with patch.dict(os.environ, URL), patch("src.tools.reranker.requests.post", return_value=bad_len):
         assert rerank_hits("q", hits) == hits
-    http_err = ok_response([1, 2]); http_err.raise_for_status.side_effect = requests.HTTPError("500")
+    http_err = ok_response([1, 2])
+    http_err.raise_for_status.side_effect = requests.HTTPError("500")
     with patch.dict(os.environ, URL), patch("src.tools.reranker.requests.post", return_value=http_err):
         assert rerank_hits("q", hits) == hits
 
@@ -58,7 +59,8 @@ class FakeStore:
     def __init__(self, hits): self._hits, self.calls = hits, []
     def count(self): return len(self._hits)
     def query_hybrid(self, query, n_results=5, candidates=50):
-        self.calls.append(n_results); return self._hits[:n_results]
+        self.calls.append(n_results)
+        return self._hits[:n_results]
 
 
 def run(store, env, scores=None):
