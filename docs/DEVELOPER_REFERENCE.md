@@ -13,18 +13,6 @@ print(settings.ollama_base_url)
 print(settings.max_results_per_source)
 ```
 
-### Caching (`src/cache.py`)
-Intelligent caching system for research results.
-
-```python
-from src.cache import cache_research
-
-@cache_research("web")
-def my_research_function(topic):
-    # Function will be cached automatically
-    return results
-```
-
 ### Progress Tracking (`src/progress.py`)
 Real-time progress updates during execution.
 
@@ -48,16 +36,6 @@ def my_function():
 
 # Get statistics
 stats = metrics.get_stats()
-```
-
-### Quality Scoring (`src/quality.py`)
-Content quality assessment and filtering.
-
-```python
-from quality import score_content_quality, filter_quality_content
-
-score = score_content_quality("Research content...")
-filtered_results = filter_quality_content(results, min_score=0.5)
 ```
 
 ### Validation (`src/validators.py`)
