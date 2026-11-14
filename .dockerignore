@@ -12,3 +12,12 @@ data/
 knowledge_base/
 reports/
 reporte_*
+
+# Secrets and local state: never bake these into the image
+.env
+.env.*
+*.db
+.claude
+.aider*
+.pytest_cache
+.ruff_cache
