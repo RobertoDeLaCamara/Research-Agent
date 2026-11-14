@@ -45,7 +45,7 @@ cd Research-Agent
 
 python -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.txt -c constraints.txt
 
 cp env.example .env               # edit with your settings
 streamlit run src/app.py

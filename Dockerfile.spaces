@@ -9,9 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Non-root user (HF Spaces runs as user 1000)
 RUN useradd -m -u 1000 user && chown -R user:user /app
 
-COPY --chown=user:user requirements.txt .
+COPY --chown=user:user requirements.txt constraints.txt ./
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt -c constraints.txt
 
 COPY --chown=user:user . .
 

@@ -11,7 +11,7 @@ docker compose up -d   # minimal compose: 8501 -> 7860, bring your own Ollama
 
 # Local
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -c constraints.txt
 cp env.example .env
 
 # CLI

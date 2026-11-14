@@ -142,7 +142,7 @@ Works with any OpenAI-compatible endpoint: LM Studio, Together AI, Groq, Ollama,
 ### Local Installation (no Docker)
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -c constraints.txt
 cp env.example .env   # edit OLLAMA_BASE_URL if Ollama is not on localhost
 streamlit run src/app.py
 ```
