@@ -24,8 +24,9 @@ def test_search_web_node_tavily(mock_get, mock_agent_state, monkeypatch):
         assert result["web_research"][0]["content"] == "Markdown content from Jina"
         assert "next_node" in result
 
-def test_search_web_node_ddg(mock_agent_state):
-    # Mock settings and DDG
+def test_search_web_node_ddg(mock_agent_state, monkeypatch):
+    # No Tavily key anywhere (settings or environment) -> DuckDuckGo fallback
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
     with patch("langchain_community.tools.DuckDuckGoSearchRun") as mock_ddg, \
          patch("src.config.settings") as mock_settings:
         
