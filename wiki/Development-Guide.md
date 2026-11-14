@@ -16,7 +16,7 @@ docker compose -f docker-compose.full.yml up -d   # Ollama + model pre-pull (qwe
 
 # Local
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -c constraints.txt
 cp env.example .env
 # Edit .env: OLLAMA_BASE_URL, TAVILY_API_KEY, GITHUB_TOKEN, etc.
 

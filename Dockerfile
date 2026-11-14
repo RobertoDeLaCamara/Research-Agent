@@ -11,9 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN useradd -m -d /app app && chown -R app:app /app
 
 # Install dependencies first (layer caching)
-COPY --chown=app:app requirements.txt .
+COPY --chown=app:app requirements.txt constraints.txt ./
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt -c constraints.txt
 
 # Copy application code
 COPY --chown=app:app . .
