@@ -1,5 +1,16 @@
 import pytest
 
+# Opt-in feature switches that a developer's .env may set. mcp_server loads .env into
+# os.environ at import time, so without this they leak into every test in the session.
+_OPT_IN_ENV = ("RAG_MODE", "RAG_TOP_K", "RERANK_URL", "LIGHT_LLM_MODEL", "LIGHT_LLM_BASE_URL")
+
+
+@pytest.fixture(autouse=True)
+def _isolate_opt_in_env(monkeypatch):
+    """Each test starts with the opt-in switches unset; tests enable them with monkeypatch.setenv."""
+    for name in _OPT_IN_ENV:
+        monkeypatch.delenv(name, raising=False)
+
 @pytest.fixture
 def mock_agent_state():
     """

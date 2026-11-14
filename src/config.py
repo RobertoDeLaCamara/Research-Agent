@@ -57,7 +57,10 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
+    # extra="ignore": .env also carries variables that are read straight from
+    # os.environ (RAG_MODE, RERANK_URL, LIGHT_LLM_*). Rejecting them would make
+    # importing this module fail for anyone following env.example.
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
 
 settings = Settings()
