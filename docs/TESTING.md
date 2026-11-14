@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Research-Agent has comprehensive test coverage with **67 tests, all passing**. This guide explains how to run tests, write new tests, and maintain test quality.
+The suite runs in CI on every push to `main` (Jenkins), where the build fails below 60% line coverage of `src/`. This guide explains how to run tests, write new tests, and maintain test quality.
 
 ## Running Tests
 
