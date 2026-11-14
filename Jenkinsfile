@@ -53,7 +53,7 @@ pipeline {
                                 --cov=src \
                                 --cov-report=term \
                                 --cov-report=xml:coverage.xml \
-                                --cov-fail-under=45 \
+                                --cov-fail-under=60 \
                                 --junitxml=test-results.xml \
                                 --disable-warnings
                         """
