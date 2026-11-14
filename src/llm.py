@@ -20,6 +20,7 @@
 import logging
 import os
 from .config import settings
+from .credentials import get_credential
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +57,8 @@ def get_llm(temperature: float = 0, timeout: int = None, tier: str = "heavy", **
     """
     Return a LangChain chat model configured from environment variables.
 
-    Reads os.environ at call time so runtime overrides (e.g. from the
-    HF Spaces sidebar key input) take effect without restarting the process.
+    Resolved at call time through ``get_credential`` so the keys and model a
+    visitor entered in the UI apply to their run only (see src/credentials.py).
 
     Extra keyword arguments (repeat_penalty, num_predict, stop, etc.) are
     forwarded to the underlying ChatOllama / ChatOpenAI constructor.
@@ -78,10 +79,10 @@ def get_llm(temperature: float = 0, timeout: int = None, tier: str = "heavy", **
             logger.debug(f"LLM: light tier -> ChatOllama base_url={light_url} model={light_model}")
             return _build_ollama(light_url, light_model, temperature, t, extra_kwargs)
 
-    # Read live env vars so runtime sidebar overrides work
-    api_key = os.environ.get("OPENAI_API_KEY") or settings.openai_api_key
-    base_url = os.environ.get("OLLAMA_BASE_URL") or settings.ollama_base_url
-    model = os.environ.get("OLLAMA_MODEL") or settings.ollama_model
+    # Per-run overrides (keys/model a visitor entered in the UI) win over the server config
+    api_key = get_credential("OPENAI_API_KEY")
+    base_url = get_credential("OLLAMA_BASE_URL")
+    model = get_credential("OLLAMA_MODEL")
 
     if api_key or _is_cloud_endpoint(base_url):
         from langchain_openai import ChatOpenAI

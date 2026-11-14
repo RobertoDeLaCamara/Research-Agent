@@ -1,5 +1,6 @@
 # src/tools/parallel_tools.py
 
+import contextvars
 import json
 import logging
 import os
@@ -87,7 +88,9 @@ def parallel_search_node(state: AgentState) -> dict:
         for source_name in plan:
             fn = source_functions.get(source_name)
             if fn:
-                future = executor.submit(fn, state)
+                # Pool threads do not inherit contextvars; copy the context so the
+                # per-run credentials (src/credentials.py) reach each source.
+                future = executor.submit(contextvars.copy_context().run, fn, state)
                 futures_map[future] = source_name
             else:
                 logger.warning(f"Unknown source in plan: {source_name}")

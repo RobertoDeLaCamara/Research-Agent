@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- API keys and the model a visitor enters in the UI are now scoped to that visitor's session. They were written
+  to `os.environ`, which every session of the server shares: on a public deployment one visitor's key was used
+  by, and pre-filled in the key fields of, everyone else. A server-side key is no longer sent to the browser as
+  the value of its (disabled) field. See `src/credentials.py`.
+
 ### Added
 - Hybrid local RAG (`RAG_MODE=hybrid`): ChromaDB dense search + SQLite FTS5/BM25 fused with RRF, returning the
   best chunks with book and page instead of whole files; `python -m src.tools.rag_index` builds and updates the

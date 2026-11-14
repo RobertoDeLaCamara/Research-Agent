@@ -12,9 +12,20 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(project_root, ".env"))
 
 from src.agent import app
+from src.credentials import server_has, use_credentials
+
 import streamlit.components.v1 as components
 from src.db_manager import get_recent_sessions, load_session, clear_history
 from src.i18n import T
+
+
+def _run_credentials(selected_model: str) -> dict:
+    """Keys/backend this session entered, plus the sidebar model, for one agent or chat call."""
+    creds = dict(st.session_state.get("credentials", {}))
+    # When the key panel chose a cloud backend, its model wins over the Ollama selector.
+    if not creds.pop("_backend_from_key_panel", None):
+        creds["OLLAMA_MODEL"] = selected_model
+    return creds
 
 # Configuración de la página
 st.set_page_config(
@@ -87,8 +98,12 @@ with st.sidebar:
         except Exception:
             return [os.environ.get("OLLAMA_MODEL", "qwen2.5:1.5b")]
 
+    # Keys and backend choices a visitor enters stay in their own session (never os.environ,
+    # which is shared by every session of this server). See src/credentials.py.
+    session_creds = st.session_state.setdefault("credentials", {})
+
     available_models = _get_ollama_models(os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434"))
-    current_model = os.environ.get("OLLAMA_MODEL", available_models[0])
+    current_model = session_creds.get("OLLAMA_MODEL") or os.environ.get("OLLAMA_MODEL", available_models[0])
     default_index = available_models.index(current_model) if current_model in available_models else 0
 
     llm_model = st.selectbox(
@@ -215,14 +230,15 @@ with st.sidebar:
 
         if st.button(_["hf_key_apply"], use_container_width=True):
             if api_key_input:
-                os.environ["OPENAI_API_KEY"] = api_key_input
-                os.environ["OLLAMA_BASE_URL"] = base_url
-                os.environ["OLLAMA_MODEL"] = custom_model.strip() or default_model
+                session_creds["OPENAI_API_KEY"] = api_key_input
+                session_creds["OLLAMA_BASE_URL"] = base_url
+                session_creds["OLLAMA_MODEL"] = custom_model.strip() or default_model
+                session_creds["_backend_from_key_panel"] = "1"
                 st.success(_["hf_key_success"])
             else:
                 st.error(_["hf_key_error"])
 
-        if not os.environ.get("OPENAI_API_KEY"):
+        if not (session_creds.get("OPENAI_API_KEY") or server_has("OPENAI_API_KEY")):
             st.warning(_["hf_key_warning"])
 
     # Optional API keys (always visible)
@@ -230,40 +246,41 @@ with st.sidebar:
     with st.expander(_["opt_keys_header"]):
         st.caption(_["opt_keys_caption"])
 
-        tavily_configured = bool(os.environ.get("TAVILY_API_KEY"))
-        github_configured = bool(os.environ.get("GITHUB_TOKEN"))
-        youtube_configured = bool(os.environ.get("YOUTUBE_API_KEY"))
+        # "configured" = the server has its own key. Its value is never sent to the browser.
+        tavily_configured = server_has("TAVILY_API_KEY")
+        github_configured = server_has("GITHUB_TOKEN")
+        youtube_configured = server_has("YOUTUBE_API_KEY")
 
         tavily_input = st.text_input(
             _["opt_keys_tavily"] + (" ✅" if tavily_configured else ""),
             type="password",
             placeholder=_["opt_keys_tavily_hint"],
-            value=os.environ.get("TAVILY_API_KEY", ""),
+            value=session_creds.get("TAVILY_API_KEY", ""),
             disabled=tavily_configured,
         )
         github_input = st.text_input(
             _["opt_keys_github"] + (" ✅" if github_configured else ""),
             type="password",
             placeholder=_["opt_keys_github_hint"],
-            value=os.environ.get("GITHUB_TOKEN", ""),
+            value=session_creds.get("GITHUB_TOKEN", ""),
             disabled=github_configured,
         )
         youtube_input = st.text_input(
             _["opt_keys_youtube"] + (" ✅" if youtube_configured else ""),
             type="password",
             placeholder=_["opt_keys_youtube_hint"],
-            value=os.environ.get("YOUTUBE_API_KEY", ""),
+            value=session_creds.get("YOUTUBE_API_KEY", ""),
             disabled=youtube_configured,
         )
 
         if not all([tavily_configured, github_configured, youtube_configured]):
             if st.button(_["opt_keys_apply"], use_container_width=True):
-                if tavily_input:
-                    os.environ["TAVILY_API_KEY"] = tavily_input
-                if github_input:
-                    os.environ["GITHUB_TOKEN"] = github_input
-                if youtube_input:
-                    os.environ["YOUTUBE_API_KEY"] = youtube_input
+                if tavily_input and not tavily_configured:
+                    session_creds["TAVILY_API_KEY"] = tavily_input
+                if github_input and not github_configured:
+                    session_creds["GITHUB_TOKEN"] = github_input
+                if youtube_input and not youtube_configured:
+                    session_creds["YOUTUBE_API_KEY"] = youtube_input
                 st.success(_["opt_keys_success"])
                 st.rerun()
 
@@ -318,8 +335,9 @@ if st.button(_["start_btn"]):
 
         with st.status(_["status_running"], expanded=True) as status:
             try:
-                # Actualizar variables de entorno para el modelo seleccionado
-                os.environ["OLLAMA_MODEL"] = llm_model
+                # The model picked in the sidebar applies to this session's runs only.
+                # (When the key panel chose a cloud backend, its model wins.)
+                run_creds = _run_credentials(llm_model)
 
                 # Pass selected sources and depth to the agent
                 inputs = {
@@ -384,8 +402,9 @@ if st.button(_["start_btn"]):
                 
                 def run_agent_in_thread(inputs_dict, q):
                     try:
-                        for chunk in app.stream(inputs_dict, config={"recursion_limit": 100}):
-                            q.put(chunk)
+                        with use_credentials(run_creds):
+                            for chunk in app.stream(inputs_dict, config={"recursion_limit": 100}):
+                                q.put(chunk)
                     except Exception as e:
                         q.put({"error": str(e)})
                     finally:
@@ -604,7 +623,8 @@ if st.session_state.investigation_done:
                 try:
                     # Use the chat_node directly if we just want conversation
                     from src.tools.chat_tools import chat_node
-                    response_state = chat_node(current_state)
+                    with use_credentials(_run_credentials(llm_model)):
+                        response_state = chat_node(current_state)
                     ai_response = response_state["messages"][0].content
 
                     st.markdown(ai_response)

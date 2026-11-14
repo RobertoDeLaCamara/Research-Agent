@@ -1,6 +1,5 @@
 # src/tools/research_tools.py
 
-import os
 import logging
 from github import Github  # noqa: F401 — needed for test mocking
 from langchain_community.document_loaders import WikipediaLoader
@@ -8,6 +7,7 @@ import arxiv
 from semanticscholar import SemanticScholar
 import re
 import datetime
+from ..credentials import get_credential
 from ..state import AgentState
 from ..utils import get_max_results
 from .router_tools import update_next_node
@@ -22,12 +22,7 @@ def search_web_node(state: AgentState) -> dict:
 
     max_results = get_max_results(state)
 
-    try:
-        from ..config import settings
-        tavily_key = settings.tavily_api_key
-    except (ImportError, AttributeError):
-        import os
-        tavily_key = os.getenv("TAVILY_API_KEY")
+    tavily_key = get_credential("TAVILY_API_KEY")
 
     results = []
 
@@ -268,7 +263,7 @@ def search_github_node(state: AgentState) -> dict:
     topic = queries.get("en", state["topic"])
     results = []
 
-    token = os.getenv("GITHUB_TOKEN")
+    token = get_credential("GITHUB_TOKEN")
     try:
         from github import Github
         if token:

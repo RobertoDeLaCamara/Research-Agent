@@ -1,5 +1,5 @@
-import os
 import logging
+from ..credentials import get_credential
 from ..state import AgentState
 from .router_tools import update_next_node
 
@@ -17,16 +17,7 @@ def search_reddit_node(state: AgentState) -> dict:
     from ..utils import get_max_results
     max_results = get_max_results(state)
 
-    # Prioritize config from settings for API key
-    try:
-        from ..config import settings
-        tavily_key = settings.tavily_api_key
-    except (ImportError, AttributeError) as e:
-        logger.debug(f"Could not load tavily_api_key from settings: {e}")
-        tavily_key = None
-
-    if not tavily_key:
-        tavily_key = os.getenv("TAVILY_API_KEY")
+    tavily_key = get_credential("TAVILY_API_KEY")
 
     results = []
 
