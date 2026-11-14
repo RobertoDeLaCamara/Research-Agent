@@ -122,18 +122,13 @@ src/
 ├── config.py          # Configuration management
 ├── state.py           # Shared state definitions
 ├── utils.py           # Utility functions
-├── cache.py           # Caching system
 ├── db_manager.py       # Cross-session memory / persistence
 ├── i18n.py             # Internationalization
 ├── llm.py              # LLM provider wiring (Ollama/OpenAI/cloud)
-├── logging_config.py   # Logging setup
-├── thread_utils.py     # Threading helpers
 ├── metrics.py          # Performance monitoring
 ├── progress.py         # Progress tracking
 ├── validators.py      # Input validation
 ├── health.py          # Health checks
-├── quality.py         # Content quality scoring
-├── async_research.py  # Async operations
 ├── agent.py           # Main agent workflow
 ├── main.py            # CLI entry point
 ├── app.py             # Web dashboard

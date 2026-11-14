@@ -373,15 +373,10 @@ tavily_api_key = os.getenv("TAVILY_API_KEY")
 
 ### Logging
 
-Structured logging via `structlog` wrapping stdlib `logging`. All existing `logging.getLogger()` calls flow through structlog processors automatically.
-
-- **Dev** (`ENV=dev`, default): Pretty console output via `ConsoleRenderer`
-- **Production** (`ENV=production`): JSON output via `JSONRenderer`
-
-Configuration: `src/logging_config.py`, called from `src/utils.py:setup_logging()`.
+Standard library `logging`, configured once by `src/utils.py:setup_logging()` (level from `--log-level` or `LOG_LEVEL`). Modules get their logger with `logging.getLogger(__name__)` and use short event-style messages:
 
 ```python
-logger.info("arxiv_search_completed", results_count=5)
+logger.info(f"arxiv_search_completed results_count={len(results)}")
 logger.warning("github_search_failed", exc_info=e)
 logger.error("smtp_authentication_failed")
 ```
