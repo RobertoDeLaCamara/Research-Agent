@@ -267,7 +267,7 @@ class Settings(BaseSettings):
 
     # Security
     max_file_size_mb: int = 10
-    allowed_file_extensions: List[str] = ['.pdf', '.txt', '.md']
+    allowed_file_extensions: List[str] = ['.pdf', '.txt']
 ```
 
 ### Research Depth Mapping

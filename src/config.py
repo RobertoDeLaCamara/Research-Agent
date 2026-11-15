@@ -21,7 +21,6 @@ class Settings(BaseSettings):
     # Performance Settings
     max_results_per_source: int = 5
     max_concurrent_requests: int = 5
-    max_content_length: int = 50000
     request_timeout: int = 30
     cache_expiry_hours: int = 24
     
@@ -29,7 +28,6 @@ class Settings(BaseSettings):
     web_search_timeout: int = 12
     llm_request_timeout: int = 60
     content_fetch_timeout: int = 3
-    thread_execution_timeout: int = 12
     
     # Content Limits
     max_synthesis_context_chars: int = 25000
@@ -42,7 +40,8 @@ class Settings(BaseSettings):
     
     # File Upload Limits
     max_file_size_mb: int = 10
-    allowed_file_extensions: List[str] = ['.pdf', '.txt', '.md']
+    # Only what local_rag can read (rag_tools / rag_index handle .pdf and .txt)
+    allowed_file_extensions: List[str] = ['.pdf', '.txt']
     
     # Database Configuration
     db_path: str = "research_sessions.db"

@@ -134,7 +134,6 @@ data/
 | `web_search_timeout` | 12s | config.py |
 | `llm_request_timeout` | 60s | config.py |
 | `content_fetch_timeout` | 3s | config.py (Jina Reader per URL) |
-| `thread_execution_timeout` | 12s | config.py |
 | LLM synthesis | 360s | synthesis_tools.py (hard-coded, 6 min) |
 | Wikipedia | 10s | research_tools.py |
 | arXiv | 12s | research_tools.py |
