@@ -155,5 +155,5 @@ Uploaded files are immediately available for the next research run. The cache is
 | `BOOKS_RAG_TIMEOUT` | `45` | Seconds per books search request |
 | `USE_RAG_DEFAULT` | on if `BOOKS_RAG_URL` set | Default for the local knowledge checkbox (`true`/`false`) |
 | `RAG_INDEX_MAX_PAGES` | all | Page cap per PDF for `rag_index` |
-| `max_file_size_mb` | 10 | Upload size limit |
-| `allowed_file_extensions` | `.pdf`, `.txt`, `.md` | Accepted formats |
+
+Uploads accept `.pdf` and `.txt` (set in `src/app.py`). `max_file_size_mb` and `allowed_file_extensions` in `src/config.py` are not enforced yet.

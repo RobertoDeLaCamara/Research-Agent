@@ -133,6 +133,7 @@ def search_X_node(state: AgentState) -> dict:
 - Text file ingestion
 - Semantic vector search via ChromaDB + `all-MiniLM-L6-v2` embeddings (`src/tools/vector_store.py`)
 - Hybrid retrieval: semantic + SQLite keyword matching, merged and scored
+- Optional external books library (`BOOKS_RAG_URL`): book chunks with book/page/chapter citations, combined with the knowledge base results
 - Citation tracking
 
 ## Workflow Execution
