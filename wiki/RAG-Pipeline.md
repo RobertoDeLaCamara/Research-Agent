@@ -11,6 +11,12 @@ The local RAG source (`local_rag`) provides retrieval over user-uploaded documen
 
 `hybrid` needs the knowledge base to be indexed once with `python -m src.tools.rag_index` (see *Indexing*).
 
+### External books library (optional)
+
+When `BOOKS_RAG_URL` points to a books search service (`GET <url>/api/search?q=...&top_k=N`, as served by pdf-books-mcp), `local_rag` also queries it with the English query. Book chunks come first, followed by the knowledge base results from the mode above. Each chunk is titled `Book (pp. X-Y, Chapter)` and linked as `file://<path>#page=X`. Index and table-of-contents chunks are dropped. If the service does not answer, the run carries on with the knowledge base only. A connection error is retried once with `host.docker.internal` and `127.0.0.1` swapped, so the same URL works inside and outside Docker.
+
+With `BOOKS_RAG_URL` set, the "Include local knowledge base" checkbox starts checked, and the planner always includes `local_rag` when it is enabled. `USE_RAG_DEFAULT` overrides the checkbox default either way.
+
 ## File Ingestion
 
 ```
@@ -145,6 +151,9 @@ Uploaded files are immediately available for the next research run. The cache is
 | `CHROMA_PERSIST_DIR` | `/app/data/chroma_db` | ChromaDB persistence directory (keyword index goes next to it) |
 | `RAG_MODE` | `legacy` | `legacy` (file scan) or `hybrid` (Chroma + BM25 chunks) |
 | `RAG_TOP_K` | `8` | Chunks returned in `hybrid` mode |
+| `BOOKS_RAG_URL` | unset | Books search service; enables the external books library |
+| `BOOKS_RAG_TIMEOUT` | `45` | Seconds per books search request |
+| `USE_RAG_DEFAULT` | on if `BOOKS_RAG_URL` set | Default for the local knowledge checkbox (`true`/`false`) |
 | `RAG_INDEX_MAX_PAGES` | all | Page cap per PDF for `rag_index` |
 | `max_file_size_mb` | 10 | Upload size limit |
 | `allowed_file_extensions` | `.pdf`, `.txt`, `.md` | Accepted formats |

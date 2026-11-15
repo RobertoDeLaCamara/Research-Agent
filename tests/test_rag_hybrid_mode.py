@@ -83,3 +83,62 @@ def test_hybrid_mode_drops_junk_chunks_and_overfetches(mock_agent_state):
     out = run(mock_agent_state, store, {"RAG_MODE": "hybrid", "RAG_TOP_K": "1"})
     assert [r["content"] for r in out["local_research"]] == ["attention is all you need"]
     assert store.calls[0][1] == 3  # asked for 3x top_k so filtering still leaves enough
+
+
+def test_books_rag_url_returns_formatted_book_chunks(mock_agent_state, monkeypatch):
+    monkeypatch.setenv("BOOKS_RAG_URL", "http://host.docker.internal:8765")
+    monkeypatch.setenv("RAG_TOP_K", "2")
+    fake_resp = type("Resp", (), {
+        "raise_for_status": lambda self: None,
+        "json": lambda self: {
+            "results": [
+                {
+                    "book_title": "Deep Learning with Python",
+                    "file_name": "dl_python.pdf",
+                    "file_path": "C:/Books/dl_python.pdf",
+                    "page_start": 42,
+                    "page_end": 44,
+                    "chapter": "Chapter 3",
+                    "text": "Hopfield networks minimize an energy function to converge to attractors.",
+                    "similarity_score": 0.8123,
+                }
+            ]
+        },
+    })()
+    with patch("requests.get", return_value=fake_resp) as mock_get:
+        out = local_rag_node(mock_agent_state)
+    assert len(out["local_research"]) == 1
+    item = out["local_research"][0]
+    assert item["title"] == "Deep Learning with Python (pp. 42-44, Chapter 3)"
+    assert item["content"].startswith("Hopfield networks")
+    assert item["url"] == "file://C:/Books/dl_python.pdf#page=42"
+    assert item["score"] == 0.8123
+    assert mock_get.called
+
+
+BOOK_HIT = {"book_title": "Book A", "file_path": "/b/a.pdf", "page_start": 3, "page_end": 3,
+            "chapter": "Intro", "text": "Hopfield energy converges to stable attractors.", "similarity_score": 0.7}
+
+
+def _books_resp(hits):
+    return type("Resp", (), {"raise_for_status": lambda self: None, "json": lambda self: {"results": hits}})()
+
+
+def test_books_and_knowledge_base_results_are_combined(mock_agent_state):
+    store = FakeStore(hits=[HIT])
+    env = {"RAG_MODE": "hybrid", "BOOKS_RAG_URL": "http://127.0.0.1:8765"}
+    with patch("requests.get", return_value=_books_resp([BOOK_HIT])):
+        out = run(mock_agent_state, store, env)
+    assert [r["title"] for r in out["local_research"]] == ["Book A (p. 3, Intro)", "book.pdf (p. 7)"]
+
+
+def test_unreachable_books_service_falls_back_to_knowledge_base(mock_agent_state):
+    import requests
+    store = FakeStore(hits=[HIT])
+    env = {"RAG_MODE": "hybrid", "BOOKS_RAG_URL": "http://host.docker.internal:8765"}
+    with patch("requests.get", side_effect=requests.ConnectionError("down")) as mock_get:
+        out = run(mock_agent_state, store, env)
+    assert [r["title"] for r in out["local_research"]] == ["book.pdf (p. 7)"]
+    # tried the configured host, then the swapped one
+    assert [c.args[0] for c in mock_get.call_args_list] == [
+        "http://host.docker.internal:8765/api/search", "http://127.0.0.1:8765/api/search"]

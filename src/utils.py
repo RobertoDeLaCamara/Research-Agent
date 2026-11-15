@@ -49,7 +49,7 @@ def bypass_proxy_for_ollama() -> None:
         hostname = urlparse(ollama_url).hostname
 
         # Base local addresses to always bypass
-        bypass_hosts = {"localhost", "127.0.0.1"}
+        bypass_hosts = {"localhost", "127.0.0.1", "host.docker.internal"}
         if hostname:
             bypass_hosts.add(hostname)
 
@@ -75,3 +75,20 @@ def get_max_results(state: dict) -> int:
         "deep": 10
     }
     return mapping.get(depth, 5)
+
+
+def swap_local_host(url: str) -> str:
+    """Swap host.docker.internal <-> 127.0.0.1 so a local service URL works inside and outside Docker."""
+    if "host.docker.internal" in url:
+        return url.replace("host.docker.internal", "127.0.0.1")
+    return url.replace("127.0.0.1", "host.docker.internal")
+
+
+def default_use_rag() -> bool:
+    """Whether local_rag is enabled by default when state['use_rag'] is not explicitly provided."""
+    flag = os.getenv("USE_RAG_DEFAULT", "").strip().lower()
+    if flag in ("1", "true", "yes"):
+        return True
+    if flag in ("0", "false", "no"):
+        return False
+    return bool((os.getenv("BOOKS_RAG_URL") or "").strip())
