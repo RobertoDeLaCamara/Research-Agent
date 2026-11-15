@@ -71,6 +71,7 @@ Cheap steps (query expansion, source routing) can run on a small local model whi
 | `CONTENT_FETCH_TIMEOUT` | `3` | Timeout for fetching a page's full text, in seconds |
 | `MAX_CONTENT_PREVIEW_CHARS` | `5000` | Characters kept from a fetched page |
 | `MAX_SYNTHESIS_CONTEXT_CHARS` | `25000` | Source text passed to the report writer |
+| `LOCAL_CONTEXT_MAX_CHARS` | `7500` | Part of that budget for local knowledge (books, knowledge base); whole chunks, best first. `0` = no cap |
 | `SYNTHESIS_NUM_CTX` | `16384` | Ollama context window for the report call. If it is too small, Ollama drops the start of the prompt (the instructions). |
 | `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING` or `ERROR` |
 | `DB_PATH` | `research_sessions.db` | SQLite file for saved sessions |
