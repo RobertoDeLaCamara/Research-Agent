@@ -8,13 +8,13 @@ from src.credentials import get_credential, server_has, use_credentials
 
 
 def test_override_wins_and_is_removed_after_the_run(monkeypatch):
-    monkeypatch.setenv("TAVILY_API_KEY", "server-key")
+    monkeypatch.setenv("GITHUB_TOKEN", "server-key")
 
-    with use_credentials({"TAVILY_API_KEY": "visitor-key"}):
-        assert get_credential("TAVILY_API_KEY") == "visitor-key"
+    with use_credentials({"GITHUB_TOKEN": "visitor-key"}):
+        assert get_credential("GITHUB_TOKEN") == "visitor-key"
 
-    assert get_credential("TAVILY_API_KEY") == "server-key"
-    assert os.environ["TAVILY_API_KEY"] == "server-key"  # never written to the environment
+    assert get_credential("GITHUB_TOKEN") == "server-key"
+    assert os.environ["GITHUB_TOKEN"] == "server-key"  # never written to the environment
 
 
 def test_empty_override_falls_back_to_server_config(monkeypatch):
@@ -59,7 +59,7 @@ def test_parallel_search_passes_credentials_to_worker_threads(monkeypatch):
     seen = {}
 
     def fake_source(state):
-        seen["key"] = get_credential("TAVILY_API_KEY")
+        seen["key"] = get_credential("GITHUB_TOKEN")
         seen["thread"] = threading.current_thread().name
         return {}
 
@@ -67,7 +67,7 @@ def test_parallel_search_passes_credentials_to_worker_threads(monkeypatch):
     monkeypatch.setattr("src.tools.parallel_tools._write_status", lambda **kwargs: None)
     from src.tools.parallel_tools import parallel_search_node
 
-    with use_credentials({"TAVILY_API_KEY": "visitor-key"}):
+    with use_credentials({"GITHUB_TOKEN": "visitor-key"}):
         parallel_search_node({"topic": "t", "research_plan": ["web"]})
 
     assert seen["key"] == "visitor-key"

@@ -32,7 +32,7 @@ license: mit
 
 ## ✨ Features
 
-- **10 parallel sources** — Web (Tavily), Wikipedia, arXiv, Semantic Scholar, GitHub, Hacker News, Stack Overflow, Reddit, YouTube, local RAG
+- **10 parallel sources** — Web (DuckDuckGo), Wikipedia, arXiv, Semantic Scholar, GitHub, Hacker News, Stack Overflow, Reddit, YouTube, local RAG
 - **Self-correction loop** — evaluates gaps and re-plans up to 2 iterations
 - **5 research personas** — Generalist, Software Architect, Market Analyst, Scientific Reviewer, Product Manager
 - **Export** — PDF, Word, Markdown, HTML with citations
@@ -43,15 +43,13 @@ license: mit
 
 1. **Get a free API key** from [Groq](https://console.groq.com) — takes 2 min, no credit card
 2. Paste it in the sidebar **LLM API Key** panel → click **Apply**
-3. Optionally add a [Tavily](https://tavily.com) key for web search (free tier: 1000 req/month)
-4. Type a research topic and click **Start Research**
+3. Type a research topic and click **Start Research**
 
 ## 🔑 API keys
 
 | Key | Source | Required? |
 |---|---|---|
 | LLM (Groq / Gemini / OpenAI) | sidebar | ✅ Yes |
-| Tavily | sidebar | Optional (web search) |
 | GitHub Token | sidebar | Optional (GitHub source) |
 | YouTube Data API | sidebar | Optional (better YT search) |
 

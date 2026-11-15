@@ -32,7 +32,7 @@ The Research-Agent is built on **LangGraph**, a framework for creating stateful,
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                   External Services                          │
-│  • Ollama (LLM)    • Tavily (Web)    • GitHub              │
+│  • Ollama (LLM)    • DuckDuckGo (Web) • GitHub              │
 │  • arXiv           • Semantic Scholar • Reddit              │
 │  • YouTube         • Stack Overflow   • Hacker News         │
 └─────────────────────────────────────────────────────────────┘
@@ -85,7 +85,7 @@ def parallel_search_node(state):
 ### 3. Research Tools (`src/tools/research_tools.py`)
 
 **Multi-Source Data Collection:**
-- `search_web_node`: Tavily/DuckDuckGo with Jina Reader enhancement
+- `search_web_node`: DuckDuckGo (`ddgs`) with Jina Reader enhancement
 - `search_wiki_node`: Wikipedia summaries
 - `search_arxiv_node`: Academic papers
 - `search_scholar_node`: Semantic Scholar citations
@@ -339,7 +339,7 @@ cursor.execute('SELECT * FROM sessions WHERE id = ?', (session_id,))
 ### API Key Management
 ```python
 # Environment variables only
-tavily_api_key = os.getenv("TAVILY_API_KEY")
+github_token = os.getenv("GITHUB_TOKEN")
 ```
 
 ## Extension Points

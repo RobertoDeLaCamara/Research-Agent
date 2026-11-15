@@ -4,7 +4,7 @@
 
 - Python 3.12+
 - Ollama with a model pulled (code default `qwen3:14b`: `ollama pull qwen3:14b`; compose and `env.example` use `qwen2.5:1.5b`)
-- Optional: Tavily API key (`TAVILY_API_KEY`), GitHub token (`GITHUB_TOKEN`)
+- Optional: GitHub token (`GITHUB_TOKEN`)
 
 ## Setup
 
@@ -18,7 +18,7 @@ docker compose -f docker-compose.full.yml up -d   # Ollama + model pre-pull (qwe
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt -c constraints.txt
 cp env.example .env
-# Edit .env: OLLAMA_BASE_URL, TAVILY_API_KEY, GITHUB_TOKEN, etc.
+# Edit .env: OLLAMA_BASE_URL, GITHUB_TOKEN, etc.
 
 streamlit run src/app.py --server.address=0.0.0.0
 # or CLI:
@@ -46,7 +46,6 @@ pytest tests/ -n auto     # parallel
 |----------|----------|---------|-------------|
 | `OLLAMA_BASE_URL` | No | `http://localhost:11434` | Ollama server URL |
 | `OLLAMA_MODEL` | No | `qwen3:14b` | Model name |
-| `TAVILY_API_KEY` | No | — | Primary web search; DuckDuckGo used if absent |
 | `GITHUB_TOKEN` | No | — | GitHub API rate limit (5000/h vs 60/h unauthenticated) |
 | `OPENAI_API_KEY` | No | — | Optional OpenAI fallback |
 | `EMAIL_HOST` | No | `smtp.gmail.com` | SMTP server |
@@ -157,7 +156,7 @@ CI/CD pipeline targets `[REGISTRY_IP]:5000` (private registry). Quality Analysis
 
 **Slow synthesis:** Increase Ollama resources or switch to `llama3:8b` for faster (less thorough) synthesis.
 
-**Source returning no results:** Check API key configuration. Tavily requires `TAVILY_API_KEY`; without it, DuckDuckGo is used for web and Reddit.
+**Source returning no results:** Check API key configuration for the sources that need one (GitHub, YouTube). Web and Reddit use DuckDuckGo through `ddgs` and need no key; the search engines behind it are scraped, so an occasional empty answer is retried (see `duckduckgo_search` in `src/tools/source_loaders.py`).
 
 **ChromaDB errors on startup:** Delete `/app/data/chroma_db/` and restart — it will be rebuilt on next RAG query.
 

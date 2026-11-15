@@ -9,20 +9,18 @@ import datetime
 from ..credentials import get_credential
 from ..state import AgentState
 from ..utils import get_max_results
-from .source_loaders import duckduckgo_search, tavily_search, wikipedia_pages
+from .source_loaders import duckduckgo_search, wikipedia_pages
 from .router_tools import update_next_node
 
 logger = logging.getLogger(__name__)
 
 
 def search_web_node(state: AgentState) -> dict:
-    """Search the web using Tavily (if API key available) or DuckDuckGo."""
+    """Search the web with DuckDuckGo (ddgs, no API key) and fetch each page through Jina Reader."""
     logger.info("Starting web search...")
     topic = state["topic"]
 
     max_results = get_max_results(state)
-
-    tavily_key = get_credential("TAVILY_API_KEY")
 
     results = []
 
@@ -41,7 +39,7 @@ def search_web_node(state: AgentState) -> dict:
     if not re.search(r'\b(20\d{2}|19\d{2})\b', search_topic): # Check for a 4-digit year
         search_topic = f"{search_topic} {current_date}"
         
-    logger.info(f"Searching web (Tavily) for: {search_topic}")
+    logger.info(f"Searching web for: {search_topic}")
     
     import threading
     from concurrent.futures import ThreadPoolExecutor
@@ -50,37 +48,24 @@ def search_web_node(state: AgentState) -> dict:
     container = {"data": []}
     def run_web_search():
         try:
-            if tavily_key:
-                logger.debug(f"Using Tavily for web search with query: {search_topic}")
-                try:
-                    raw_results = tavily_search(search_topic, api_key=tavily_key, max_results=max_results)
-                except Exception as e_tavily:
-                    # Quota exhausted, bad key, outage: a search without Tavily beats no search
-                    logger.warning(f"Tavily search failed ({e_tavily}). Falling back to DuckDuckGo.")
-                    raw_results = duckduckgo_search(search_topic, max_results=max_results)
-                
-                # Use ThreadPoolExecutor to parallelize Jina Reader calls
-                def enhance_result(res):
-                    if isinstance(res, str): # Defensive check for unexpected string results
-                         return {"url": "Unknown", "content": res}
-                    
-                    url = res.get("url")
-                    if url and url.startswith("http"):
-                        try:
-                            from ..config import settings
-                            jina_url = f"https://r.jina.ai/{url}"
-                            jina_res = requests.get(jina_url, timeout=settings.content_fetch_timeout)
-                            if jina_res.status_code == 200:
-                                res["content"] = jina_res.text[:settings.max_content_preview_chars]
-                        except Exception:
-                            pass
-                    return res
+            raw_results = duckduckgo_search(search_topic, max_results=max_results)
 
-                with ThreadPoolExecutor(max_workers=5) as executor:
-                    container["data"] = list(executor.map(enhance_result, raw_results))
-            else:
-                logger.debug(f"No TAVILY_API_KEY detected. Using DuckDuckGo with query: {search_topic}")
-                container["data"] = duckduckgo_search(search_topic, max_results=max_results)
+            # Replace the search snippet with the page text (Jina Reader), in parallel
+            def enhance_result(res):
+                url = res.get("url")
+                if url and url.startswith("http"):
+                    try:
+                        from ..config import settings
+                        jina_url = f"https://r.jina.ai/{url}"
+                        jina_res = requests.get(jina_url, timeout=settings.content_fetch_timeout)
+                        if jina_res.status_code == 200:
+                            res["content"] = jina_res.text[:settings.max_content_preview_chars]
+                    except Exception:
+                        pass
+                return res
+
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                container["data"] = list(executor.map(enhance_result, raw_results))
         except Exception as e_inner:
             logger.error(f"Inner web search failed: {e_inner}")
 

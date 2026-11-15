@@ -124,20 +124,25 @@ pytest tests/ -v --timeout=300
 
 ### API Issues
 
-#### Problem: Tavily API key invalid
+#### Problem: Web or Reddit search returns no results
 
 **Symptoms:**
 ```
-Error: Invalid API key for Tavily
+Inner web search failed: ... No results found.
+Web search completed with 0 results
 ```
 
+**Cause:** web and Reddit search use DuckDuckGo through the `ddgs` library, which scrapes
+public search engines. A single request can come back empty or be blocked, more often
+after many searches in a short time.
+
 **Solution:**
-1. Get new API key from https://tavily.com/
-2. Update `.env` file:
+1. Run the research again; each search already makes up to 3 attempts.
+2. Check from the container which engines answer:
 ```bash
-TAVILY_API_KEY=your_new_key_here
+python -c "from ddgs import DDGS; print(len(DDGS().text('test query', region='us-en', max_results=5)))"
 ```
-3. Restart application
+3. Space out runs if every engine is refusing requests.
 
 #### Problem: GitHub API rate limit exceeded
 
@@ -186,7 +191,6 @@ research_depth = "quick"  # 2 results per source
 4. **Check network connectivity:**
 ```bash
 # Test external APIs
-curl https://api.tavily.com/
 curl https://api.github.com/
 ```
 
@@ -475,7 +479,7 @@ python --version  # Should be 3.12+
 pip list | grep -E "langchain|ollama|streamlit"
 
 # Check environment variables
-env | grep -E "OLLAMA|TAVILY|GITHUB"
+env | grep -E "OLLAMA|GITHUB"
 ```
 
 ## Getting Help
@@ -535,7 +539,6 @@ lsof -i :11434
 
 # Test connectivity
 curl http://localhost:11434/api/tags
-curl https://api.tavily.com/
 
 # Clean restart
 pkill -f streamlit

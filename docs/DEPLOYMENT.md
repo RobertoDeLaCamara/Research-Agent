@@ -5,7 +5,6 @@
 ### Environment Setup
 
 1. **Create Credentials** (obtain the ones relevant to your setup)
-   - Tavily (web search, optional): https://tavily.com/
    - GitHub token (higher rate limits, optional): https://github.com/settings/tokens
    - Gmail App Password (email delivery, optional): https://myaccount.google.com/apppasswords
    - YouTube Data API (better video search, optional): https://console.cloud.google.com/
@@ -99,7 +98,6 @@ Required:
 - `OLLAMA_MODEL`: Model to use (default: qwen3:14b)
 
 Optional:
-- `TAVILY_API_KEY`: For web search
 - `GITHUB_TOKEN`: For GitHub repository search
 - `YOUTUBE_API_KEY`: For YouTube search
 - `EMAIL_*`: For email notifications
@@ -162,7 +160,7 @@ curl http://localhost:11434/api/tags
 lsof -i :8501
 
 # Check environment variables
-env | grep -E "OLLAMA|TAVILY"
+env | grep -E "OLLAMA|GITHUB"
 ```
 
 ### Docker Issues

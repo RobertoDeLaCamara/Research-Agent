@@ -28,7 +28,7 @@ _overrides: ContextVar[Mapping[str, str]] = ContextVar("credential_overrides", d
 
 
 def get_credential(name: str) -> Optional[str]:
-    """Return the value for ``name`` (e.g. ``"TAVILY_API_KEY"``), or None.
+    """Return the value for ``name`` (e.g. ``"GITHUB_TOKEN"``), or None.
 
     Order: overrides of the current run, process environment, ``settings``.
     """

@@ -35,7 +35,6 @@ OLLAMA_MODEL="gpt-4o-mini"
 
 | Variable | Description |
 |----------|-------------|
-| `TAVILY_API_KEY` | Tavily web search (falls back to DuckDuckGo if unset) |
 | `GITHUB_TOKEN` | GitHub search (higher rate limits) |
 | `YOUTUBE_API_KEY` | YouTube source (disabled if unset) |
 

@@ -17,7 +17,7 @@ def setup_logging(level: Optional[str] = None) -> logging.Logger:
 def validate_env_vars() -> bool:
     """Validate required environment variables."""
     required_vars = ["OLLAMA_BASE_URL"]
-    optional_vars = ["TAVILY_API_KEY", "GITHUB_TOKEN", "EMAIL_USERNAME"]
+    optional_vars = ["GITHUB_TOKEN", "EMAIL_USERNAME"]
 
     missing_required = [var for var in required_vars if not getattr(settings, var.lower(), None)]
 

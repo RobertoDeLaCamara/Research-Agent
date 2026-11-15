@@ -38,7 +38,7 @@ For long runs (deep research on a local LLM can take several minutes) use `start
 | `RESEARCH_AGENT_OUTPUT_ROOT` | Root allowed for `output_dir` | unset (export disabled) |
 | `RESEARCH_AGENT_TIMEOUT` | Seconds before a run is aborted | `900` |
 
-Runs are serialized: one research job at a time. The server loads `.env` from the project root so the subprocess inherits the API keys (Tavily, YouTube, ...).
+Runs are serialized: one research job at a time. The server loads `.env` from the project root so the subprocess inherits the API keys (GitHub, YouTube, ...).
 
 ## Claude Desktop on Windows with the agent in WSL
 

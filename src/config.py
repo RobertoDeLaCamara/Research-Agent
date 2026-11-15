@@ -7,7 +7,6 @@ class Settings(BaseSettings):
     ollama_model: str = "qwen3:14b"
 
     # API Keys
-    tavily_api_key: Optional[str] = None
     github_token: Optional[str] = None
     youtube_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None

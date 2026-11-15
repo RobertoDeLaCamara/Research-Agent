@@ -29,7 +29,7 @@ license: mit
 
 ## 🌟 Key Features
 
-Research-Agent is a LangGraph-based autonomous agent that searches **10 sources in parallel** (Tavily, arXiv, Wikipedia, Semantic Scholar, GitHub, Hacker News, Stack Overflow, Reddit, YouTube, local RAG), fact-checks the synthesis and flags dubious claims, then exports a cited report with word count and reading time in PDF, Word, Markdown, or HTML — all through a Streamlit UI backed by a local Ollama LLM. Cross-session memory prevents re-investigating past topics.
+Research-Agent is a LangGraph-based autonomous agent that searches **10 sources in parallel** (web via DuckDuckGo, arXiv, Wikipedia, Semantic Scholar, GitHub, Hacker News, Stack Overflow, Reddit, YouTube, local RAG), fact-checks the synthesis and flags dubious claims, then exports a cited report with word count and reading time in PDF, Word, Markdown, or HTML — all through a Streamlit UI backed by a local Ollama LLM. Cross-session memory prevents re-investigating past topics.
 
 ## Features
 
@@ -55,7 +55,7 @@ graph TD
     Plan --> Parallel[parallel_search]
 
     subgraph ThreadPoolExecutor
-        Parallel --> Web[Web / Tavily]
+        Parallel --> Web[Web / DuckDuckGo]
         Parallel --> Wiki[Wikipedia]
         Parallel --> Arxiv[arXiv]
         Parallel --> Scholar[Semantic Scholar]
@@ -137,7 +137,7 @@ docker compose up -d
 
 Works with any OpenAI-compatible endpoint: LM Studio, Together AI, Groq, Ollama, etc.
 
-> **No API keys required for web search** — the agent falls back to DuckDuckGo automatically. Add a free [Tavily](https://tavily.com) key (`TAVILY_API_KEY`) for better results.
+> **No API keys required for web search** — web and Reddit search go through DuckDuckGo (the `ddgs` library).
 
 ### Local Installation (no Docker)
 ```bash
@@ -212,7 +212,6 @@ Research-Agent/
 | :--- | :--- | :--- |
 | `OLLAMA_MODEL` | LLM model | `qwen3:14b` |
 | `OLLAMA_BASE_URL` | Ollama endpoint | `http://localhost:11434` |
-| `TAVILY_API_KEY` | Web search (Tavily); DuckDuckGo used if absent | Optional |
 | `GITHUB_TOKEN` | GitHub API access | Optional |
 | `EMAIL_USERNAME` | Report delivery (SMTP) | Optional |
 | `EMAIL_PASSWORD` | SMTP password | Optional |

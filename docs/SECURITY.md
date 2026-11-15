@@ -87,7 +87,6 @@ secrets/
 ```bash
 # .env (NEVER commit this file)
 OLLAMA_BASE_URL=http://localhost:11434
-TAVILY_API_KEY=your_key_here
 GITHUB_TOKEN=your_token_here
 EMAIL_PASSWORD=your_app_password_here
 ```
@@ -96,7 +95,6 @@ EMAIL_PASSWORD=your_app_password_here
 ```bash
 # env.example (commit this)
 OLLAMA_BASE_URL=http://localhost:11434
-TAVILY_API_KEY=your_tavily_key
 GITHUB_TOKEN=your_github_token
 EMAIL_PASSWORD=your_email_app_password
 ```
@@ -110,7 +108,6 @@ EMAIL_PASSWORD=your_email_app_password
 4. Monitor API usage for anomalies
 
 **Key Sources:**
-- Tavily: https://tavily.com/
 - GitHub: https://github.com/settings/tokens
 - Gmail App Password: https://myaccount.google.com/apppasswords
 - YouTube: https://console.cloud.google.com/
