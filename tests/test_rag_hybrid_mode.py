@@ -85,7 +85,8 @@ def test_hybrid_mode_drops_junk_chunks_and_overfetches(mock_agent_state):
     assert store.calls[0][1] == 3  # asked for 3x top_k so filtering still leaves enough
 
 
-def test_books_rag_url_returns_formatted_book_chunks(mock_agent_state, monkeypatch):
+def test_books_rag_url_returns_formatted_book_chunks(mock_agent_state, monkeypatch, tmp_path):
+    monkeypatch.setenv("RAG_KB_DIR", str(tmp_path))  # empty knowledge base: only the book chunk comes back
     monkeypatch.setenv("BOOKS_RAG_URL", "http://host.docker.internal:8765")
     monkeypatch.setenv("RAG_TOP_K", "2")
     fake_resp = type("Resp", (), {
