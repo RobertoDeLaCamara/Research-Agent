@@ -45,6 +45,19 @@ def test_search_web_node_ddg(mock_agent_state, monkeypatch):
         assert result["web_research"][0]["url"] == "http://ddg-hit.com"
         assert "next_node" in result
 
+@patch("requests.get")
+def test_search_web_node_falls_back_to_ddg_when_tavily_fails(mock_get, mock_agent_state):
+    mock_get.return_value = MagicMock(status_code=500)
+    with patch("src.tools.research_tools.get_credential", return_value="test-key"), \
+         patch("src.tools.research_tools.tavily_search", side_effect=RuntimeError("usage limit")), \
+         patch("src.tools.research_tools.duckduckgo_search") as mock_ddg:
+        mock_ddg.return_value = [{"url": "http://ddg-hit.com", "content": "From DDG", "title": "Hit"}]
+
+        result = search_web_node(mock_agent_state)
+
+    assert result["web_research"] == [{"url": "http://ddg-hit.com", "content": "From DDG", "title": "Hit"}]
+
+
 def test_search_wiki_node(mock_agent_state):
     with patch("src.tools.research_tools.wikipedia_pages") as mock_wiki:
         mock_wiki.return_value = [

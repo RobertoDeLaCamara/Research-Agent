@@ -55,8 +55,9 @@ def search_web_node(state: AgentState) -> dict:
                 try:
                     raw_results = tavily_search(search_topic, api_key=tavily_key, max_results=max_results)
                 except Exception as e_tavily:
-                     logger.error(f"Tavily search execution failed: {e_tavily}")
-                     raw_results = []
+                    # Quota exhausted, bad key, outage: a search without Tavily beats no search
+                    logger.warning(f"Tavily search failed ({e_tavily}). Falling back to DuckDuckGo.")
+                    raw_results = duckduckgo_search(search_topic, max_results=max_results)
                 
                 # Use ThreadPoolExecutor to parallelize Jina Reader calls
                 def enhance_result(res):

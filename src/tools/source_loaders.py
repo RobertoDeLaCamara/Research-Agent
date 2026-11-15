@@ -9,7 +9,8 @@ handling stay in the calling node.
 from urllib.parse import parse_qs, urlparse
 
 import wikipedia
-from duckduckgo_search import DDGS
+from ddgs import DDGS
+from ddgs.exceptions import DDGSException
 from tavily import TavilyClient
 from youtube_transcript_api import (
     NoTranscriptFound,
@@ -34,9 +35,15 @@ def tavily_search(query: str, api_key: str, max_results: int = 5) -> list[dict]:
 
 def duckduckgo_search(query: str, max_results: int = 5) -> list[dict]:
     """Search DuckDuckGo (worldwide, past year). Returns one dict per hit with `url`, `content`, `title`."""
-    hits = DDGS().text(
-        query, region="wt-wt", safesearch="moderate", timelimit="y", max_results=max_results
-    ) or []
+    try:
+        hits = DDGS().text(
+            query, region="wt-wt", safesearch="moderate", timelimit="y", max_results=max_results
+        ) or []
+    except DDGSException as e:
+        # ddgs raises instead of returning an empty list; anything else is a real failure
+        if "No results found" not in str(e):
+            raise
+        hits = []
     return [
         {"url": h.get("href"), "content": h.get("body"), "title": h.get("title")}
         for h in hits
