@@ -19,10 +19,12 @@ _WIFI_QUERY_RE = re.compile(r"\b(wifi|wi-fi|6\s*ghz|router)\b", re.I)
 
 
 def is_reddit_result_relevant(hit: dict, query: str = "") -> bool:
-    """Filter out blocked stubs, media-only links, and WiFi 6GHz false positives on 6G cellular topics."""
+    """Filter out non-Reddit ad links, blocked stubs, media-only links, and WiFi 6GHz / off-topic posts."""
     if not isinstance(hit, dict):
         return False
     url = (hit.get("url") or "").strip()
+    if url and "reddit.com" not in url.lower() and "redd.it" not in url.lower():
+        return False
     content = (hit.get("content") or hit.get("snippet") or "").strip()
     title = (hit.get("title") or "").strip()
     if is_bot_block_or_stub(content, title):
@@ -33,6 +35,15 @@ def is_reddit_result_relevant(hit: dict, query: str = "") -> bool:
     # Disambiguate 6G mobile networks vs WiFi 6 / 6GHz band
     if _CELLULAR_6G_RE.search(query or "") and not _WIFI_QUERY_RE.search(query or ""):
         if _WIFI_6GHZ_RE.search(combined) and not _CELLULAR_6G_RE.search(combined):
+            return False
+    # If query contains strong technical anchors (6g, 3gpp, agentic), require at least one in the post
+    query_anchors = [
+        a for a in ("6g", "3gpp", "agentic", "agéntica", "agentica")
+        if re.search(rf"\b{re.escape(a)}\b", (query or "").lower())
+    ]
+    if query_anchors:
+        combined_lower = combined.lower()
+        if not any(re.search(rf"\b{re.escape(a)}\b", combined_lower) for a in query_anchors):
             return False
     return True
 

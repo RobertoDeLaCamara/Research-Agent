@@ -43,8 +43,17 @@ _BOT_BLOCK_PATTERNS = (
 )
 
 
-def is_bot_block_or_stub(text: str, title: str = "") -> bool:
-    """Return True when scraped content or snippet is an anti-bot/CAPTCHA interstitial or robots.txt stub."""
+_AD_REDIRECT_PATTERNS = (
+    "bing.com/aclick",
+    "duckduckgo.com/y.js",
+    "googleadservices.com/pagead/aclk",
+)
+
+
+def is_bot_block_or_stub(text: str, title: str = "", url: str = "") -> bool:
+    """Return True when scraped content or snippet is an anti-bot/CAPTCHA interstitial, robots.txt stub, or ad redirect."""
+    if url and any(ad in url.lower() for ad in _AD_REDIRECT_PATTERNS):
+        return True
     if not (text or "").strip():
         return True
     combined = f"{title or ''}\n{text or ''}".strip().lower()
@@ -93,7 +102,7 @@ def duckduckgo_search(query: str, max_results: int = 5, timelimit: str | None = 
     return [
         {"url": h.get("href"), "content": h.get("body"), "title": h.get("title")}
         for h in hits
-        if h.get("body") and not is_bot_block_or_stub(h.get("body", ""), h.get("title", ""))
+        if h.get("body") and not is_bot_block_or_stub(h.get("body", ""), h.get("title", ""), h.get("href", ""))
     ]
 
 

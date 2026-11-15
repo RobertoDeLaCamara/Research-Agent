@@ -61,3 +61,20 @@ def test_search_reddit_node_filters_video_stubs_and_wifi_6ghz_on_6g_topic(mock_a
     assert [r["url"] for r in result["reddit_research"]] == [
         "https://www.reddit.com/r/telecom/comments/abc123/3gpp_release_20_6g_ai_agents/"
     ]
+
+
+def test_is_reddit_result_relevant_filters_bing_aclick_and_offtopic_gaming():
+    from src.tools.reddit_tools import is_reddit_result_relevant
+    query = "Agentic AI in 6G networks: state of the art, evolution, and standardization in 3GPP"
+    bing_ad = {
+        "title": "Leading AI-RAN Alliance & 6G - Networks for AI",
+        "url": "https://www.bing.com/aclick?ld=e8ArpwonPKdB",
+        "content": "Sponsored link for 6G networks.",
+    }
+    gaming_post = {
+        "title": "Cool Aigis art that was accused of being made by AI",
+        "url": "https://www.reddit.com/r/PERSoNA/comments/1ce9tua/cool_aigis_art/",
+        "content": "Persona 3 Reload fan art discussion.",
+    }
+    assert is_reddit_result_relevant(bing_ad, query) is False
+    assert is_reddit_result_relevant(gaming_post, query) is False
