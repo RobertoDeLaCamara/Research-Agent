@@ -111,7 +111,7 @@ reports/                    Generated output files
 
 - **YouTube runs sequentially within its thread** — transcript summarization depends on search results, so `search_videos_node` and `summarize_videos_node` run in series inside one thread.
 - **`news_editor` and `quick` depth skip quality evaluation** — the fact-check evaluation is bypassed entirely; immediacy takes priority over depth.
-- **No automatic re-plan**: `evaluate_research_node` always returns `next_node = "END"`; factually dubious claims are appended to the report as a warning. The `evaluate_research -> plan_research` edge exists in the graph but is currently never taken.
+- **No automatic re-plan**: `evaluate_research_node` always returns `next_node = "END"`; factually dubious claims are appended to the report as a warning.
 - **Cross-session memory**: each completed research is stored in ChromaDB collection `session_memory`. The planner retrieves up to 3 semantically similar past sessions to avoid re-investigating the same ground.
 - **Word count and reading time** are shown in every report (200 words/min estimate).
 - **Email is idempotent** — an MD5 hash of the report content is stored in state; if `last_email_hash` matches, the send is skipped.

@@ -114,8 +114,7 @@ src/
     ├── rag_tools.py         ChromaDB ingest, hybrid retrieval, progress
     ├── synthesis_tools.py   Ollama synthesis: persona prompts, output cleaning
     ├── reporting_tools.py   HTML/PDF/DOCX/MD rendering, sanitize_text()
-    ├── router_tools.py      plan_research_node, evaluate_research_node,
-    │                        route_evaluation(), route_chat()
+    ├── router_tools.py      plan_research_node, evaluate_research_node
     ├── chat_tools.py        chat_node, trigger detection
     └── translation_tools.py expand_queries_multilingual()
 
