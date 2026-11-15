@@ -12,6 +12,67 @@ logger = logging.getLogger(__name__)
 LOCAL_RAG_META = {"local_rag": {"source_type": "user_provided_knowledge", "reliability": 5}}
 
 
+def _books_local_research(topic: str):
+    """Query the local vectorized technical books service (pdf-books-mcp on BOOKS_RAG_URL).
+
+    Returns None if BOOKS_RAG_URL is unset or unreachable so the caller can fall back.
+    """
+    base_url = (os.getenv("BOOKS_RAG_URL") or "").strip().rstrip("/")
+    if not base_url:
+        return None
+    topic = (topic or "").strip()
+    if not topic:
+        return []
+    try:
+        import requests
+        from .vector_store import looks_like_junk
+        top_k = int(os.getenv("RAG_TOP_K", "8"))
+        timeout = float(os.getenv("BOOKS_RAG_TIMEOUT", "45.0"))
+        params = {"q": topic, "top_k": str(top_k * 2)}
+        url = f"{base_url}/api/search"
+        no_proxy = {"http": None, "https": None}
+        try:
+            resp = requests.get(url, params=params, timeout=timeout, proxies=no_proxy)
+        except requests.ConnectionError:
+            from ..utils import swap_local_host
+            resp = requests.get(swap_local_host(url), params=params, timeout=timeout, proxies=no_proxy)
+        resp.raise_for_status()
+        raw_hits = resp.json().get("results", [])
+    except Exception as e:
+        logger.error(f"books_local_rag_failed: {e}")
+        return None
+
+    results = []
+    for hit in raw_hits:
+        text = hit.get("text") or ""
+        chap_lower = (hit.get("chapter") or "").strip().lower()
+        if looks_like_junk(text) or chap_lower in ("index", "contents", "table of contents", "brief contents"):
+            continue
+        book_title = hit.get("book_title") or hit.get("file_name") or "Technical Book"
+        p_start, p_end = hit.get("page_start"), hit.get("page_end")
+        if p_start and p_end and p_start != p_end:
+            pages = f"pp. {p_start}-{p_end}"
+        elif p_start:
+            pages = f"p. {p_start}"
+        else:
+            pages = ""
+        chapter = hit.get("chapter") or ""
+        chap_str = f", {chapter}" if chapter and chapter != "Unknown" else ""
+        loc = f" ({pages}{chap_str})" if pages else (f" ({chapter})" if chap_str else "")
+        file_path = hit.get("file_path") or hit.get("file_name") or ""
+        url = f"file://{file_path}#page={p_start}" if file_path and p_start else (f"file://{file_path}" if file_path else "")
+        results.append({
+            "title": f"{book_title}{loc}",
+            "content": text,
+            "url": url,
+            "score": float(hit.get("similarity_score", hit.get("score", 0.0))),
+        })
+        if len(results) >= top_k:
+            break
+    logger.info(f"books_local_rag_returned: {len(results)} chunks for '{topic}'")
+    return results
+
+
 def _hybrid_local_research(topic: str):
     """Best chunks for ``topic`` from the hybrid index (dense + BM25), in the shape local_research uses.
 
@@ -54,13 +115,29 @@ def _hybrid_local_research(topic: str):
 
 
 def local_rag_node(state: AgentState) -> dict:
+    """Local knowledge: the technical books service (BOOKS_RAG_URL) plus the user's ./knowledge_base.
+
+    Book chunks, when the service answers, come first; the knowledge base results follow.
+    """
+    logger.info("local_rag_node_started")
+    result = _knowledge_base_research(state)
+
+    if (os.getenv("BOOKS_RAG_URL") or "").strip():
+        q = (state.get("queries") or {}).get("en") or state.get("topic", "")
+        books_hits = _books_local_research(q)
+        if books_hits is None:
+            logger.warning("BOOKS_RAG_URL is set but unreachable; using the local knowledge base only")
+        else:
+            result["local_research"] = books_hits + (result.get("local_research") or [])
+    return result
+
+
+def _knowledge_base_research(state: AgentState) -> dict:
     """Scans ./knowledge_base and extracts text from PDF and TXT files.
 
     With RAG_MODE=hybrid it instead returns the best-matching chunks (RAG_TOP_K, default 8) from the
     ChromaDB + BM25 index built by ``python -m src.tools.rag_index``.
     """
-    logger.info("local_rag_node_started")
-
     if os.getenv("RAG_MODE", "legacy").strip().lower() == "hybrid":
         hybrid = _hybrid_local_research(state.get("topic", ""))
         if hybrid is not None:

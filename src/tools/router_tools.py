@@ -2,7 +2,7 @@ import os
 import logging
 import json
 from langchain_core.messages import HumanMessage
-from ..llm import get_llm
+from ..llm import get_llm, invoke_light
 from .translation_tools import expand_queries_multilingual
 from ..state import AgentState
 
@@ -154,11 +154,14 @@ def plan_research_node(state: AgentState) -> dict:
     - reddit: Para opiniones de la comunidad, experiencias reales y discusiones informales.
     """
     
-    # Conditionally add local_rag only if the user opted in AND files exist
+    # Conditionally add local_rag if enabled AND either BOOKS_RAG_URL or ./knowledge_base has content
+    from ..utils import default_use_rag
+    use_rag_enabled = state.get("use_rag", default_use_rag())
+    books_rag_active = bool((os.getenv("BOOKS_RAG_URL") or "").strip())
     kb_path = "./knowledge_base"
-    if state.get("use_rag", False):
-        if os.path.exists(kb_path) and any(f for f in os.listdir(kb_path) if not f.startswith('.')):
-            prompt += "\n    - local_rag: Para consultar la base de conocimientos local y archivos proporcionados por el usuario."
+    has_kb_files = os.path.exists(kb_path) and any(f for f in os.listdir(kb_path) if not f.startswith('.'))
+    if use_rag_enabled and (books_rag_active or has_kb_files):
+        prompt += "\n    - local_rag: Para consultar la biblioteca local de libros técnicos y los documentos del usuario."
     
     prompt += """
     
@@ -174,10 +177,8 @@ def plan_research_node(state: AgentState) -> dict:
     LISTA DE FUENTES SELECCIONADAS:
     """
     
-    llm = get_llm(temperature=0.1, tier="light")
-    
     try:
-        response = llm.invoke([HumanMessage(content=prompt)])
+        response = invoke_light([HumanMessage(content=prompt)], temperature=0.1)
         content = response.content.strip()
         if "[" in content and "]" in content:
             content = content[content.find("["):content.rfind("]")+1]
@@ -185,12 +186,14 @@ def plan_research_node(state: AgentState) -> dict:
         selected_sources = json.loads(content)
 
         # Belt-and-suspenders: strip local_rag if the user did not opt in,
-        # regardless of what the LLM returned.
-        if not state.get("use_rag", False):
+        # regardless of what the LLM returned; or ensure local_rag is included when BOOKS_RAG_URL is active.
+        if not use_rag_enabled:
             before = len(selected_sources)
             selected_sources = [s for s in selected_sources if s != "local_rag"]
             if len(selected_sources) != before:
                 logger.warning("Filtered local_rag from plan: user did not enable RAG")
+        elif books_rag_active and "local_rag" not in selected_sources:
+            selected_sources.insert(0, "local_rag")
 
         logger.info(f"Sources selected: {selected_sources}")
 
@@ -205,8 +208,9 @@ def plan_research_node(state: AgentState) -> dict:
         }
     except Exception as e:
         logger.error(f"Error in planning: {e}")
+        fallback_plan = ["local_rag", "wiki", "web"] if (use_rag_enabled and (books_rag_active or has_kb_files)) else ["wiki", "web"]
         return {
-            "research_plan": ["wiki", "web"],
+            "research_plan": fallback_plan,
             "next_node": "parallel_search",
             "iteration_count": state.get("iteration_count", 0)
         }

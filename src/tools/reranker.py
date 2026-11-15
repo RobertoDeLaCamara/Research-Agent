@@ -27,9 +27,12 @@ def rerank_scores(query: str, documents: List[str]) -> Optional[List[float]]:
         return None
     try:
         timeout = float(os.getenv("RERANK_TIMEOUT", DEFAULT_TIMEOUT))
-        resp = requests.post(
-            url, json={"query": query, "documents": [d[:MAX_CHARS] for d in documents]}, timeout=timeout
-        )
+        payload = {"query": query, "documents": [d[:MAX_CHARS] for d in documents]}
+        try:
+            resp = requests.post(url, json=payload, timeout=timeout)
+        except requests.ConnectionError:
+            from ..utils import swap_local_host
+            resp = requests.post(swap_local_host(url), json=payload, timeout=timeout)
         resp.raise_for_status()
         scores = resp.json()["scores"]
         if len(scores) != len(documents):

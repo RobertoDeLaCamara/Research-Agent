@@ -43,15 +43,14 @@ def expand_queries_multilingual(topic: str, target_languages: List[str] = ["en",
     }}
     """
 
-    from ..llm import get_llm
+    from ..llm import invoke_light
     bypass_proxy_for_ollama()
-    llm = get_llm(temperature=0.1, timeout=45, tier="light")
 
     expanded = {lang: topic for lang in target_languages} # Fallback to original
 
     try:
         import json
-        response = llm.invoke([HumanMessage(content=prompt)])
+        response = invoke_light([HumanMessage(content=prompt)], temperature=0.1, timeout=45)
         content = response.content.strip()
         if "{" in content and "}" in content:
             content = content[content.find("{"):content.rfind("}")+1]

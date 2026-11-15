@@ -49,7 +49,8 @@ def parallel_search_node(state: AgentState) -> dict:
 
     # Enforce user RAG preference: if the checkbox is off, strip local_rag
     # from the plan even if a prior node slipped it in.
-    if not state.get("use_rag", False) and "local_rag" in plan:
+    from ..utils import default_use_rag
+    if not state.get("use_rag", default_use_rag()) and "local_rag" in plan:
         plan = [s for s in plan if s != "local_rag"]
         logger.warning("parallel_search: dropped local_rag (use_rag=False)")
 

@@ -92,6 +92,11 @@ def consolidate_research_node(state: AgentState) -> dict:
         context += f"Fuente: {src} | Confianza: {meta.get('reliability', 'N/A')}/5 | Tipo: {meta.get('source_type', 'N/A')}\n"
     context += "\n"
 
+    if local:
+        context += "--- CONOCIMIENTO LOCAL (RAG) ---\n"
+        for item in local:
+            context += f"Fuente: {item.get('title')}\nUbicación: {item.get('url')}\nContenido: {item.get('content')}\n\n"
+
     if wiki:
         context += "--- INFORMACIÓN DE WIKIPEDIA ---\n"
         for item in wiki:
@@ -134,11 +139,6 @@ def consolidate_research_node(state: AgentState) -> dict:
         context += "--- DISCUSIONES Y OPINIONES (REDDIT) ---\n"
         for item in reddit:
             context += f"Contenido: {item.get('content', item.get('snippet', ''))}\nURL: {item.get('url')}\n\n"
-
-    if local:
-        context += "--- CONOCIMIENTO LOCAL (RAG) ---\n"
-        for item in local:
-            context += f"Fuente: {item.get('title')}\nUbicación: {item.get('url')}\nContenido: {item.get('content')}\n\n"
 
     if yt_summaries:
         context += "--- RESÚMENES DE YOUTUBE ---\n"

@@ -3,6 +3,7 @@
 import logging
 from langgraph.graph import StateGraph, END
 from .state import AgentState
+from .utils import default_use_rag
 from .tools.reporting_tools import generate_report_node, send_email_node
 from .tools.router_tools import plan_research_node, evaluate_research_node
 from .tools.synthesis_tools import consolidate_research_node
@@ -50,7 +51,7 @@ def initialize_state_node(state: AgentState) -> dict:
         "evaluation_report": state.get("evaluation_report", ""),
         "queries": state.get("queries", {}),
         "source_metadata": state.get("source_metadata", {}),
-        "use_rag": state.get("use_rag", False)
+        "use_rag": state.get("use_rag", default_use_rag())
     }
 
     return defaults

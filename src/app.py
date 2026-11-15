@@ -17,6 +17,7 @@ from src.credentials import server_has, use_credentials
 import streamlit.components.v1 as components
 from src.db_manager import get_recent_sessions, load_session, clear_history
 from src.i18n import T
+from src.utils import default_use_rag
 
 
 def _run_credentials(selected_model: str) -> dict:
@@ -157,7 +158,7 @@ with st.sidebar:
     time_range = "d" if last_24h else None
 
     st.write(_["local_header"])
-    use_rag = st.checkbox(_["local_rag_checkbox"], value=False, help=_["local_rag_help"])
+    use_rag = st.checkbox(_["local_rag_checkbox"], value=default_use_rag(), help=_["local_rag_help"])
 
     uploaded_files = st.file_uploader(_["upload_label"], type=["pdf", "txt"], accept_multiple_files=True)
     if uploaded_files:

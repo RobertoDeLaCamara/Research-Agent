@@ -126,3 +126,17 @@ def _build_ollama(base_url, model, temperature, t, extra_kwargs):
         temperature=temperature,
         **extra_kwargs,
     )
+
+
+def invoke_light(messages, temperature: float = 0, timeout: int = None):
+    """Invoke the light tier; if it fails and a separate light model is configured, retry on heavy.
+
+    With LIGHT_LLM_MODEL unset the light tier already is the heavy backend, so the error propagates.
+    """
+    try:
+        return get_llm(temperature=temperature, timeout=timeout, tier="light").invoke(messages)
+    except Exception as light_err:
+        if not os.environ.get("LIGHT_LLM_MODEL"):
+            raise
+        logger.warning(f"Light LLM failed ({light_err}); falling back to heavy tier")
+        return get_llm(temperature=temperature, timeout=timeout, tier="heavy").invoke(messages)
