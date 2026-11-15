@@ -2,7 +2,7 @@
 
 ## System Design
 
-The Research-Agent is built on **LangGraph**, a framework for creating stateful, multi-actor applications with LLMs. The system follows a **self-correcting autonomous workflow** pattern.
+The Research-Agent is built on **LangGraph**, a framework for creating stateful, multi-actor applications with LLMs. The system runs a **single-pass autonomous workflow**: plan, search all sources in parallel, synthesize, fact-check, report.
 
 ### High-Level Architecture
 
@@ -24,8 +24,8 @@ The Research-Agent is built on **LangGraph**, a framework for creating stateful,
 │                       │                                      │
 │                       ▼                                      │
 │              ┌─────────────────┐                            │
-│              │  Evaluation &   │                            │
-│              │  Self-Correction│                            │
+│              │  Evaluation     │                            │
+│              │  (fact-check)   │                            │
 │              └─────────────────┘                            │
 └─────────────────────────────────────────────────────────────┘
                          │
@@ -168,10 +168,10 @@ All Results → Consolidate (LLM) → Consolidated Summary + Bibliography
 
 ### Phase 4: Evaluation
 ```
-Consolidated Summary → Evaluate (LLM) → Quality Check
+Consolidated Summary → Evaluate (LLM) → Fact-check
                                               ↓
-                                    Gaps Found? → Re-plan
-                                    Complete?   → Generate Report
+                          Dubious claims? → Warning appended to the summary
+                          Always          → Generate Report
 ```
 
 ### Phase 5: Reporting & Persistence
@@ -181,17 +181,14 @@ generate_report → Export (PDF/Word/HTML/MD) → send_email → save_db → END
 
 ## Key Design Patterns
 
-### 1. Self-Correction Loop
+### 1. Fact-Check Without Re-Planning
 ```python
-workflow.add_conditional_edges(
-    "evaluate_research",
-    route_evaluation,
-    {
-        "plan_research": "plan_research",  # Loop back if gaps
-        "END": "generate_report"            # Proceed if complete
-    }
-)
+workflow.add_edge("consolidate_research", "evaluate_research")
+workflow.add_edge("evaluate_research", "generate_report")
 ```
+The evaluation node flags dubious claims as a warning in the report. It does not
+send the graph back to planning: re-searching to verify invented claims only
+propagated them.
 
 ### 2. Fail-Soft Strategy
 ```python

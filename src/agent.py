@@ -139,21 +139,8 @@ workflow.add_edge("initialize_state", "plan_research")
 workflow.add_edge("plan_research", "parallel_search")
 workflow.add_edge("parallel_search", "consolidate_research")
 workflow.add_edge("consolidate_research", "evaluate_research")
-
-
-def route_evaluation(state: AgentState):
-    """Route based on evaluation result."""
-    return state.get("next_node", "END")
-
-
-workflow.add_conditional_edges(
-    "evaluate_research",
-    route_evaluation,
-    {
-        "plan_research": "plan_research",
-        "END": "generate_report"
-    }
-)
+# The evaluation is a fact-check that flags dubious claims in the report; it never re-plans
+workflow.add_edge("evaluate_research", "generate_report")
 
 workflow.add_edge("generate_report", "send_email")
 

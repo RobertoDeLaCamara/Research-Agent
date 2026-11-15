@@ -44,13 +44,7 @@ User Input (topic, persona, depth, sources)
 ## Conditional Routing
 
 ```
-evaluate_research → route_evaluation()
-  │
-  ├─ state["next_node"] == "plan_research" → plan_research
-  │   (defined in the graph, but evaluate_research_node currently
-  │    always returns "END", so this branch is never taken)
-  │
-  └─ "END" → generate_report
+evaluate_research → generate_report   (plain edge; the evaluation never re-plans)
 ```
 
 ```
@@ -144,7 +138,7 @@ parallel_search → consolidate → evaluate
   → none / evaluation error:                                          → generate_report
 ```
 
-There is no automatic re-plan loop: `evaluate_research_node` always returns `next_node = "END"`. The `evaluate_research → plan_research` conditional edge is still wired in `src/agent.py` but never taken.
+There is no automatic re-plan loop: `evaluate_research_node` always returns `next_node = "END"`. `evaluate_research` has a plain edge to `generate_report`.
 
 ## Report Generation
 

@@ -2,7 +2,7 @@
 
 ## Source Selection
 
-At the `plan_research` node, the LLM receives a list of available sources with descriptions and selects which ones to query based on the topic. The graph still contains a re-plan edge from `evaluate_research`, but the current evaluation node never takes it, so selection happens once per run.
+At the `plan_research` node, the LLM receives a list of available sources with descriptions and selects which ones to query based on the topic. Selection happens once per run: the evaluation step never sends the graph back to planning.
 
 All sources are opt-in via the Streamlit sidebar. Local RAG is off by default.
 

@@ -57,3 +57,12 @@ def test_route_chat_triggers_research():
     
     state = {"messages": [HumanMessage(content="INVESTIGACIÓN: more about Y")]}
     assert route_chat(state) == "re_plan"
+
+
+def test_evaluation_always_leads_to_the_report():
+    """The fact-check never re-plans: its only way out is the report."""
+    from src.agent import workflow
+
+    targets = {end for start, end in workflow.edges if start == "evaluate_research"}
+    assert targets == {"generate_report"}
+    assert "evaluate_research" not in workflow.branches

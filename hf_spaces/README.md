@@ -28,12 +28,12 @@ license: mit
 
 > Give it a topic. Get a sourced, structured research report in minutes.
 
-**Research-Agent** is an autonomous LangGraph agent that searches **10 sources in parallel**, detects knowledge gaps and re-plans automatically, then exports a cited report in PDF, Word, Markdown, or HTML.
+**Research-Agent** is an autonomous LangGraph agent that searches **10 sources in parallel**, fact-checks the synthesis and flags dubious claims, then exports a cited report in PDF, Word, Markdown, or HTML.
 
 ## ✨ Features
 
 - **10 parallel sources** — Web (DuckDuckGo), Wikipedia, arXiv, Semantic Scholar, GitHub, Hacker News, Stack Overflow, Reddit, YouTube, local RAG
-- **Self-correction loop** — evaluates gaps and re-plans up to 2 iterations
+- **Fact-check layer** — scans the synthesis for dubious claims and flags them as warnings in the report
 - **5 research personas** — Generalist, Software Architect, Market Analyst, Scientific Reviewer, Product Manager
 - **Export** — PDF, Word, Markdown, HTML with citations
 - **Cloud LLM support** — Groq (free), Gemini (free), OpenAI, or any OpenAI-compatible API
