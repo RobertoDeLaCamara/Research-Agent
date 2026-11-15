@@ -53,15 +53,13 @@ def test_search_web_node_timeout(mock_settings, mock_next_node):
     mock_settings.content_fetch_timeout = 0.1
     mock_settings.max_content_preview_chars = 100
     
-    # Mock TavilySearchResults to hang
-    with patch('langchain_community.tools.tavily_search.TavilySearchResults') as MockTavily:
-        mock_tavily_instance = MockTavily.return_value
-        
+    # Mock the Tavily search to hang
+    with patch('src.tools.research_tools.tavily_search') as mock_tavily:
         def slow_run(*args, **kwargs):
             time.sleep(0.5) # Sleep longer than timeout
             return [{"url": "http://slow.com", "content": "Too slow"}]
         
-        mock_tavily_instance.run.side_effect = slow_run
+        mock_tavily.side_effect = slow_run
         
         # Configure logging to verify timeout warning
         with patch('src.tools.research_tools.logger'):

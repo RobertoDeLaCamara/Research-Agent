@@ -2,7 +2,6 @@
 
 import logging
 from github import Auth, Github
-from langchain_community.document_loaders import WikipediaLoader
 import arxiv
 from semanticscholar import SemanticScholar
 import re
@@ -10,6 +9,7 @@ import datetime
 from ..credentials import get_credential
 from ..state import AgentState
 from ..utils import get_max_results
+from .source_loaders import duckduckgo_search, tavily_search, wikipedia_pages
 from .router_tools import update_next_node
 
 logger = logging.getLogger(__name__)
@@ -52,24 +52,12 @@ def search_web_node(state: AgentState) -> dict:
         try:
             if tavily_key:
                 logger.debug(f"Using Tavily for web search with query: {search_topic}")
-                from langchain_community.tools.tavily_search import TavilySearchResults
-                search = TavilySearchResults(k=max_results)
                 try:
-                    raw_results = search.run(search_topic)
-                    # CRITICAL FIX: Ensure raw_results is a list. Tavily can return a string on error.
-                    if isinstance(raw_results, str):
-                        logger.warning(f"Tavily returned string instead of list: {raw_results}")
-                        # If it looks like a list string, try to parse it, otherwise handle as error/content
-                        import ast
-                        try:
-                            raw_results = ast.literal_eval(raw_results)
-                            if not isinstance(raw_results, list):
-                                raise ValueError
-                        except Exception:
-                            raw_results = [{"url": "Unknown", "content": raw_results}]
+                    raw_results = tavily_search(search_topic, api_key=tavily_key, max_results=max_results)
                 except Exception as e_tavily:
-                     logger.error(f"Tavily search execution failed: {e_tavily}")
-                     raw_results = []
+                    # Quota exhausted, bad key, outage: a search without Tavily beats no search
+                    logger.warning(f"Tavily search failed ({e_tavily}). Falling back to DuckDuckGo.")
+                    raw_results = duckduckgo_search(search_topic, max_results=max_results)
                 
                 # Use ThreadPoolExecutor to parallelize Jina Reader calls
                 def enhance_result(res):
@@ -92,10 +80,7 @@ def search_web_node(state: AgentState) -> dict:
                     container["data"] = list(executor.map(enhance_result, raw_results))
             else:
                 logger.debug(f"No TAVILY_API_KEY detected. Using DuckDuckGo with query: {search_topic}")
-                from langchain_community.tools import DuckDuckGoSearchRun
-                search = DuckDuckGoSearchRun()
-                res_text = search.run(search_topic)
-                container["data"] = [{"content": res_text, "url": "DuckDuckGo"}]
+                container["data"] = duckduckgo_search(search_topic, max_results=max_results)
         except Exception as e_inner:
             logger.error(f"Inner web search failed: {e_inner}")
 
@@ -135,17 +120,15 @@ def search_wiki_node(state: AgentState) -> dict:
 
         max_docs = 1 if state.get("research_depth") != "deep" else 3
         logger.info(f"Searching Wikipedia ({lang}) with query: {search_topic}...")
-        loader = WikipediaLoader(query=search_topic, load_max_docs=max_docs, lang=lang)
-        # WikipediaLoader doesn't have a direct timeout, but we can wrap the load
+        # The wikipedia library has no timeout of its own, so the load runs in a thread
         import threading
         container = {"data": []}
         def load_with_timeout():
-            docs = loader.load()
-            for doc in docs:
+            for page in wikipedia_pages(search_topic, lang=lang, max_docs=max_docs):
                 container["data"].append({
-                    "title": doc.metadata.get("title"),
-                    "summary": doc.page_content[:1000] + "...",
-                    "url": doc.metadata.get("source")
+                    "title": page["title"],
+                    "summary": page["content"][:1000] + "...",
+                    "url": page["url"]
                 })
 
         thread = threading.Thread(target=load_with_timeout, daemon=True)

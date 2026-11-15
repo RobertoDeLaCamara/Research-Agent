@@ -40,7 +40,7 @@ streamlit run src/app.py --server.address=0.0.0.0
 | Source | Code | Timeout | Library |
 |--------|------|---------|---------|
 | Web search | `web` | 12s | Tavily → DuckDuckGo fallback |
-| Wikipedia | `wiki` | 10s | `WikipediaLoader` |
+| Wikipedia | `wiki` | 10s | `wikipedia` library |
 | arXiv | `arxiv` | 12s | `arxiv.Client` |
 | Semantic Scholar | `scholar` | 25s | `semanticscholar` |
 | GitHub | `github` | 20s | `PyGithub` |

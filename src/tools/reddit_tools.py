@@ -2,6 +2,7 @@ import logging
 from ..credentials import get_credential
 from ..state import AgentState
 from .router_tools import update_next_node
+from .source_loaders import duckduckgo_search
 
 logger = logging.getLogger(__name__)
 
@@ -42,17 +43,20 @@ def search_reddit_node(state: AgentState) -> dict:
                 if time_range:
                     search_params["time_range"] = time_range
 
-                search_result = tavily.search(**search_params)
+                try:
+                    search_result = tavily.search(**search_params)
+                except Exception as e_tavily:
+                    # Quota exhausted, bad key, outage: fall back instead of returning nothing
+                    logger.warning(f"Tavily Reddit search failed ({e_tavily}). Falling back to DuckDuckGo.")
+                    container["data"] = duckduckgo_search(f"{search_topic} site:reddit.com", max_results=max_results)
+                    return
                 tavily_results = search_result.get("results", [])
 
                 # Re-format for the node
                 container["data"] = [{"content": r.get("content"), "url": r.get("url"), "title": r.get("title")} for r in tavily_results]
             else:
                 # Fallback to DuckDuckGo
-                from langchain_community.tools import DuckDuckGoSearchRun
-                search = DuckDuckGoSearchRun()
-                res_text = search.run(f"{search_topic} reddit")
-                container["data"] = [{"content": res_text, "url": "Reddit (via DDG)"}]
+                container["data"] = duckduckgo_search(f"{search_topic} site:reddit.com", max_results=max_results)
 
         thread = threading.Thread(target=run_reddit_search, daemon=True)
         thread.start()

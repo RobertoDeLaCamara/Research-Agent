@@ -3,10 +3,11 @@
 import logging
 from youtube_search import YoutubeSearch
 from langchain_classic.chains.summarize import load_summarize_chain
-from langchain_community.document_loaders import YoutubeLoader
+from langchain_core.documents import Document
 
 from ..state import AgentState
 from ..llm import get_llm
+from .source_loaders import youtube_transcript
 
 logger = logging.getLogger(__name__)
 
@@ -101,8 +102,9 @@ def summarize_videos_node(state: AgentState) -> dict:
             docs_container = {"data": []}
             def load_transcript():
                 try:
-                    loader = YoutubeLoader.from_youtube_url(url, add_video_info=False, language=["es", "en"])
-                    docs_container["data"] = loader.load()
+                    transcript = youtube_transcript(url, languages=("es", "en"))
+                    if transcript:
+                        docs_container["data"] = [Document(page_content=transcript, metadata={"source": url})]
                 except Exception as e_load:
                     # Detect if we are blocked by YouTube
                     if "RequestBlocked" in str(e_load) or "Could not retrieve a transcript" in str(e_load):
