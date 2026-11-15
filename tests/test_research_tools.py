@@ -110,9 +110,27 @@ def test_search_github_node(mock_agent_state):
         
         from src.tools.research_tools import search_github_node
         result = search_github_node(mock_agent_state)
-        
-        assert "github_research" in result
+
+        # The node must use the patched client, never the real GitHub API.
+        mock_instance.search_repositories.assert_called()
+        assert [r["name"] for r in result["github_research"]] == ["user/repo"]
         assert "next_node" in result
+
+
+def test_search_github_node_passes_token_as_auth(mock_agent_state):
+    with patch("src.tools.research_tools.get_credential", return_value="tok"), \
+         patch("src.tools.research_tools.Auth") as mock_auth, \
+         patch("src.tools.research_tools.Github") as mock_github_class:
+        mock_repos = MagicMock()
+        mock_repos.totalCount = 1
+        mock_repos.__iter__.return_value = []
+        mock_github_class.return_value.search_repositories.return_value = mock_repos
+
+        from src.tools.research_tools import search_github_node
+        search_github_node(mock_agent_state)
+
+        mock_auth.Token.assert_called_once_with("tok")
+        mock_github_class.assert_called_once_with(auth=mock_auth.Token.return_value)
 
 @patch("requests.get")
 def test_search_hn_node(mock_get, mock_agent_state):
