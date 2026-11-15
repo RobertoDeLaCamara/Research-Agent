@@ -25,7 +25,7 @@ youtube-search
 pytube
 wikipedia
 arxiv
-duckduckgo-search
+ddgs
 stackapi
 fpdf
 requests

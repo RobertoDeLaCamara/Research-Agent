@@ -135,3 +135,16 @@ def test_youtube_transcript_disabled_returns_empty():
     with patch("src.tools.source_loaders.YouTubeTranscriptApi") as mock_api:
         mock_api.return_value.list.side_effect = source_loaders.TranscriptsDisabled("dQw4w9WgXcQ")
         assert youtube_transcript("https://youtu.be/dQw4w9WgXcQ") == ""
+
+
+def test_duckduckgo_search_no_results_exception_is_empty():
+    with patch("src.tools.source_loaders.DDGS") as mock_ddgs:
+        mock_ddgs.return_value.text.side_effect = source_loaders.DDGSException("No results found.")
+        assert duckduckgo_search("query") == []
+
+
+def test_duckduckgo_search_other_errors_propagate():
+    with patch("src.tools.source_loaders.DDGS") as mock_ddgs:
+        mock_ddgs.return_value.text.side_effect = source_loaders.DDGSException("ratelimit")
+        with pytest.raises(source_loaders.DDGSException):
+            duckduckgo_search("query")

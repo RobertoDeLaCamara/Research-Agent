@@ -12,7 +12,7 @@ All sources are opt-in via the Streamlit sidebar. Local RAG is off by default.
 
 ```
 Primary: Tavily (tavily-python client, requires TAVILY_API_KEY)
-Fallback: DuckDuckGo (duckduckgo_search library, one result per hit)
+Fallback: DuckDuckGo (ddgs library, one result per hit); used with no key or when Tavily fails
 
 Post-processing:
   - Jina Reader enhancement: GET r.jina.ai/{url}
@@ -100,7 +100,7 @@ Reliability score: 4/5.
 
 ```
 Primary: TavilyClient with site:reddit.com
-Fallback: DuckDuckGo (duckduckgo_search library)
+Fallback: DuckDuckGo (ddgs library); used with no key or when Tavily fails
 Time range: "d" (last 24 hours) for news_editor persona
 Search depth: "advanced"
 Timeout: 15 seconds

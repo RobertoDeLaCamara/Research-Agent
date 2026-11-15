@@ -42,3 +42,19 @@ def test_search_reddit_node_fallback(mock_agent_state):
         
         assert len(result["reddit_research"]) == 1
         assert "DDG Reddit content" in result["reddit_research"][0]["content"]
+
+
+def test_search_reddit_node_falls_back_to_ddg_when_tavily_fails(mock_agent_state):
+    mock_tavily_module = MagicMock()
+    mock_tavily_module.TavilyClient.return_value.search.side_effect = RuntimeError("usage limit")
+
+    with patch.dict('sys.modules', {'tavily': mock_tavily_module}), \
+         patch("src.tools.reddit_tools.get_credential", return_value="test-key"), \
+         patch("src.tools.reddit_tools.duckduckgo_search") as mock_ddg:
+        mock_ddg.return_value = [{"url": "http://reddit.com/r/x", "content": "DDG Reddit content", "title": "t"}]
+
+        result = search_reddit_node(mock_agent_state)
+
+    assert result["reddit_research"] == [{"url": "http://reddit.com/r/x", "content": "DDG Reddit content", "title": "t"}]
+    # Same restriction as the Tavily query: only reddit.com pages
+    assert mock_ddg.call_args.args[0].endswith("site:reddit.com")
