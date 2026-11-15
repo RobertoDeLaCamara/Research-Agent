@@ -1,24 +1,51 @@
 import logging
+import re
 from ..state import AgentState
 from ..llm import get_llm
 
 logger = logging.getLogger(__name__)
 
 
-def _clean_truncated_tail(text: str, had_closing_tag: bool = True) -> str:
-    """Clean up trailing mid-word / mid-sentence truncation when the LLM hits max_tokens before </report>."""
-    if not text or had_closing_tag:
+def _was_truncated(response) -> bool:
+    """True when the model stopped because it hit the output token cap.
+
+    The call uses ``stop=["</report>"]``, so the closing tag never reaches the text and cannot be
+    used to tell a complete report from a cut one. OpenAI-compatible APIs report
+    ``finish_reason == "length"``; Ollama reports ``done_reason == "length"``.
+    """
+    meta = getattr(response, "response_metadata", None)
+    if not isinstance(meta, dict):
+        return False
+    return (meta.get("finish_reason") or meta.get("done_reason")) == "length"
+
+
+def _clean_truncated_tail(text: str, truncated: bool = False) -> str:
+    """Trim the broken last line of a report that was cut by the output token cap.
+
+    Only runs when ``truncated`` is True; complete reports are returned unchanged.
+    """
+    if not text or not truncated:
         return text
-    import re
-    lines = text.rstrip().split("\n")
-    if not lines:
-        return text
+    text = _cut_tail(text.rstrip())
+    # A cut inside a code block leaves it open; close it so the rest of the page renders
+    if text.count("```") % 2 == 1:
+        text += "\n```"
+    return text
+
+
+def _cut_tail(text: str) -> str:
+    lines = text.split("\n")
     last_line = lines[-1].strip()
     if not last_line or last_line.startswith("#"):
         return text
-    # Complete line ends with terminal punctuation or closing markdown bracket/paren/emphasis
-    if re.search(r'[.!?:)\]"»*_>]$', last_line):
+    # Complete line: terminal punctuation, closing markdown bracket/paren/emphasis, a code fence
+    # or a finished table row
+    if re.search(r'[.!?:)\]"»*_>`|]$', last_line):
         return text
+    if last_line.startswith("|"):
+        # Half-written table row: drop it rather than cutting at a period inside a cell
+        lines.pop()
+        return "\n".join(lines).rstrip()
     # If the last line has at least one completed sentence before the cut-off fragment (e.g. "... estandarización. Esta afirm"),
     # keep up to the last sentence-ending period.
     m = re.search(r'^(.*\.)\s+[^.]+$', lines[-1].rstrip())
@@ -340,8 +367,7 @@ FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
                 consolidated_text = "\n".join(lines[start_idx:]).strip()
 
         # ── Post-processing: clean truncated tail & deduplicate repeated sections ──
-        had_closing_tag = "</report>" in processed_text or bool(match)
-        consolidated_text = _clean_truncated_tail(consolidated_text, had_closing_tag=had_closing_tag)
+        consolidated_text = _clean_truncated_tail(consolidated_text, truncated=_was_truncated(response))
         consolidated_text = _deduplicate_sections(consolidated_text)
 
         logger.info("synthesis_completed")

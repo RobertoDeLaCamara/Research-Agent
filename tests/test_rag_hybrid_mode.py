@@ -197,3 +197,13 @@ def test_books_rag_filters_preface_references_and_offtopic_economics_books(mock_
     assert [r["title"] for r in out["local_research"]] == [
         "Cellular Communication Networks and Standards (p. 32, 1.4 Summary)"
     ]
+
+
+def test_years_are_not_relevance_anchors():
+    from src.tools.rag_tools import _extract_query_keywords, _is_book_hit_relevant
+    q = "Latest developments in small language models in 2026"
+    assert _extract_query_keywords(q)[1] == set()
+    chunk = "Small language models trade parameters for curated training data and distillation."
+    assert _is_book_hit_relevant("Some ML Book", "Ch 3", chunk, q)
+    # alphanumeric terms still anchor
+    assert _extract_query_keywords("6G and 3GPP in 2026")[1] == {"6g", "3gpp"}
