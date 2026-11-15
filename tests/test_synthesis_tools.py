@@ -124,3 +124,40 @@ def test_complete_report_ending_in_code_fence_is_kept_whole(mock_get_llm, mock_a
     mock_agent_state["web_research"] = [{"title": "t", "url": "https://x", "content": "c"}]
     out = consolidate_research_node(mock_agent_state)["consolidated_summary"]
     assert out.endswith("```") and out.count("```") == 2
+
+
+def _chunk(i, n=2000):
+    return {"title": f"Book {i}", "url": f"file:///b{i}.pdf", "content": "x" * n}
+
+
+def test_local_section_keeps_whole_chunks_within_budget(monkeypatch):
+    from src.config import settings
+    from src.tools.synthesis_tools import _local_section
+    monkeypatch.setattr(settings, "local_context_max_chars", 7500)
+    out = _local_section([_chunk(i) for i in range(8)])
+    assert out.count("Fuente: Book") == 3  # 3 x ~2050 chars fit, a 4th would exceed 7500
+    assert "Book 0" in out and "Book 3" not in out
+
+
+def test_local_section_always_keeps_the_best_chunk_and_0_disables_the_cap(monkeypatch):
+    from src.config import settings
+    from src.tools.synthesis_tools import _local_section
+    monkeypatch.setattr(settings, "local_context_max_chars", 100)
+    assert _local_section([_chunk(0), _chunk(1)]).count("Fuente:") == 1
+    monkeypatch.setattr(settings, "local_context_max_chars", 0)
+    assert _local_section([_chunk(i) for i in range(8)]).count("Fuente:") == 8
+
+
+@patch("src.tools.synthesis_tools.get_llm")
+def test_capped_books_leave_room_for_arxiv(mock_get_llm, mock_agent_state):
+    """Regression: 8 long book chunks used to push arXiv (last section) out of the 25k context."""
+    resp = MagicMock()
+    resp.content = "<report>\n## R\nok.\n"
+    resp.response_metadata = {"finish_reason": "stop"}
+    mock_get_llm.return_value.invoke.return_value = resp
+    mock_agent_state["local_research"] = [_chunk(i, 1800) for i in range(8)]
+    mock_agent_state["web_research"] = [{"title": f"W{i}", "url": f"https://w{i}", "content": "w" * 2500} for i in range(5)]
+    mock_agent_state["arxiv_research"] = [{"title": "ArxivPaper", "url": "http://arxiv.org/abs/1", "summary": "s" * 900}]
+    consolidate_research_node(mock_agent_state)
+    sent = mock_get_llm.return_value.invoke.call_args.args[0][1].content
+    assert "ArxivPaper" in sent

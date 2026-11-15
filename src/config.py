@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     
     # Content Limits
     max_synthesis_context_chars: int = 25000
+    # Budget for the local knowledge (RAG / books) section of that context. Local chunks go first and
+    # the context is cut from the end, so without a cap 8 book chunks (~12-15k chars) pushed web and
+    # arXiv sources out of the window. Whole chunks are kept until the budget is used; 0 = no cap.
+    local_context_max_chars: int = 7500
     # Ollama context window for the synthesis call. Must fit the system prompt
     # + up to max_synthesis_context_chars of sources (~8k tokens) + num_predict
     # output; otherwise Ollama silently drops the *start* of the prompt (the

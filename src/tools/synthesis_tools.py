@@ -61,6 +61,26 @@ def _cut_tail(text: str) -> str:
     return "\n".join(lines).rstrip()
 
 
+def _local_section(local: list) -> str:
+    """Local knowledge entries for the synthesis context, within ``local_context_max_chars``.
+
+    Entries arrive best-first; whole entries are kept until the budget is used (always at least
+    one), so the web, Wikipedia and arXiv sections after it still fit in the context window.
+    """
+    from ..config import settings
+    budget = settings.local_context_max_chars
+    out, used = [], 0
+    for item in local:
+        entry = f"Fuente: {item.get('title')}\nUbicación: {item.get('url')}\nContenido: {item.get('content')}\n\n"
+        if budget and out and used + len(entry) > budget:
+            break
+        out.append(entry)
+        used += len(entry)
+    if len(out) < len(local):
+        logger.info(f"local context capped: {len(out)}/{len(local)} entries, {used} chars")
+    return "".join(out)
+
+
 def _deduplicate_sections(text: str) -> str:
     """Detect and collapse repeated H2/H3 sections in synthesized Markdown.
 
@@ -150,8 +170,7 @@ def consolidate_research_node(state: AgentState) -> dict:
 
     if local:
         context += "--- CONOCIMIENTO LOCAL (RAG) ---\n"
-        for item in local:
-            context += f"Fuente: {item.get('title')}\nUbicación: {item.get('url')}\nContenido: {item.get('content')}\n\n"
+        context += _local_section(local)
 
     if wiki:
         context += "--- INFORMACIÓN DE WIKIPEDIA ---\n"
