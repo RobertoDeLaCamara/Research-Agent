@@ -159,6 +159,9 @@ You can include your own documents in the research:
 2. Enable **"Incluir base de conocimientos local"** in the sidebar.
 3. The agent will automatically detect and index these files.
 
+### Option 3: External books library
+Set `BOOKS_RAG_URL` to a books search service (`GET /api/search?q=...&top_k=N`). Its chunks are cited with book, pages and chapter, and are combined with your own documents. With it set, the local knowledge checkbox starts checked. See the [RAG Pipeline](wiki/RAG-Pipeline.md) wiki page.
+
 ## 📄 Output & Reports
 All generated reports are automatically saved to the `./reports/` directory.
 - `reporte_final.html` (Interactive)
