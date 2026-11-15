@@ -174,7 +174,6 @@ GITHUB_TOKEN=your_github_token
 ```python
 # src/config.py
 web_search_timeout: int = 45  # Increase if needed
-thread_execution_timeout: int = 30
 ```
 
 2. **Reduce research depth:**
@@ -298,10 +297,9 @@ pdftk large.pdf cat 1-50 output part1.pdf
 pdftk large.pdf cat 51-100 output part2.pdf
 ```
 
-2. **Or increase limit in config:**
-```python
-# src/config.py
-max_file_size_mb: int = 20  # Increase from 10
+2. **Or raise the limit in `.env`:**
+```env
+MAX_FILE_SIZE_MB=20
 ```
 
 ### Docker Issues

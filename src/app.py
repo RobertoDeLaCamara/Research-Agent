@@ -18,6 +18,8 @@ import streamlit.components.v1 as components
 from src.db_manager import get_recent_sessions, load_session, clear_history
 from src.i18n import T
 from src.utils import default_use_rag
+from src.uploads import save_uploads, uploader_types
+from src.config import settings
 
 
 def _run_credentials(selected_model: str) -> dict:
@@ -160,15 +162,13 @@ with st.sidebar:
     st.write(_["local_header"])
     use_rag = st.checkbox(_["local_rag_checkbox"], value=default_use_rag(), help=_["local_rag_help"])
 
-    uploaded_files = st.file_uploader(_["upload_label"], type=["pdf", "txt"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader(_["upload_label"], type=uploader_types(), accept_multiple_files=True)
     if uploaded_files:
-        kb_path = "./knowledge_base"
-        if not os.path.exists(kb_path):
-            os.makedirs(kb_path)
-        for uploaded_file in uploaded_files:
-            with open(os.path.join(kb_path, uploaded_file.name), "wb") as f:
-                f.write(uploaded_file.getbuffer())
-        st.success("✅ " + _["upload_success"].format(n=len(uploaded_files)))
+        saved, rejected = save_uploads(uploaded_files, os.getenv("RAG_KB_DIR", "./knowledge_base"))
+        if saved:
+            st.success("✅ " + _["upload_success"].format(n=len(saved)))
+        for name, reason in rejected:
+            st.warning(_[f"upload_rejected_{reason}"].format(name=name, mb=settings.max_file_size_mb))
 
     st.divider()
     st.write(_["history_header"])

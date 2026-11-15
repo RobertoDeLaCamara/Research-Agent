@@ -75,7 +75,14 @@ Cheap steps (query expansion, source routing) can run on a small local model whi
 | `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING` or `ERROR` |
 | `DB_PATH` | `research_sessions.db` | SQLite file for saved sessions |
 
-`THREAD_EXECUTION_TIMEOUT`, `MAX_CONTENT_LENGTH`, `MAX_FILE_SIZE_MB` and `ALLOWED_FILE_EXTENSIONS` exist in `src/config.py` but no code reads them yet, so setting them has no effect. Uploads accept `.pdf` and `.txt` (set in `src/app.py`).
+### Uploads
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MAX_FILE_SIZE_MB` | `10` | Larger uploads are rejected with a warning and not saved |
+| `ALLOWED_FILE_EXTENSIONS` | `[".pdf", ".txt"]` | Accepted upload types (JSON list). Only `.pdf` and `.txt` are read by `local_rag`. |
+
+Uploaded files are saved under their base name in `RAG_KB_DIR`, so a client-supplied path cannot write elsewhere.
 
 ## Local knowledge (RAG)
 

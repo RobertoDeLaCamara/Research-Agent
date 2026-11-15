@@ -137,7 +137,7 @@ Users upload files via the sidebar:
 ```
 Supported: .pdf, .txt
 Max size: config.max_file_size_mb (default: 10 MB)
-Destination: ./knowledge_base/
+Destination: ./knowledge_base/ (RAG_KB_DIR), base name only
 Trigger: if use_rag checked → adds "local_rag" to research_plan
 ```
 
@@ -156,4 +156,4 @@ Uploaded files are immediately available for the next research run. The cache is
 | `USE_RAG_DEFAULT` | on if `BOOKS_RAG_URL` set | Default for the local knowledge checkbox (`true`/`false`) |
 | `RAG_INDEX_MAX_PAGES` | all | Page cap per PDF for `rag_index` |
 
-Uploads accept `.pdf` and `.txt` (set in `src/app.py`). `max_file_size_mb` and `allowed_file_extensions` in `src/config.py` are not enforced yet.
+Uploads are checked by `src/uploads.py`: `MAX_FILE_SIZE_MB` (default 10) and `ALLOWED_FILE_EXTENSIONS` (default `.pdf`, `.txt`). Rejected files get a warning and are not saved.

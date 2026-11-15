@@ -33,40 +33,11 @@ def validate_topic(topic: str) -> str:
 
 ### File Upload Security
 
-**Restrictions:**
-```python
-# Allowed extensions
-ALLOWED_EXTENSIONS = {'.pdf', '.txt', '.md'}
-
-# Size limit
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
-
-# Path traversal prevention
-safe_path = os.path.abspath(file_path)
-if not safe_path.startswith(os.path.abspath(upload_dir)):
-    raise ValueError("Invalid file path")
-```
-
-**Validation Function:**
-```python
-def validate_file_upload(filename: str, file_size: int) -> tuple[bool, str]:
-    """Validate uploaded file."""
-    # Check extension
-    ext = Path(filename).suffix.lower()
-    if ext not in ALLOWED_EXTENSIONS:
-        return False, f"File type {ext} not allowed"
-    
-    # Check size
-    if file_size > MAX_FILE_SIZE:
-        return False, "File too large"
-    
-    # Sanitize filename
-    safe_name = "".join(c for c in filename if c.isalnum() or c in '._- ')
-    if not safe_name or safe_name.startswith('.'):
-        return False, "Invalid filename"
-    
-    return True, ""
-```
+**Restrictions** (`src/uploads.py`, `save_uploads`):
+- Extension must be in `ALLOWED_FILE_EXTENSIONS` (default `.pdf`, `.txt`, the types `local_rag` can read).
+- Size must not exceed `MAX_FILE_SIZE_MB` (default 10 MB). Streamlit's own cap (200 MB) applies before that.
+- Only the base name of the client-supplied filename is used, so `../` or absolute paths cannot write outside the knowledge base. Empty and hidden (dot) names are rejected.
+- Rejected files are not written; the user sees a warning per file.
 
 ## Credential Management
 
