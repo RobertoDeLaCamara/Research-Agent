@@ -97,11 +97,35 @@ def get_llm(temperature: float = 0, timeout: int = None, tier: str = "heavy", **
             model=model,
             temperature=temperature,
             timeout=t,
-            **extra_kwargs,
+            **_openai_kwargs(extra_kwargs, base_url),
         )
 
     else:
         return _build_ollama(base_url, model, temperature, t, extra_kwargs)
+
+
+# Options that only ChatOllama understands. Passed to ChatOpenAI they land in the request body
+# (OpenAI answers 400 to unknown arguments) and the output cap is lost.
+_OLLAMA_ONLY_KWARGS = ("repeat_penalty", "num_ctx", "client_kwargs", "reasoning", "custom_get_token_ids")
+
+
+def _openai_kwargs(extra_kwargs: dict, base_url) -> dict:
+    """Translate the Ollama-style kwargs callers pass into ChatOpenAI kwargs.
+
+    ``num_predict`` becomes the output cap. langchain-openai sends ``max_tokens`` as
+    ``max_completion_tokens``: right for api.openai.com, but other OpenAI-compatible APIs may
+    ignore it (DeepSeek returned 333 tokens for a 20-token cap). Those get the classic
+    ``max_tokens`` field in the request body instead.
+    """
+    out = {k: v for k, v in extra_kwargs.items() if k not in _OLLAMA_ONLY_KWARGS}
+    num_predict = out.pop("num_predict", None)
+    max_tokens = out.pop("max_tokens", num_predict)
+    if max_tokens is not None:
+        if not base_url or "api.openai.com" in base_url:
+            out["max_tokens"] = max_tokens
+        else:
+            out["extra_body"] = {**(out.get("extra_body") or {}), "max_tokens": max_tokens}
+    return out
 
 
 def _build_ollama(base_url, model, temperature, t, extra_kwargs):
