@@ -48,18 +48,17 @@ def test_search_web_node_timeout(mock_settings, mock_next_node):
     mock_next_node.return_value = "next_step"
     
     # Configure mock settings object
-    mock_settings.tavily_api_key = "fake_key"
     mock_settings.web_search_timeout = 0.1 # Very short timeout
     mock_settings.content_fetch_timeout = 0.1
     mock_settings.max_content_preview_chars = 100
     
-    # Mock the Tavily search to hang
-    with patch('src.tools.research_tools.tavily_search') as mock_tavily:
+    # Mock the web search to hang
+    with patch('src.tools.research_tools.duckduckgo_search') as mock_ddg:
         def slow_run(*args, **kwargs):
             time.sleep(0.5) # Sleep longer than timeout
             return [{"url": "http://slow.com", "content": "Too slow"}]
         
-        mock_tavily.side_effect = slow_run
+        mock_ddg.side_effect = slow_run
         
         # Configure logging to verify timeout warning
         with patch('src.tools.research_tools.logger'):

@@ -98,7 +98,7 @@ mypy src/
 Example docstring:
 ```python
 def search_web_node(state: AgentState) -> dict:
-    """Search the web using Tavily or DuckDuckGo fallback.
+    """Search the web with DuckDuckGo and fetch each page through Jina Reader.
     
     Args:
         state: The current agent state containing the research topic.

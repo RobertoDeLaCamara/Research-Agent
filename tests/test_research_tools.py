@@ -2,60 +2,40 @@ from unittest.mock import MagicMock, patch
 from src.tools.research_tools import search_web_node, search_wiki_node, search_arxiv_node
 
 @patch("requests.get")
-def test_search_web_node_tavily(mock_get, mock_agent_state, monkeypatch):
-    """Test web search node with Jina extraction."""
-    # The Tavily branch is only taken when a key is configured; do not depend on
-    # the developer's .env or on the CI environment providing one.
-    with patch("src.tools.research_tools.get_credential", return_value="test-key"), \
-         patch("src.tools.research_tools.tavily_search") as mock_tavily:
-        mock_tavily.return_value = [{"url": "http://test.com", "content": "Raw content"}]
-        
-        # Mock Jina response
-        mock_jina_res = MagicMock()
-        mock_jina_res.status_code = 200
-        mock_jina_res.text = "Markdown content from Jina"
-        mock_get.return_value = mock_jina_res
-        
-        result = search_web_node(mock_agent_state)
-        
-        assert "web_research" in result
-        assert len(result["web_research"]) > 0
-        assert result["web_research"][0]["content"] == "Markdown content from Jina"
-        assert "next_node" in result
-        # The key resolved by the node is the one handed to Tavily
-        assert mock_tavily.call_args.kwargs["api_key"] == "test-key"
+def test_search_web_node_replaces_snippets_with_page_text(mock_get, mock_agent_state):
+    """Search hits come from DuckDuckGo; their content is replaced by the Jina Reader text."""
+    mock_get.return_value = MagicMock(status_code=200, text="Markdown content from Jina")
+    with patch("src.tools.research_tools.duckduckgo_search") as mock_ddg:
+        mock_ddg.return_value = [{"url": "http://test.com", "content": "Search snippet", "title": "Hit"}]
 
-def test_search_web_node_ddg(mock_agent_state, monkeypatch):
-    # No Tavily key anywhere (settings or environment) -> DuckDuckGo fallback
-    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
-    with patch("src.tools.research_tools.duckduckgo_search") as mock_ddg, \
-         patch("src.config.settings") as mock_settings:
-        
-        mock_settings.tavily_api_key = None
-        mock_settings.web_search_timeout = 45
-        mock_settings.content_fetch_timeout = 3
-        mock_settings.max_content_preview_chars = 5000
-        mock_ddg.return_value = [{"url": "http://ddg-hit.com", "content": "DuckDuckGo Content", "title": "Hit"}]
-        
         result = search_web_node(mock_agent_state)
-        
-        assert "web_research" in result
-        assert len(result["web_research"]) > 0
-        assert result["web_research"][0]["content"] == "DuckDuckGo Content"
-        assert result["web_research"][0]["url"] == "http://ddg-hit.com"
-        assert "next_node" in result
+
+    assert result["web_research"] == [
+        {"url": "http://test.com", "content": "Markdown content from Jina", "title": "Hit"}
+    ]
+    assert mock_get.call_args.args[0] == "https://r.jina.ai/http://test.com"
+    assert "next_node" in result
+
 
 @patch("requests.get")
-def test_search_web_node_falls_back_to_ddg_when_tavily_fails(mock_get, mock_agent_state):
+def test_search_web_node_keeps_snippet_when_page_fetch_fails(mock_get, mock_agent_state):
     mock_get.return_value = MagicMock(status_code=500)
-    with patch("src.tools.research_tools.get_credential", return_value="test-key"), \
-         patch("src.tools.research_tools.tavily_search", side_effect=RuntimeError("usage limit")), \
-         patch("src.tools.research_tools.duckduckgo_search") as mock_ddg:
+    with patch("src.tools.research_tools.duckduckgo_search") as mock_ddg:
         mock_ddg.return_value = [{"url": "http://ddg-hit.com", "content": "From DDG", "title": "Hit"}]
 
         result = search_web_node(mock_agent_state)
 
     assert result["web_research"] == [{"url": "http://ddg-hit.com", "content": "From DDG", "title": "Hit"}]
+
+
+@patch("requests.get")
+def test_search_web_node_returns_nothing_when_search_fails(mock_get, mock_agent_state):
+    with patch("src.tools.research_tools.duckduckgo_search", side_effect=RuntimeError("blocked")):
+        result = search_web_node(mock_agent_state)
+
+    assert result["web_research"] == []
+    assert "next_node" in result
+    mock_get.assert_not_called()
 
 
 def test_search_wiki_node(mock_agent_state):

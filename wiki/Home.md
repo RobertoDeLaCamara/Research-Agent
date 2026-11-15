@@ -27,7 +27,7 @@ streamlit run src/app.py --server.address=0.0.0.0
 |-----------|-----------|
 | Orchestration | LangGraph (StateGraph) |
 | LLM | Ollama — `qwen3:14b` (default) |
-| Search | Tavily (primary), DuckDuckGo (fallback) |
+| Search | DuckDuckGo (`ddgs`, no API key) |
 | Vector store | ChromaDB (`all-MiniLM-L6-v2` embeddings) |
 | RAG cache | JSON file (`rag_cache.json`) |
 | Session storage | SQLite (`research_sessions.db`) |
@@ -39,14 +39,14 @@ streamlit run src/app.py --server.address=0.0.0.0
 
 | Source | Code | Timeout | Library |
 |--------|------|---------|---------|
-| Web search | `web` | 12s | Tavily → DuckDuckGo fallback |
+| Web search | `web` | 12s | DuckDuckGo + Jina Reader |
 | Wikipedia | `wiki` | 10s | `wikipedia` library |
 | arXiv | `arxiv` | 12s | `arxiv.Client` |
 | Semantic Scholar | `scholar` | 25s | `semanticscholar` |
 | GitHub | `github` | 20s | `PyGithub` |
 | Hacker News | `hn` | 10s | Algolia HN API |
 | Stack Overflow | `so` | 15s | `stackapi.StackAPI` |
-| Reddit | `reddit` | 15s | Tavily (site:reddit.com) |
+| Reddit | `reddit` | 15s | DuckDuckGo (site:reddit.com) |
 | YouTube | `youtube` | 15s search + 10s transcript + 25s summary per video | `youtube-search` + transcript |
 | Local RAG | `local_rag` | — | ChromaDB + SQLite keyword |
 

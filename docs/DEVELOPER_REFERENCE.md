@@ -64,7 +64,7 @@ if not healthy:
 ### Web Search (`src/tools/research_tools.py`)
 ```python
 def search_web_node(state: AgentState) -> dict:
-    """Search the web using Tavily or DuckDuckGo fallback."""
+    """Search the web with DuckDuckGo (ddgs, no API key) and fetch each page through Jina Reader."""
     # Returns: {"web_research": [results]}
 ```
 
@@ -141,7 +141,6 @@ class AgentState(TypedDict):  # 32 fields; main ones shown, see src/state.py
 |----------|------|---------|-------------|
 | `OLLAMA_BASE_URL` | str | "http://localhost:11434" | Ollama service URL |
 | `OLLAMA_MODEL` | str | "qwen3:14b" | LLM model to use |
-| `TAVILY_API_KEY` | str | None | Tavily search API key |
 | `GITHUB_TOKEN` | str | None | GitHub API token |
 | `LOG_LEVEL` | str | "INFO" | Logging level |
 | `MAX_RESULTS_PER_SOURCE` | int | 5 | Results per research source |

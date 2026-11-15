@@ -94,12 +94,6 @@ esac
 # ── Optional API keys ─────────────────────────────────────────────────────────
 section "Optional API keys (press Enter to skip)"
 echo ""
-warn "Tavily gives better web search results (free tier: 1000 req/month)"
-warn "Get a key at https://tavily.com — or press Enter to use DuckDuckGo instead"
-echo ""
-ask "TAVILY_API_KEY (optional):"
-read -r TAVILY_API_KEY
-
 ask "GITHUB_TOKEN (optional — improves GitHub source results):"
 read -r GITHUB_TOKEN
 
@@ -111,7 +105,6 @@ cat > .env <<EOF
 OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
 OLLAMA_MODEL=${OLLAMA_MODEL}
 OPENAI_API_KEY=${OPENAI_API_KEY}
-TAVILY_API_KEY=${TAVILY_API_KEY}
 GITHUB_TOKEN=${GITHUB_TOKEN}
 LOG_LEVEL=INFO
 EOF

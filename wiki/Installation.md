@@ -59,7 +59,6 @@ All are optional; the agent degrades gracefully without them.
 
 | Variable | Purpose |
 |----------|---------|
-| `TAVILY_API_KEY` | Better web search (free tier available) |
 | `GITHUB_TOKEN` | Higher GitHub API rate limits |
 | `YOUTUBE_API_KEY` | Enables the YouTube transcript source |
 

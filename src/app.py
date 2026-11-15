@@ -115,7 +115,7 @@ with st.sidebar:
     st.write(_["active_sources"])
     sources = {
         "wiki": st.checkbox("Wikipedia", value=True),
-        "web": st.checkbox("Web Search (Tavily)", value=True),
+        "web": st.checkbox("Web Search (DuckDuckGo)", value=True),
         "arxiv": st.checkbox("arXiv", value=True),
         "scholar": st.checkbox("Semantic Scholar", value=True),
         "github": st.checkbox("GitHub", value=True),
@@ -247,17 +247,9 @@ with st.sidebar:
         st.caption(_["opt_keys_caption"])
 
         # "configured" = the server has its own key. Its value is never sent to the browser.
-        tavily_configured = server_has("TAVILY_API_KEY")
         github_configured = server_has("GITHUB_TOKEN")
         youtube_configured = server_has("YOUTUBE_API_KEY")
 
-        tavily_input = st.text_input(
-            _["opt_keys_tavily"] + (" ✅" if tavily_configured else ""),
-            type="password",
-            placeholder=_["opt_keys_tavily_hint"],
-            value=session_creds.get("TAVILY_API_KEY", ""),
-            disabled=tavily_configured,
-        )
         github_input = st.text_input(
             _["opt_keys_github"] + (" ✅" if github_configured else ""),
             type="password",
@@ -273,10 +265,8 @@ with st.sidebar:
             disabled=youtube_configured,
         )
 
-        if not all([tavily_configured, github_configured, youtube_configured]):
+        if not all([github_configured, youtube_configured]):
             if st.button(_["opt_keys_apply"], use_container_width=True):
-                if tavily_input and not tavily_configured:
-                    session_creds["TAVILY_API_KEY"] = tavily_input
                 if github_input and not github_configured:
                     session_creds["GITHUB_TOKEN"] = github_input
                 if youtube_input and not youtube_configured:
@@ -359,7 +349,7 @@ if st.button(_["start_btn"]):
                     inputs["next_node"] = "parallel_search"
 
                 source_labels = {
-                    "web": "Web (Tavily)", "wiki": "Wikipedia", "arxiv": "arXiv",
+                    "web": "Web (DuckDuckGo)", "wiki": "Wikipedia", "arxiv": "arXiv",
                     "scholar": "Semantic Scholar", "github": "GitHub", "hn": "Hacker News",
                     "so": "Stack Overflow", "reddit": "Reddit", "youtube": "YouTube",
                     "local_rag": "RAG local",

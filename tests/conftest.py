@@ -40,7 +40,7 @@ def mock_agent_state():
     }
 
 @pytest.fixture
-def mock_tavily_results():
+def mock_web_results():
     return [
         {"title": "Result 1", "url": "http://example.com/1", "content": "Content 1"},
         {"title": "Result 2", "url": "http://example.com/2", "content": "Content 2"}

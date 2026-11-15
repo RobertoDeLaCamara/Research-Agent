@@ -1,55 +1,79 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from ddgs.exceptions import DDGSException
 
 from src.tools import source_loaders
 from src.tools.source_loaders import (
     duckduckgo_search,
-    tavily_search,
     wikipedia_pages,
     youtube_transcript,
     youtube_video_id,
 )
 
 
-def test_tavily_search_passes_key_and_limit():
-    with patch("src.tools.source_loaders.TavilyClient") as mock_client:
-        mock_client.return_value.search.return_value = {
-            "results": [{"url": "http://a.com", "content": "A", "title": "TA", "score": 0.9}]
-        }
-
-        results = tavily_search("llm agents", api_key="k", max_results=3)
-
-    mock_client.assert_called_once_with(api_key="k")
-    mock_client.return_value.search.assert_called_once_with(query="llm agents", max_results=3)
-    assert results == [{"url": "http://a.com", "content": "A", "title": "TA"}]
+HITS = [
+    {"title": "T1", "href": "http://one.com", "body": "Body 1"},
+    {"title": "T2", "href": "http://two.com", "body": ""},
+]
 
 
-def test_tavily_search_without_results_key():
-    with patch("src.tools.source_loaders.TavilyClient") as mock_client:
-        mock_client.return_value.search.return_value = {}
-        assert tavily_search("q", api_key="k") == []
+@pytest.fixture(autouse=True)
+def no_retry_delay(monkeypatch):
+    monkeypatch.setattr(source_loaders, "DDG_RETRY_DELAY", 0)
 
 
 def test_duckduckgo_search_maps_fields_and_drops_empty_hits():
     with patch("src.tools.source_loaders.DDGS") as mock_ddgs:
-        mock_ddgs.return_value.text.return_value = [
-            {"title": "T1", "href": "http://one.com", "body": "Body 1"},
-            {"title": "T2", "href": "http://two.com", "body": ""},
-        ]
+        mock_ddgs.return_value.text.return_value = HITS
 
         results = duckduckgo_search("query", max_results=4)
 
     mock_ddgs.return_value.text.assert_called_once_with(
-        "query", region="wt-wt", safesearch="moderate", timelimit="y", max_results=4
+        "query", region="us-en", safesearch="moderate", timelimit="y", max_results=4
     )
     assert results == [{"url": "http://one.com", "content": "Body 1", "title": "T1"}]
+
+
+def test_duckduckgo_search_retries_without_the_year_limit():
+    with patch("src.tools.source_loaders.DDGS") as mock_ddgs:
+        text = mock_ddgs.return_value.text
+        text.side_effect = [DDGSException("No results found."), None, HITS]
+
+        results = duckduckgo_search("query")
+
+    assert [c.kwargs["timelimit"] for c in text.call_args_list] == ["y", None, None]
+    assert results == [{"url": "http://one.com", "content": "Body 1", "title": "T1"}]
+
+
+def test_duckduckgo_search_keeps_a_narrow_time_limit_on_every_attempt():
+    with patch("src.tools.source_loaders.DDGS") as mock_ddgs:
+        text = mock_ddgs.return_value.text
+        text.return_value = None
+
+        assert duckduckgo_search("query", timelimit="d") == []
+
+    assert [c.kwargs["timelimit"] for c in text.call_args_list] == ["d", "d", "d"]
 
 
 def test_duckduckgo_search_no_hits():
     with patch("src.tools.source_loaders.DDGS") as mock_ddgs:
         mock_ddgs.return_value.text.return_value = None
         assert duckduckgo_search("query") == []
+    assert mock_ddgs.return_value.text.call_count == source_loaders.DDG_ATTEMPTS
+
+
+def test_duckduckgo_search_raises_when_every_attempt_errors():
+    with patch("src.tools.source_loaders.DDGS") as mock_ddgs:
+        mock_ddgs.return_value.text.side_effect = DDGSException("DNSError: boom")
+        with pytest.raises(DDGSException):
+            duckduckgo_search("query")
+
+
+def test_duckduckgo_search_recovers_from_an_error_on_the_first_attempt():
+    with patch("src.tools.source_loaders.DDGS") as mock_ddgs:
+        mock_ddgs.return_value.text.side_effect = [DDGSException("DNSError: boom"), HITS]
+        assert len(duckduckgo_search("query")) == 1
 
 
 def test_wikipedia_pages_skips_unresolvable_titles():

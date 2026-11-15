@@ -56,7 +56,6 @@ services:
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=qwen2.5:1.5b
       - DB_PATH=/app/data/research_sessions.db
-      - TAVILY_API_KEY=${TAVILY_API_KEY:-}
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:

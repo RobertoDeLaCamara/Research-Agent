@@ -22,7 +22,7 @@ pytest tests/ --cov=src --cov-report=html
 pytest tests/test_research_tools.py -v
 
 # Run specific test
-pytest tests/test_research_tools.py::test_search_web_node_tavily -v
+pytest tests/test_research_tools.py::test_search_web_node_replaces_snippets_with_page_text -v
 ```
 
 ### Test Options
@@ -88,8 +88,8 @@ def test_search_web_node_success():
     }
     
     # Act
-    with patch('src.tools.research_tools.tavily_search') as mock_tavily:
-        mock_tavily.return_value = [
+    with patch('src.tools.research_tools.duckduckgo_search') as mock_ddg:
+        mock_ddg.return_value = [
             {"url": "https://example.com", "content": "Test content"}
         ]
         result = search_web_node(state)
@@ -102,11 +102,11 @@ def test_search_web_node_success():
 
 ### Mocking External APIs
 
-**Tavily Search:**
+**Web search (DuckDuckGo):**
 ```python
-@patch('src.tools.research_tools.tavily_search')
-def test_with_tavily(mock_tavily):
-    mock_tavily.return_value = [
+@patch('src.tools.research_tools.duckduckgo_search')
+def test_with_web_search(mock_ddg):
+    mock_ddg.return_value = [
         {"url": "https://example.com", "content": "Result"}
     ]
     # ... test code
@@ -139,8 +139,8 @@ def test_handles_api_failure():
     """Test graceful handling of API failures."""
     state = {"topic": "test", "research_depth": "standard", "queries": {}}
     
-    with patch('src.tools.research_tools.tavily_search') as mock_tavily:
-        mock_tavily.return_value.run.side_effect = Exception("API Error")
+    with patch('src.tools.research_tools.duckduckgo_search') as mock_ddg:
+        mock_ddg.side_effect = Exception("API Error")
         result = search_web_node(state)
     
     # Should return empty results, not crash
@@ -161,8 +161,8 @@ def test_timeout_handling():
         time.sleep(100)  # Simulate slow API
         return []
     
-    with patch('src.tools.research_tools.tavily_search') as mock_tavily:
-        mock_tavily.return_value.run = slow_function
+    with patch('src.tools.research_tools.duckduckgo_search') as mock_ddg:
+        mock_ddg.side_effect = slow_function
         
         start = time.time()
         result = search_web_node(state)
@@ -236,7 +236,7 @@ def test_full_research_workflow(sample_state):
     initial_state["research_depth"] = "quick"
     
     # Mock all external services
-    with patch('src.tools.research_tools.tavily_search'), \
+    with patch('src.tools.research_tools.duckduckgo_search'), \
          patch('src.tools.synthesis_tools.ChatOllama'), \
          patch('src.tools.router_tools.ChatOllama'):
         
@@ -434,7 +434,7 @@ def test_with_logs(caplog):
 ## Best Practices
 
 ### Test Naming
-- Use descriptive names: `test_search_web_node_with_tavily_api`
+- Use descriptive names: `test_search_web_node_keeps_snippet_when_page_fetch_fails`
 - Follow pattern: `test_<function>_<scenario>_<expected_result>`
 
 ### Test Organization
@@ -487,10 +487,10 @@ pytest tests/ --import-mode=importlib
 ```python
 # Ensure correct import path
 # If code uses: from src.tools import research_tools
-# Mock should be: @patch('src.tools.research_tools.tavily_search')
+# Mock should be: @patch('src.tools.research_tools.duckduckgo_search')
 
 # If code uses: from tools import research_tools
-# Mock should be: @patch('tools.research_tools.tavily_search')
+# Mock should be: @patch('tools.research_tools.duckduckgo_search')
 ```
 
 ## Test Checklist

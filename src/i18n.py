@@ -53,8 +53,6 @@ STRINGS: dict[str, dict[str, str]] = {
         # Optional API keys panel
         "opt_keys_header": "🔑 API Keys opcionales",
         "opt_keys_caption": "Amplían las fuentes disponibles. Sin ellas, esas fuentes se omiten.",
-        "opt_keys_tavily": "Tavily (búsqueda web)",
-        "opt_keys_tavily_hint": "Gratis en tavily.com",
         "opt_keys_github": "GitHub Token",
         "opt_keys_github_hint": "github.com/settings/tokens",
         "opt_keys_youtube": "YouTube Data API v3",
@@ -157,8 +155,6 @@ STRINGS: dict[str, dict[str, str]] = {
         # Optional API keys panel
         "opt_keys_header": "🔑 Optional API Keys",
         "opt_keys_caption": "Unlock additional sources. Without them, those sources are skipped.",
-        "opt_keys_tavily": "Tavily (web search)",
-        "opt_keys_tavily_hint": "Free at tavily.com",
         "opt_keys_github": "GitHub Token",
         "opt_keys_github_hint": "github.com/settings/tokens",
         "opt_keys_youtube": "YouTube Data API v3",

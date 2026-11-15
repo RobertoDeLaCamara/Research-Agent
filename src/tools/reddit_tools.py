@@ -1,10 +1,15 @@
 import logging
-from ..credentials import get_credential
 from ..state import AgentState
 from .router_tools import update_next_node
 from .source_loaders import duckduckgo_search
 
 logger = logging.getLogger(__name__)
+
+# `time_range` values accepted in the state -> ddgs `timelimit`
+TIME_RANGE_TO_TIMELIMIT = {
+    "d": "d", "day": "d", "w": "w", "week": "w",
+    "m": "m", "month": "m", "y": "y", "year": "y",
+}
 
 
 def search_reddit_node(state: AgentState) -> dict:
@@ -18,45 +23,24 @@ def search_reddit_node(state: AgentState) -> dict:
     from ..utils import get_max_results
     max_results = get_max_results(state)
 
-    tavily_key = get_credential("TAVILY_API_KEY")
-
     results = []
 
     try:
         import threading
         container = {"data": []}
         def run_reddit_search():
-            if tavily_key:
-                from tavily import TavilyClient
-                tavily = TavilyClient(api_key=tavily_key)
-
-                # Phase 7: Support for temporal filtering in Reddit
-                time_range = state.get("time_range", None)
-                if state.get("persona") == "news_editor" and not time_range:
-                    time_range = "d"
-
-                search_params = {
-                    "query": f"{search_topic} site:reddit.com",
-                    "search_depth": "advanced",
-                    "max_results": max_results
-                }
-                if time_range:
-                    search_params["time_range"] = time_range
-
-                try:
-                    search_result = tavily.search(**search_params)
-                except Exception as e_tavily:
-                    # Quota exhausted, bad key, outage: fall back instead of returning nothing
-                    logger.warning(f"Tavily Reddit search failed ({e_tavily}). Falling back to DuckDuckGo.")
-                    container["data"] = duckduckgo_search(f"{search_topic} site:reddit.com", max_results=max_results)
-                    return
-                tavily_results = search_result.get("results", [])
-
-                # Re-format for the node
-                container["data"] = [{"content": r.get("content"), "url": r.get("url"), "title": r.get("title")} for r in tavily_results]
-            else:
-                # Fallback to DuckDuckGo
-                container["data"] = duckduckgo_search(f"{search_topic} site:reddit.com", max_results=max_results)
+            # Temporal filtering: an explicit time range wins; the news editor defaults to the last day
+            time_range = state.get("time_range", None)
+            if state.get("persona") == "news_editor" and not time_range:
+                time_range = "d"
+            timelimit = TIME_RANGE_TO_TIMELIMIT.get(time_range, "y")
+            try:
+                container["data"] = duckduckgo_search(
+                    f"{search_topic} site:reddit.com", max_results=max_results, timelimit=timelimit
+                )
+            except Exception as e_inner:
+                # Raised inside the worker thread, so the outer try would never see it
+                logger.error(f"Reddit search failed: {e_inner}")
 
         thread = threading.Thread(target=run_reddit_search, daemon=True)
         thread.start()

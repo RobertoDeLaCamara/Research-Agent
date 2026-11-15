@@ -43,7 +43,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 _VENV_CANDIDATE = PROJECT_ROOT / "venv" / "bin" / "python"
 VENV_PYTHON = _VENV_CANDIDATE if _VENV_CANDIDATE.exists() else Path(sys.executable)
 
-# Load .env so subprocesses inherit API keys (TAVILY, YOUTUBE, etc.)
+# Load .env so subprocesses inherit API keys (GITHUB, YOUTUBE, etc.)
 _env_file = PROJECT_ROOT / ".env"
 if _env_file.exists():
     try:
@@ -276,7 +276,7 @@ TOOLS = [
         "name": "research",
         "description": (
             "Run multi-source internet research on a topic and wait for the result. Searches 10 sources "
-            "in parallel (Tavily/web, Wikipedia, arXiv, Semantic Scholar, GitHub, Hacker News, Stack Overflow, "
+            "in parallel (web, Wikipedia, arXiv, Semantic Scholar, GitHub, Hacker News, Stack Overflow, "
             "Reddit, YouTube, local RAG) and returns a cited Markdown report. Can take several minutes; prefer "
             "start_research + get_research_result for standard/deep runs."
         ),

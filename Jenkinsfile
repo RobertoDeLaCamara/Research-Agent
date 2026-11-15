@@ -47,7 +47,6 @@ pipeline {
                     try {
                         sh """
                         docker run --name test-${BUILD_NUMBER} \
-                            -e TAVILY_API_KEY=test-key \
                             ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} \
                             python -m pytest tests/ -v \
                                 --cov=src \
