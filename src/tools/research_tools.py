@@ -1,7 +1,7 @@
 # src/tools/research_tools.py
 
 import logging
-from github import Github  # noqa: F401 — needed for test mocking
+from github import Auth, Github
 from langchain_community.document_loaders import WikipediaLoader
 import arxiv
 from semanticscholar import SemanticScholar
@@ -265,9 +265,8 @@ def search_github_node(state: AgentState) -> dict:
 
     token = get_credential("GITHUB_TOKEN")
     try:
-        from github import Github
         if token:
-            g = Github(token)
+            g = Github(auth=Auth.Token(token))
         else:
             g = Github() # Public access
             
