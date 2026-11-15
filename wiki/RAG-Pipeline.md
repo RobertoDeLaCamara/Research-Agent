@@ -15,6 +15,8 @@ The local RAG source (`local_rag`) provides retrieval over user-uploaded documen
 
 When `BOOKS_RAG_URL` points to a books search service (`GET <url>/api/search?q=...&top_k=N`, as served by pdf-books-mcp), `local_rag` also queries it with the English query. Book chunks come first, followed by the knowledge base results from the mode above. Each chunk is titled `Book (pp. X-Y, Chapter)` and linked as `file://<path>#page=X`. Index and table-of-contents chunks are dropped. If the service does not answer, the run carries on with the knowledge base only. A connection error is retried once with `host.docker.internal` and `127.0.0.1` swapped, so the same URL works inside and outside Docker.
 
+In the report writer's context, local knowledge goes first and is limited to `LOCAL_CONTEXT_MAX_CHARS` (default 7500 of the 25000-character budget). Without that cap, eight book chunks (11-15k characters) pushed arXiv and part of the web results out of the window. On 8 topics, the cap kept report quality level with the uncapped version (4 wins, 3 losses, 1 inconsistent, blind pairwise judge) and raised web/arXiv citations from 27 to 39 (47 without books).
+
 With `BOOKS_RAG_URL` set, the "Include local knowledge base" checkbox starts checked, and the planner always includes `local_rag` when it is enabled. `USE_RAG_DEFAULT` overrides the checkbox default either way.
 
 ## File Ingestion
