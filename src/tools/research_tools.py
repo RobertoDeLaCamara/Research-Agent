@@ -9,7 +9,7 @@ import datetime
 from ..credentials import get_credential
 from ..state import AgentState
 from ..utils import get_max_results
-from .source_loaders import duckduckgo_search, is_bot_block_or_stub, wikipedia_pages
+from .source_loaders import is_bot_block_or_stub, web_search, wikipedia_pages
 from .router_tools import update_next_node
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ def search_web_node(state: AgentState) -> dict:
     container = {"data": []}
     def run_web_search():
         try:
-            raw_results = duckduckgo_search(search_topic, max_results=max_results)
+            raw_results = web_search(search_topic, max_results=max_results)
 
             # Replace the search snippet with the page text (Jina Reader), in parallel
             def enhance_result(res):

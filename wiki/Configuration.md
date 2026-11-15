@@ -88,6 +88,19 @@ The report's output cap is fixed by depth: 4096 (Quick), 6144 (Standard) or 8192
 
 Uploaded files are saved under their base name in `RAG_KB_DIR`, so a client-supplied path cannot write elsewhere.
 
+## Web search (SearXNG)
+
+Web and Reddit search use [ddgs](https://pypi.org/project/ddgs/) (no API key). Optionally they can go to a self-hosted [SearXNG](https://docs.searxng.org/) first, also without an API key, and fall back to ddgs when it fails or returns nothing.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SEARXNG_URL` | _(unset)_ | SearXNG base URL, e.g. `http://searxng:8080` (compose service) |
+| `SEARXNG_SECRET` | _(empty)_ | Secret key for the SearXNG container; required when you start it |
+| `SEARXNG_TIMEOUT` | `10` | Seconds per SearXNG request |
+| `COMPOSE_PROFILES` | _(unset)_ | `searxng` makes `docker compose up` also start the SearXNG service |
+
+The `searxng` service in `docker-compose.yml` uses `searxng/settings.yml` (JSON API on, no limiter) and is not published on the host. Measured from the Docker host on 8 web and 8 Reddit queries: SearXNG answered 8/8 and 8/8 in 0.8 s and 0.4 s on average; ddgs answered 7/8 and 8/8 in 3.4 s and 3.7 s.
+
 ## Local knowledge (RAG)
 
 | Variable | Default | Description |

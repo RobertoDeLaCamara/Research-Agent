@@ -196,3 +196,73 @@ def test_duckduckgo_search_drops_bot_block_and_stub_hits():
         results = duckduckgo_search("6G agentic AI")
 
     assert [r["url"] for r in results] == ["https://3gpp.org/6g"]
+
+
+# ── SearXNG (SEARXNG_URL) with ddgs fallback ──────────────────────────────────────────────
+from src.tools.source_loaders import searxng_search, web_search  # noqa: E402
+
+
+def _sx_resp(results):
+    m = MagicMock()
+    m.raise_for_status.return_value = None
+    m.json.return_value = {"results": results}
+    return m
+
+
+SX_HITS = [
+    {"url": "https://a.org", "title": "A", "content": "alpha"},
+    {"url": "https://b.org", "title": "B", "content": ""},                      # no snippet: dropped
+    {"url": "https://www.bing.com/aclick?ld=x", "title": "Ad", "content": "ad"},  # ad redirect: dropped
+    {"url": "https://c.org", "title": "C", "content": "gamma"},
+]
+
+
+def test_searxng_is_off_without_url():
+    assert searxng_search("q") is None
+
+
+def test_searxng_maps_and_filters_results(monkeypatch):
+    monkeypatch.setenv("SEARXNG_URL", "http://searxng:8080/")
+    with patch("src.tools.source_loaders.requests.get", return_value=_sx_resp(SX_HITS)) as get:
+        out = searxng_search("q", max_results=5, timelimit="m")
+    assert [h["url"] for h in out] == ["https://a.org", "https://c.org"]
+    assert out[0] == {"url": "https://a.org", "content": "alpha", "title": "A"}
+    args, kwargs = get.call_args
+    assert args[0] == "http://searxng:8080/search"
+    assert kwargs["params"]["format"] == "json" and kwargs["params"]["time_range"] == "month"
+    assert kwargs["proxies"] == {"http": None, "https": None}
+
+
+def test_searxng_retries_without_the_year_limit(monkeypatch):
+    monkeypatch.setenv("SEARXNG_URL", "http://searxng:8080")
+    with patch("src.tools.source_loaders.requests.get",
+               side_effect=[_sx_resp([]), _sx_resp(SX_HITS[:1])]) as get:
+        out = searxng_search("q", timelimit="y")
+    assert len(out) == 1
+    assert get.call_args_list[0].kwargs["params"]["time_range"] == "year"
+    assert "time_range" not in get.call_args_list[1].kwargs["params"]
+
+
+def test_web_search_uses_searxng_and_skips_ddgs(monkeypatch):
+    monkeypatch.setenv("SEARXNG_URL", "http://searxng:8080")
+    with patch("src.tools.source_loaders.requests.get", return_value=_sx_resp(SX_HITS)), \
+         patch("src.tools.source_loaders.duckduckgo_search") as ddg:
+        assert len(web_search("q")) == 2
+    ddg.assert_not_called()
+
+
+@pytest.mark.parametrize("searx", [RuntimeError("connection refused"), [_sx_resp([]), _sx_resp([])]])
+def test_web_search_falls_back_to_ddgs_when_searxng_fails_or_is_empty(monkeypatch, searx):
+    monkeypatch.setenv("SEARXNG_URL", "http://searxng:8080")
+    with patch("src.tools.source_loaders.requests.get", side_effect=searx), \
+         patch("src.tools.source_loaders.duckduckgo_search", return_value=[{"url": "u"}]) as ddg:
+        assert web_search("q", max_results=3, timelimit="y") == [{"url": "u"}]
+    ddg.assert_called_once_with("q", max_results=3, timelimit="y")
+
+
+def test_web_search_is_plain_ddgs_without_searxng():
+    with patch("src.tools.source_loaders.requests.get") as get, \
+         patch("src.tools.source_loaders.duckduckgo_search", return_value=[]) as ddg:
+        web_search("q")
+    get.assert_not_called()
+    ddg.assert_called_once()

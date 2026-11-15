@@ -5,7 +5,7 @@ from src.tools.research_tools import search_web_node
 
 @patch('src.tools.research_tools.update_next_node')
 @patch('src.config.settings')
-@patch('src.tools.research_tools.duckduckgo_search')
+@patch('src.tools.research_tools.web_search')
 @patch('requests.get') # Patch globally as requests is imported locally
 def test_concurrent_web_searches(mock_requests_get, mock_ddg, mock_settings, mock_next_node):
     """Test running multiple web searches in parallel."""
