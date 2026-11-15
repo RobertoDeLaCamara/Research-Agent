@@ -1,6 +1,6 @@
 // Webhook: notifyCommit via Gitea webhook #4
 pipeline {
-    agent { label 'agent-45' }  // Docker builds/pushes must run on agent-45 (its daemon trusts the HTTP registry 192.168.1.147:5000)
+    agent { label 'built-in' }  // Run on Magua (Built-In Node) so large Docker layer pushes to 192.168.1.147:5000 are local
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '5'))
