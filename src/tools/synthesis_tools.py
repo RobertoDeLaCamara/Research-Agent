@@ -5,6 +5,35 @@ from ..llm import get_llm
 logger = logging.getLogger(__name__)
 
 
+def _clean_truncated_tail(text: str, had_closing_tag: bool = True) -> str:
+    """Clean up trailing mid-word / mid-sentence truncation when the LLM hits max_tokens before </report>."""
+    if not text or had_closing_tag:
+        return text
+    import re
+    lines = text.rstrip().split("\n")
+    if not lines:
+        return text
+    last_line = lines[-1].strip()
+    if not last_line or last_line.startswith("#"):
+        return text
+    # Complete line ends with terminal punctuation or closing markdown bracket/paren/emphasis
+    if re.search(r'[.!?:)\]"»*_>]$', last_line):
+        return text
+    # If the last line has at least one completed sentence before the cut-off fragment (e.g. "... estandarización. Esta afirm"),
+    # keep up to the last sentence-ending period.
+    m = re.search(r'^(.*\.)\s+[^.]+$', lines[-1].rstrip())
+    if m:
+        lines[-1] = m.group(1)
+        return "\n".join(lines)
+    # Otherwise drop the incomplete trailing line (and any empty heading right above it)
+    lines.pop()
+    while lines and not lines[-1].strip():
+        lines.pop()
+    if lines and re.match(r'^#{1,3}\s+', lines[-1].strip()):
+        lines.pop()
+    return "\n".join(lines).rstrip()
+
+
 def _deduplicate_sections(text: str) -> str:
     """Detect and collapse repeated H2/H3 sections in synthesized Markdown.
 
@@ -209,7 +238,7 @@ REGLAS DE SEGURIDAD Y LIMPIEZA (CRÍTICO):
 3. **ETIQUETAS REQUERIDAS**: Debes envolver el informe final EXACTAMENTE entre las etiquetas `<report>` y `</report>`. Todo lo que esté fuera de estas etiquetas será ignorado.
 
 INSTRUCCIONES DE ANÁLISIS ESPECIALISTA (PHASE 6 & 7):
-3. PESO DE AUTORIDAD: Prioriza la información oficial de fuentes académicas y, MUY ESPECIALMENTE, del **CONOCIMIENTO LOCAL (RAG)** proporcionado por el usuario.
+3. PESO DE AUTORIDAD Y RELEVANCIA ESTRICTA: Prioriza la información oficial de fuentes técnicas/académicas y del **CONOCIMIENTO LOCAL (RAG)** ÚNICAMENTE cuando tenga relación técnica directa con el tema investigado. IGNORA por completo fragmentos locales de disciplinas ajenas (ej. manuales de economía general en un informe de telecomunicaciones), prefacios, índices o documentos de prueba.
 4. CITAS OBLIGATORIAS Y LITERALES (CRÍTICO):
    - Todas las afirmaciones deben tener una cita usando Markdown link: `[Título Corto](URL)`.
    - **LA URL DEBE SER COPIADA EXACTAMENTE** del campo `URL:` proporcionado en el contexto. 
@@ -245,11 +274,14 @@ FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
     from ..utils import bypass_proxy_for_ollama
     bypass_proxy_for_ollama()
 
+    num_predict_by_depth = {"quick": 4096, "standard": 6144, "deep": 8192}
+    max_output_tokens = num_predict_by_depth.get(research_depth, 6144)
+
     llm = get_llm(
         temperature=0.4,
         timeout=360,  # 6 minutes timeout for synthesis
         repeat_penalty=1.15,   # Discourage repetitive loops
-        num_predict=4096,      # Hard cap on output tokens
+        num_predict=max_output_tokens,  # Depth-aware token cap so 'deep' reports aren't truncated mid-word
         num_ctx=settings.synthesis_num_ctx,  # Server default (8192) truncates the instructions
         stop=["</report>", "\n\n\n\n"],  # Stop on closing tag or excessive newlines
     )
@@ -307,7 +339,9 @@ FORMATO DE SALIDA: Solo Markdown puro envuelto en etiquetas `<report>`.
 
                 consolidated_text = "\n".join(lines[start_idx:]).strip()
 
-        # ── Post-processing: deduplicate repeated sections ──────────
+        # ── Post-processing: clean truncated tail & deduplicate repeated sections ──
+        had_closing_tag = "</report>" in processed_text or bool(match)
+        consolidated_text = _clean_truncated_tail(consolidated_text, had_closing_tag=had_closing_tag)
         consolidated_text = _deduplicate_sections(consolidated_text)
 
         logger.info("synthesis_completed")

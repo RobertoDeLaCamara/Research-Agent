@@ -23,17 +23,29 @@ STOPWORDS = frozenset(
 
 _DOT_LEADERS = re.compile(r"\.{8,}|(\. ){8,}|(…\s*){4,}")
 _CODE_HINT = re.compile(r"[;{}()=]")
+_PAGE_HEADER_RE = re.compile(r"^\s*\[Page\s+\d+\]", re.I)
+_EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+_DOI_RE = re.compile(r"\bdoi:\s*10\.\d{4,}", re.I)
 
 
 def looks_like_junk(text: str) -> bool:
     """Chunks that match keywords but carry no content: table-of-contents dot leaders, text with
-    broken characters (bad OCR/encoding), or a long run of text with almost no real words. Code
-    listings and short legitimate chunks (last window of a page, small notes) are NOT junk."""
+    broken characters (bad OCR/encoding), title/cover pages, author affiliation headers, raw
+    reference lists, or a long run of text with almost no real words. Code listings and short
+    legitimate chunks (last window of a page, small notes) are NOT junk."""
     if not text.strip():
         return True
     if _DOT_LEADERS.search(text):
         return True
     if text.count("\ufffd") / max(len(text), 1) > 0.03:
+        return True
+    if _PAGE_HEADER_RE.search(text):
+        body_after_tag = _PAGE_HEADER_RE.sub("", text).strip()
+        if len(re.findall(r"\b\w+\b", body_after_tag)) < 30 and ". " not in body_after_tag:
+            return True
+    if len(_EMAIL_RE.findall(text)) >= 2:
+        return True
+    if len(_DOI_RE.findall(text)) >= 2:
         return True
     return len(text) >= 200 and len(re.findall(r"\b[A-Za-z]{3,}\b", text)) < 25 and not _CODE_HINT.search(text)
 

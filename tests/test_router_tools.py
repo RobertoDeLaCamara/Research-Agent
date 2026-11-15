@@ -67,3 +67,54 @@ def test_plan_research_node_persona(mock_router_llm_func, mock_global_llm_func, 
     assert "Product Manager" in prompt or "necesidades del usuario" in prompt
 
 
+@patch("src.tools.router_tools.expand_queries_multilingual")
+def test_plan_research_node_expands_queries_even_with_predefined_plan(mock_expand, mock_agent_state):
+    """Regression test: when the GUI provides a predefined research_plan on iteration 0,
+    plan_research_node must still populate multilingual queries so English sources don't get raw Spanish."""
+    mock_expand.return_value = {
+        "en": "Agentic AI in 6G networks standardization in 3GPP",
+        "es": "IA agentica en redes 6G estandarización en 3GPP",
+    }
+    mock_agent_state["topic"] = "IA agentica en redes 6G: estado del arte, evolución y estandarización en 3gpp"
+    mock_agent_state["research_plan"] = ["local_rag", "web", "arxiv"]
+    mock_agent_state["iteration_count"] = 0
+
+    result = plan_research_node(mock_agent_state)
+
+    mock_expand.assert_called_once_with(mock_agent_state["topic"])
+    assert result["queries"]["en"] == "Agentic AI in 6G networks standardization in 3GPP"
+    assert result["research_plan"] == ["local_rag", "web", "arxiv"]
+
+
+@patch("src.tools.router_tools.get_llm")
+def test_evaluate_research_node_injects_current_date_and_sources_digest(mock_get_llm, mock_agent_state):
+    """Regression test: evaluate_research_node must pass the current system date and retrieved
+    source excerpts so the fact-checker does not flag current-year dates or source-backed metrics."""
+    from src.tools.router_tools import evaluate_research_node
+    import datetime
+
+    mock_llm = mock_get_llm.return_value
+    mock_resp = MagicMock()
+    mock_resp.content = '{"dubious_claims": [], "reasoning": "Verificado con fuente 3GPP."}'
+    mock_llm.invoke.return_value = mock_resp
+
+    mock_agent_state["topic"] = "IA agentica en redes 6G"
+    mock_agent_state["research_depth"] = "deep"
+    mock_agent_state["consolidated_summary"] = "En marzo de 2026 se inició Release-21 con el 50% de Release-20 dedicado a 6G."
+    mock_agent_state["web_research"] = [
+        {
+            "title": "AI and Agentic Protocols for 6G",
+            "url": "https://www.3gpp.org/technologies/ai-agentic-protocols",
+            "content": "3GPP decided to dedicate 50% of Release-20 time to 6G studies. Stage 1 normative work started in March 2026.",
+        }
+    ]
+
+    result = evaluate_research_node(mock_agent_state)
+
+    assert result["next_node"] == "END"
+    assert "⚠️" not in result.get("consolidated_summary", mock_agent_state["consolidated_summary"])
+    prompt = mock_llm.invoke.call_args[0][0][0].content
+    today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+    assert f"FECHA ACTUAL DEL SISTEMA: {today_str}" in prompt
+    assert "https://www.3gpp.org/technologies/ai-agentic-protocols" in prompt
+    assert "50% of Release-20" in prompt

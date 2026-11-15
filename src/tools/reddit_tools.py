@@ -1,7 +1,8 @@
 import logging
+import re
 from ..state import AgentState
 from .router_tools import update_next_node
-from .source_loaders import duckduckgo_search
+from .source_loaders import duckduckgo_search, is_bot_block_or_stub
 
 logger = logging.getLogger(__name__)
 
@@ -10,6 +11,30 @@ TIME_RANGE_TO_TIMELIMIT = {
     "d": "d", "day": "d", "w": "w", "week": "w",
     "m": "m", "month": "m", "y": "y", "year": "y",
 }
+
+_REDDIT_MEDIA_URL_RE = re.compile(r"reddit\.com/(video|media|gallery)/|://(v|i)\.redd\.it/", re.I)
+_WIFI_6GHZ_RE = re.compile(r"\b(6\s*ghz|wifi\s*6e?|wi-fi\s*6e?|canal\s*6)\b", re.I)
+_CELLULAR_6G_RE = re.compile(r"\b6g\b", re.I)
+_WIFI_QUERY_RE = re.compile(r"\b(wifi|wi-fi|6\s*ghz|router)\b", re.I)
+
+
+def is_reddit_result_relevant(hit: dict, query: str = "") -> bool:
+    """Filter out blocked stubs, media-only links, and WiFi 6GHz false positives on 6G cellular topics."""
+    if not isinstance(hit, dict):
+        return False
+    url = (hit.get("url") or "").strip()
+    content = (hit.get("content") or hit.get("snippet") or "").strip()
+    title = (hit.get("title") or "").strip()
+    if is_bot_block_or_stub(content, title):
+        return False
+    if _REDDIT_MEDIA_URL_RE.search(url):
+        return False
+    combined = f"{title} {content} {url}"
+    # Disambiguate 6G mobile networks vs WiFi 6 / 6GHz band
+    if _CELLULAR_6G_RE.search(query or "") and not _WIFI_QUERY_RE.search(query or ""):
+        if _WIFI_6GHZ_RE.search(combined) and not _CELLULAR_6G_RE.search(combined):
+            return False
+    return True
 
 
 def search_reddit_node(state: AgentState) -> dict:
@@ -35,9 +60,12 @@ def search_reddit_node(state: AgentState) -> dict:
                 time_range = "d"
             timelimit = TIME_RANGE_TO_TIMELIMIT.get(time_range, "y")
             try:
-                container["data"] = duckduckgo_search(
+                raw_hits = duckduckgo_search(
                     f"{search_topic} site:reddit.com", max_results=max_results, timelimit=timelimit
                 )
+                container["data"] = [
+                    h for h in raw_hits if is_reddit_result_relevant(h, search_topic)
+                ]
             except Exception as e_inner:
                 # Raised inside the worker thread, so the outer try would never see it
                 logger.error(f"Reddit search failed: {e_inner}")

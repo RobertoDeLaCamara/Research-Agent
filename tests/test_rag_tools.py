@@ -56,3 +56,29 @@ def test_local_rag_node_with_files(mock_agent_state):
         assert len(result["local_research"]) == 2, f"Expected 2 results, got {len(result['local_research'])}: {titles}"
         assert "test.txt" in titles
         assert "doc.pdf" in titles
+
+
+def test_local_rag_node_ignores_substring_stopword_matches_and_dummy_files(mock_agent_state, tmp_path, monkeypatch):
+    """Regression test: Spanish stopwords like 'en' and 'y' must NOT match English words containing
+    'en' ('passenger', 'document') as substrings, and dummy test files must be ignored."""
+    monkeypatch.setenv("RAG_KB_DIR", str(tmp_path))
+    monkeypatch.setenv("RAG_MODE", "legacy")
+
+    (tmp_path / "transport_concept.txt").write_text(
+        "A motorized vehicle with four wheels designed for passenger transport on roads."
+    )
+    (tmp_path / "test_doc.txt").write_text(
+        "This is a test document for RAG persistence verification."
+    )
+    (tmp_path / "unrelated_cooking.txt").write_text(
+        "Chicken soup with green vegetables and fresh lemon juice."
+    )
+    (tmp_path / "3gpp_6g_notes.txt").write_text(
+        "3GPP Release 20 studies agentic AI protocols for 6G mobile networks."
+    )
+
+    mock_agent_state["topic"] = "IA agentica en redes 6G: estado del arte, evolución y estandarización en 3gpp"
+    result = local_rag_node(mock_agent_state)
+
+    titles = [r["title"] for r in result["local_research"]]
+    assert titles == ["3gpp_6g_notes.txt"]

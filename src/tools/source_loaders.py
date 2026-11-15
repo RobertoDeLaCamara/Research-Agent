@@ -27,6 +27,29 @@ WIKIPEDIA_MAX_CONTENT_CHARS = 4000
 _YOUTUBE_HOSTS = {"youtu.be", "m.youtube.com", "youtube.com", "www.youtube.com",
                   "www.youtube-nocookie.com", "vid.plus"}
 
+_BOT_BLOCK_PATTERNS = (
+    "just a moment...",
+    "title: just a moment",
+    "performing security verification",
+    "this page maybe requiring captcha",
+    "requiring captcha",
+    "verifies you are not a bot",
+    "verify you are human",
+    "enable javascript and cookies to continue",
+    "attention required! | cloudflare",
+    "we would like to show you a description here but the site won't allow us",
+    "we would like to show you a description here but the site won’t allow us",
+    "please enable js and disable any ad blocker",
+)
+
+
+def is_bot_block_or_stub(text: str, title: str = "") -> bool:
+    """Return True when scraped content or snippet is an anti-bot/CAPTCHA interstitial or robots.txt stub."""
+    if not (text or "").strip():
+        return True
+    combined = f"{title or ''}\n{text or ''}".strip().lower()
+    return any(pat in combined for pat in _BOT_BLOCK_PATTERNS)
+
 
 def _ddgs_text(query: str, max_results: int, timelimit: str | None) -> list[dict]:
     """One ddgs attempt. Returns [] when the engines answered with no results."""
@@ -70,7 +93,7 @@ def duckduckgo_search(query: str, max_results: int = 5, timelimit: str | None = 
     return [
         {"url": h.get("href"), "content": h.get("body"), "title": h.get("title")}
         for h in hits
-        if h.get("body")
+        if h.get("body") and not is_bot_block_or_stub(h.get("body", ""), h.get("title", ""))
     ]
 
 

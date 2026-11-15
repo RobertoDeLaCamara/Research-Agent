@@ -1,6 +1,7 @@
 # src/tools/rag_tools.py
 
 import os
+import re
 import logging
 import pypdf
 from ..state import AgentState
@@ -11,8 +12,97 @@ logger = logging.getLogger(__name__)
 
 LOCAL_RAG_META = {"local_rag": {"source_type": "user_provided_knowledge", "reliability": 5}}
 
+_JUNK_CHAPTER_TERMS = frozenset({
+    "index", "contents", "table of contents", "brief contents",
+    "preface", "foreword", "acknowledgements", "acknowledgments",
+    "references", "bibliography", "copyright", "title page",
+    "dedication", "list of abbreviations", "list of acronyms",
+    "about the authors", "contributors",
+})
 
-def _books_local_research(topic: str):
+_RAG_STOPWORDS = frozenset({
+    "de", "del", "la", "las", "el", "los", "en", "un", "una", "unos", "unas",
+    "por", "para", "con", "sin", "sobre", "entre", "hacia", "como", "mas", "más",
+    "estado", "arte", "evolucion", "evolución", "estandarizacion", "estandarización",
+    "the", "and", "or", "in", "on", "of", "for", "to", "with", "by", "from", "at",
+    "as", "into", "about", "state", "art", "evolution", "standardization",
+    "redes", "networks", "network", "sistema", "sistemas", "systems",
+    "test", "topic",
+})
+
+_DOMAIN_ANCHOR_TERMS = frozenset({
+    "agentic", "agentica", "agéntica", "llm", "nwdaf", "mdaf", "udm", "nssf",
+    "pcf", "ausf", "sdn", "nfv", "iot", "m2m", "hopfield", "blockchain",
+    "kubernetes", "docker", "langchain", "langgraph", "ietf", "etsi", "ran",
+})
+
+_TEST_DUMMY_FILENAMES = frozenset({"test_doc.txt", "transport_concept.txt"})
+
+
+def _fix_mojibake(text: str) -> str:
+    """Repair UTF-8 strings that were decoded as Latin-1/CP1252 (e.g. 'EconomÃ­a' -> 'Economía')."""
+    if not text or "Ã" not in text:
+        return text
+    try:
+        return text.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return text
+
+
+def _is_junk_chapter(chapter: str) -> bool:
+    """Return True if a book chapter label corresponds to front/back matter (Preface, References, TOC, etc.)."""
+    chap_lower = _fix_mojibake(chapter or "").strip().lower()
+    if not chap_lower:
+        return False
+    if chap_lower in _JUNK_CHAPTER_TERMS:
+        return True
+    cleaned = re.sub(r"^[\d.\s-]+", "", chap_lower).strip()
+    if cleaned in _JUNK_CHAPTER_TERMS:
+        return True
+    return any(
+        chap_lower.endswith(f", {t}") or chap_lower.endswith(f" {t}") or chap_lower.startswith(f"{t} ")
+        for t in ("preface", "references", "bibliography", "index", "table of contents", "acknowledgements", "acknowledgments")
+    )
+
+
+def _extract_query_keywords(topic: str) -> tuple[set[str], set[str]]:
+    """Return (all_keywords, anchor_keywords) from a query string."""
+    tokens = re.findall(r"[a-z0-9áéíóúñ]{2,}", (topic or "").lower())
+    all_kw = {t for t in tokens if len(t) >= 3 and t not in _RAG_STOPWORDS}
+    for t in tokens:
+        if t in {"5g", "6g", "4g", "3g", "ai", "ia", "ml"}:
+            all_kw.add(t)
+    anchors = {
+        t for t in all_kw
+        if any(ch.isdigit() for ch in t) or t in _DOMAIN_ANCHOR_TERMS
+    }
+    return all_kw, anchors
+
+
+def _is_book_hit_relevant(book_title: str, chapter: str, text: str, query: str) -> bool:
+    """Reject off-topic book chunks (e.g. general Economics books on a 6G/3GPP query)."""
+    all_kw, anchors = _extract_query_keywords(query)
+    if not anchors:
+        return True
+    combined = f"{book_title or ''} {chapter or ''} {text or ''}".lower()
+    return any(re.search(rf"\b{re.escape(a)}\b", combined) for a in anchors)
+
+
+def _extract_meaningful_kb_tokens(topic: str, queries: dict | None = None) -> list[str]:
+    """Extract meaningful whole-word search tokens (no 1-2 char stopwords like 'en' or 'y')."""
+    combined_query = f"{topic or ''} {(queries or {}).get('en', '')} {(queries or {}).get('es', '')}"
+    raw_tokens = re.findall(r"[a-z0-9áéíóúñ]{2,}", combined_query.lower())
+    out = []
+    for tok in raw_tokens:
+        if tok in _RAG_STOPWORDS:
+            continue
+        if len(tok) >= 3 or tok in {"5g", "6g", "4g", "ai", "ia", "ml"}:
+            if tok not in out:
+                out.append(tok)
+    return out
+
+
+def _books_local_research(topic: str, full_topic: str = ""):
     """Query the local vectorized technical books service (pdf-books-mcp on BOOKS_RAG_URL).
 
     Returns None if BOOKS_RAG_URL is unset or unreachable so the caller can fall back.
@@ -42,13 +132,16 @@ def _books_local_research(topic: str):
         logger.error(f"books_local_rag_failed: {e}")
         return None
 
+    relevance_query = f"{topic} {full_topic}".strip()
     results = []
     for hit in raw_hits:
         text = hit.get("text") or ""
-        chap_lower = (hit.get("chapter") or "").strip().lower()
-        if looks_like_junk(text) or chap_lower in ("index", "contents", "table of contents", "brief contents"):
+        chapter = _fix_mojibake(hit.get("chapter") or "")
+        book_title = _fix_mojibake(hit.get("book_title") or hit.get("file_name") or "Technical Book")
+        if looks_like_junk(text) or _is_junk_chapter(chapter):
             continue
-        book_title = hit.get("book_title") or hit.get("file_name") or "Technical Book"
+        if not _is_book_hit_relevant(book_title, chapter, text, relevance_query):
+            continue
         p_start, p_end = hit.get("page_start"), hit.get("page_end")
         if p_start and p_end and p_start != p_end:
             pages = f"pp. {p_start}-{p_end}"
@@ -56,7 +149,6 @@ def _books_local_research(topic: str):
             pages = f"p. {p_start}"
         else:
             pages = ""
-        chapter = hit.get("chapter") or ""
         chap_str = f", {chapter}" if chapter and chapter != "Unknown" else ""
         loc = f" ({pages}{chap_str})" if pages else (f" ({chapter})" if chap_str else "")
         file_path = hit.get("file_path") or hit.get("file_name") or ""
@@ -124,7 +216,7 @@ def local_rag_node(state: AgentState) -> dict:
 
     if (os.getenv("BOOKS_RAG_URL") or "").strip():
         q = (state.get("queries") or {}).get("en") or state.get("topic", "")
-        books_hits = _books_local_research(q)
+        books_hits = _books_local_research(q, full_topic=state.get("topic", ""))
         if books_hits is None:
             logger.warning("BOOKS_RAG_URL is set but unreachable; using the local knowledge base only")
         else:
@@ -155,9 +247,10 @@ def _knowledge_base_research(state: AgentState) -> dict:
         return {"local_research": [], "next_node": update_next_node(state, "local_rag"), "source_metadata": {"local_rag": {"source_type": "user_provided_knowledge", "reliability": 5}}}
 
     topic = state.get("topic", "").lower()
-    
+    topic_tokens = _extract_meaningful_kb_tokens(topic, state.get("queries"))
+
     import json
-    
+
     # ---------------------------------------------------------
     # CACHE IMPLEMENTATION
     # ---------------------------------------------------------
@@ -169,7 +262,7 @@ def _knowledge_base_research(state: AgentState) -> dict:
                 cache = json.load(f)
         except Exception as e:
             logger.warning(f"Failed to load RAG cache: {e}")
-            
+
     cache_dirty = False
 
     def get_file_hash(file_path):
@@ -181,41 +274,41 @@ def _knowledge_base_research(state: AgentState) -> dict:
     files_found = []
     for root, dirs, files in os.walk(kb_path):
         for file in files:
+            if file.lower() in _TEST_DUMMY_FILENAMES:
+                continue
             if file.lower().endswith(('.pdf', '.txt')):
                 files_found.append(os.path.join(root, file))
-    
+
     logger.info(f"Scanning {len(files_found)} files in knowledge_base (recursive)")
-    
+
     from concurrent.futures import ThreadPoolExecutor
-    
+
     def process_file(file_path):
         nonlocal cache_dirty
         filename = os.path.basename(file_path)
-        
-        # Optimization: Score filename relevance
-        topic_words = topic.split()
-        filename_score = sum(1 for word in topic_words if word in filename.lower())
-        
+        fname_lower = filename.lower()
+
+        # Optimization: Score filename relevance using whole-word token matches
+        filename_score = sum(
+            1 for word in topic_tokens if re.search(rf"\b{re.escape(word)}\b", fname_lower)
+        )
+
         # -----------------------------------------------------
         # CACHE CHECK
         # -----------------------------------------------------
         file_hash = get_file_hash(file_path)
         cached_entry = cache.get(file_path)
-        
+
         content = ""
-        
+
         if cached_entry and cached_entry.get("hash") == file_hash:
-            # Cache Hit
             content = cached_entry.get("content", "")
-            # logger.debug(f"Cache hit for {filename}")
         else:
-            # Cache Miss - Process File
             try:
-                if filename.lower().endswith(".pdf"):
+                if fname_lower.endswith(".pdf"):
                     with open(file_path, "rb") as f:
                         reader = pypdf.PdfReader(f)
-                        # Limit pages to avoid huge delays on massive books
-                        max_pages = 50 
+                        max_pages = 50
                         count = 0
                         for page in reader.pages:
                             if count >= max_pages:
@@ -224,34 +317,33 @@ def _knowledge_base_research(state: AgentState) -> dict:
                             if text:
                                 content += text + "\n"
                             count += 1
-                elif filename.lower().endswith(".txt"):
+                elif fname_lower.endswith(".txt"):
                     with open(file_path, "r", encoding="utf-8", errors='ignore') as f:
                         content = f.read()
-                
-                # Update Cache if content found
+
                 if content:
                     cache[file_path] = {
                         "hash": file_hash,
                         "content": content
                     }
-                    # We can't easily set nonlocal cache_dirty in threaded context safely without lock
-                    # But since we're using ThreadPoolExecutor, we can just return the cache update 
-                    # from the function and handle it in the main thread? 
-                    # Actually, dictionary operations in Python are atomic-ish, but let's be safe.
-                    # We will re-save the whole cache at the end, so modifying 'cache' dict here is okay 
-                    # as long as we don't have race conditions on the same key (unlikely).
             except Exception as e:
                 logger.error(f"Error reading local file {filename}: {e}")
                 return None
 
         if content:
-            # Basic relevance check
-            if any(word in content.lower() for word in topic_words) or not topic_words or filename_score > 0:
+            content_lower = content.lower()
+            if "for rag persistence verification" in content_lower:
+                return None
+            # Whole-word relevance check against meaningful tokens (avoids matching 'en' in 'document')
+            matched_words = sum(
+                1 for word in topic_tokens if re.search(rf"\b{re.escape(word)}\b", content_lower)
+            )
+            if matched_words > 0 or not topic_tokens or filename_score > 0:
                 return {
                     "title": filename,
-                    "content": content[:3000], 
+                    "content": content[:3000],
                     "url": f"file://{os.path.abspath(file_path)}",
-                    "score": filename_score,
+                    "score": filename_score + matched_words,
                     "cache_update": {file_path: {"hash": file_hash, "content": content}} if not cached_entry or cached_entry.get("hash") != file_hash else None
                 }
         return None
@@ -264,28 +356,25 @@ def _knowledge_base_research(state: AgentState) -> dict:
             with open(temp_file, "w") as f:
                 json.dump({"current": current, "total": total, "last_file": filename}, f)
             os.replace(temp_file, STATUS_FILE)
-        except Exception as e: 
+        except Exception as e:
             logger.warning(f"Status update failed: {e}")
 
-    # Use ThreadPoolExecutor
     processed_count = 0
     total_files = len(files_found)
     update_status(0, total_files, "Iniciando análisis paralelo...")
     logger.info(f"Starting processing of {total_files} files with max_workers=4")
-    
-    # Reduced workers to prevent OOM on large PDFs
+
     results = []
     from concurrent.futures import as_completed
     with ThreadPoolExecutor(max_workers=4) as executor:
         future_to_file = {executor.submit(process_file, f): f for f in files_found}
-        
+
         for future in as_completed(future_to_file):
             processed_count += 1
             file_path = future_to_file[future]
             fname = os.path.basename(file_path)
-            # Update status for every finished file
             update_status(processed_count, total_files, fname)
-            
+
             try:
                 res = future.result()
                 if res:
@@ -297,15 +386,13 @@ def _knowledge_base_research(state: AgentState) -> dict:
                     logger.info(f"Processed: {res['title']}")
             except Exception as e:
                 logger.error(f"Error processing {fname}: {e}")
-                
-    # Final cleanup of status
+
     if os.path.exists(STATUS_FILE):
         try:
             os.remove(STATUS_FILE)
         except OSError:
             pass
 
-    # Save Cache...
     if cache_dirty:
         try:
             with open(CACHE_FILE, "w", encoding="utf-8") as f:

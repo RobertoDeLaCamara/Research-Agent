@@ -29,3 +29,35 @@ def test_search_reddit_node_returns_nothing_when_search_fails(mock_agent_state):
 
     assert result["reddit_research"] == []
     assert "next_node" in result
+
+
+def test_search_reddit_node_filters_video_stubs_and_wifi_6ghz_on_6g_topic(mock_agent_state):
+    """Regression test: filter out reddit.com/video stubs and WiFi 6GHz posts when searching 6G mobile."""
+    state = {
+        **mock_agent_state,
+        "topic": "IA agentica en redes 6G",
+        "queries": {"en": "Agentic AI in 6G cellular networks"},
+    }
+    raw_hits = [
+        {
+            "url": "https://www.reddit.com/video/spr34iqnkp521",
+            "content": "We would like to show you a description here but the site won’t allow us.",
+            "title": "Reddit Video",
+        },
+        {
+            "url": "https://www.reddit.com/r/HomeNetworking/comments/18io0r4/wifi_6ghz_not_as_fast/",
+            "content": "Do y'all think it's still worth using the 6ghz band under these conditions? I know Wifi 6 is supposed to have other benefits.",
+            "title": "WiFi 6GHz",
+        },
+        {
+            "url": "https://www.reddit.com/r/telecom/comments/abc123/3gpp_release_20_6g_ai_agents/",
+            "content": "Discussion on 3GPP Release 20 6G autonomous AI agents in RAN and Core.",
+            "title": "3GPP 6G AI Agents",
+        },
+    ]
+    with patch("src.tools.reddit_tools.duckduckgo_search", return_value=raw_hits):
+        result = search_reddit_node(state)
+
+    assert [r["url"] for r in result["reddit_research"]] == [
+        "https://www.reddit.com/r/telecom/comments/abc123/3gpp_release_20_6g_ai_agents/"
+    ]

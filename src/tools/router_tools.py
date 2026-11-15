@@ -106,13 +106,17 @@ def plan_research_node(state: AgentState) -> dict:
     topic = state["topic"]
 
     # If a research plan is already provided (e.g., from the GUI), keep it
-    # BUT if we are in a re-planning loop (iteration > 0), we want the LLM to DECIDE new sources
+    # BUT if we are in a re-planning loop (iteration > 0), we want the LLM to DECIDE new sources.
+    # Always expand multilingual queries so English-indexed sources (arXiv, Scholar, Books RAG)
+    # do not receive raw Spanish sentences with colons/accents.
     if state.get("research_plan") and state.get("iteration_count", 0) == 0:
         logger.info("Using existing research plan provided in state.")
+        expanded_queries = state.get("queries") or expand_queries_multilingual(topic)
         return {
             "research_plan": state["research_plan"],
             "next_node": state.get("next_node", state["research_plan"][0]),
-            "iteration_count": 0
+            "iteration_count": 0,
+            "queries": expanded_queries,
         }
 
     persona = state.get("persona", "general")
@@ -216,6 +220,28 @@ def plan_research_node(state: AgentState) -> dict:
         }
 
 
+def _build_sources_digest(state: AgentState, max_chars: int = 8000) -> str:
+    """Build a compact digest of retrieved source excerpts so the fact-checker can verify claims."""
+    parts = []
+    for item in state.get("web_research") or []:
+        title = item.get("title", "Web")
+        url = item.get("url", "")
+        snippet = (item.get("content") or item.get("snippet") or "")[:600]
+        parts.append(f"[WEB] {title} ({url}): {snippet}")
+    for item in state.get("wiki_research") or []:
+        parts.append(f"[WIKI] {item.get('title', '')} ({item.get('url', '')}): {(item.get('summary') or '')[:400]}")
+    for item in state.get("arxiv_research") or []:
+        parts.append(f"[ARXIV] {item.get('title', '')} ({item.get('url', '')}): {(item.get('summary') or '')[:400]}")
+    for item in state.get("scholar_research") or []:
+        parts.append(f"[SCHOLAR] {item.get('title', '')} ({item.get('url', '')}): {(item.get('content') or '')[:400]}")
+    for item in state.get("local_research") or []:
+        parts.append(f"[LOCAL] {item.get('title', '')} ({item.get('url', '')}): {(item.get('content') or '')[:400]}")
+    digest = "\n".join(parts)
+    if len(digest) > max_chars:
+        digest = digest[:max_chars] + "\n[... extractos truncados ...]"
+    return digest
+
+
 def evaluate_research_node(state: AgentState) -> dict:
     """Evaluate the gathered research for factual accuracy.
 
@@ -240,19 +266,29 @@ def evaluate_research_node(state: AgentState) -> dict:
         logger.info("News Editor persona detected. Skipping evaluation for speed.")
         return {"next_node": "END", "evaluation_report": "Salto de evaluación para modo noticias."}
 
-    prompt = f"""
-    Eres un Crítico de Investigación y Fact-Checker experto. Tu tarea es evaluar si la síntesis es completa y las afirmaciones principales están verificadas con fuentes.
+    import datetime
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    sources_digest = _build_sources_digest(state)
 
+    prompt = f"""
+    Eres un Crítico de Investigación y Fact-Checker experto. Tu tarea es evaluar si la síntesis es completa y las afirmaciones principales están verificadas con las fuentes recuperadas.
+
+    FECHA ACTUAL DEL SISTEMA: {current_date}
     TEMA ORIGINAL: {topic}
     NIVEL DE PROFUNDIDAD SOLICITADO: {research_depth}
+
+    FUENTES RECUPERADAS DISPONIBLES:
+    {sources_digest if sources_digest else "No se adjuntaron extractos de fuentes."}
+
     SÍNTESIS ACTUAL:
     {summary}
 
     INSTRUCCIONES DE EVALUACIÓN:
-    1. Identifica si hay afirmaciones de ALTO IMPACTO que parezcan inventadas o sin fuente creíble.
-    2. Una investigación puede ser ACEPTABLE incluso sin cubrir todos los subtemas posibles. No penalices por omisión de aspectos periféricos.
-    3. "Falta de profundidad" NO es razón para marcar insuficiente. El nivel de detalle depende del tiempo de búsqueda.
-    4. Responde en formato JSON:
+    1. Identifica si hay afirmaciones de ALTO IMPACTO que contradigan las FUENTES RECUPERADAS o parezcan completamente inventadas sin fuente creíble.
+    2. ATENCIÓN TEMPORAL: Hoy es {current_date}. NO marques fechas pasadas o actuales (hasta {current_date}) ni hitos de estandarización citados en las fuentes como "fechas futuras imposibles".
+    3. Si un dato cuantitativo o fecha está respaldado o citado de una fuente válida listada en FUENTES RECUPERADAS DISPONIBLES, NO lo marques como dudoso.
+    4. Una investigación puede ser ACEPTABLE incluso sin cubrir todos los subtemas posibles. No penalices por omisión de aspectos periféricos ni por falta de profundidad.
+    5. Responde en formato JSON:
        - "dubious_claims": lista de afirmaciones que parecen inventadas o sin respaldo (máximo 3, solo las más críticas).
        - "reasoning": explicación breve (máximo 2 líneas).
 

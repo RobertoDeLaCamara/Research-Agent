@@ -153,3 +153,77 @@ def test_search_so_node(mock_agent_state):
         
         assert "so_research" in result
         assert "next_node" in result
+
+
+@patch("requests.get")
+def test_search_web_node_keeps_ddg_snippet_when_jina_returns_cloudflare_captcha(mock_get, mock_agent_state):
+    """Regression test: Jina Reader returns HTTP 200 even when blocked by Cloudflare CAPTCHA.
+    search_web_node must NOT overwrite the valid DuckDuckGo snippet with the CAPTCHA wall."""
+    cloudflare_text = (
+        "Title: Just a moment...\n\n"
+        "Warning: This page maybe requiring CAPTCHA, please make sure you are authorized to access this page.\n"
+        "## Performing security verification"
+    )
+    mock_get.return_value = MagicMock(status_code=200, text=cloudflare_text)
+    with patch("src.tools.research_tools.duckduckgo_search") as mock_ddg:
+        mock_ddg.return_value = [
+            {
+                "url": "https://www.alphaxiv.org/es/abs/2607.18138",
+                "content": "Comunicaciones de agentes de IA en redes 6G nativas de IA.",
+                "title": "Comunicaciones de agentes de IA en redes 6G",
+            }
+        ]
+        result = search_web_node(mock_agent_state)
+
+    assert len(result["web_research"]) == 1
+    assert result["web_research"][0]["content"] == "Comunicaciones de agentes de IA en redes 6G nativas de IA."
+    assert "Performing security verification" not in result["web_research"][0]["content"]
+
+
+def test_sanitize_arxiv_query_strips_colons_and_stopwords():
+    from src.tools.research_tools import sanitize_arxiv_query
+    raw = "IA agentica en redes 6G: estado del arte, evolución y estandarización en 3gpp"
+    sanitized = sanitize_arxiv_query(raw)
+    assert ":" not in sanitized
+    assert "6G" in sanitized
+    assert "3gpp" in sanitized
+    assert " en " not in f" {sanitized.lower()} "
+    assert " del " not in f" {sanitized.lower()} "
+
+
+@patch("arxiv.Client")
+@patch("arxiv.Search")
+def test_search_arxiv_node_filters_out_besiii_particle_physics_and_caps_authors(
+    mock_search_class, mock_client_class, mock_agent_state
+):
+    """Regression test: BESIII e+e- particle physics papers with 500 authors must be rejected
+    on 6G/AI topics, and valid papers with >5 authors must have their author list capped with 'et al.'."""
+    mock_agent_state["topic"] = "IA agentica en redes 6G: estado del arte, evolución y estandarización en 3gpp"
+    mock_agent_state["queries"] = {"en": "Agentic AI in 6G networks: 3GPP standardization"}
+
+    besiii_paper = MagicMock()
+    besiii_paper.title = r"Observation of the $Y(4230)$ in $e^{+}e^{-}\to K_{S}^{0} K_{S}^{0} J/\psi$"
+    besiii_paper.summary = "Cross sections at center-of-mass energies from 4.128 to 4.950 GeV collected by the BESIII detector at BEPCII."
+    besiii_paper.entry_id = "http://arxiv.org/abs/2211.08561v5"
+    besiii_paper.authors = [MagicMock(name=f"Physics Author {i}") for i in range(100)]
+
+    valid_6g_paper = MagicMock()
+    valid_6g_paper.title = "LLM-Driven Agentic AI for 5G and 6G Networks: Architecture and 3GPP Standardization"
+    valid_6g_paper.summary = "Agentic artificial intelligence marks a shift toward autonomous control in 6G networks."
+    valid_6g_paper.entry_id = "http://arxiv.org/abs/2607.16066"
+    valid_6g_paper.authors = [MagicMock() for _ in range(8)]
+    for idx, a in enumerate(valid_6g_paper.authors, start=1):
+        a.name = f"Telecom Researcher {idx}"
+
+    mock_client_class.return_value.results.return_value = iter([besiii_paper, valid_6g_paper])
+
+    result = search_arxiv_node(mock_agent_state)
+
+    assert len(result["arxiv_research"]) == 1
+    item = result["arxiv_research"][0]
+    assert item["url"] == "http://arxiv.org/abs/2607.16066"
+    assert item["authors"].endswith("et al.")
+    assert "Telecom Researcher 6" not in item["authors"]
+    # Verify colon was stripped from the query sent to arxiv.Search
+    sent_query = mock_search_class.call_args.kwargs["query"]
+    assert ":" not in sent_query

@@ -40,3 +40,29 @@ def test_consolidate_research_node_persona(mock_chat_ollama, mock_agent_state):
     prompt = mock_chat_ollama.return_value.invoke.call_args[0][0][0].content
     assert "Product Manager" in prompt
     assert "CONOCIMIENTO LOCAL" in prompt
+
+
+@patch("src.tools.synthesis_tools.get_llm")
+def test_consolidate_research_node_cleans_truncated_tail_and_uses_depth_aware_tokens(mock_get_llm, mock_agent_state):
+    """Regression test: deep mode must allocate >= 8192 output tokens, and if the LLM still
+    truncates mid-word before </report> (e.g. 'Esta afirm'), the broken trailing fragment is trimmed."""
+    mock_llm = mock_get_llm.return_value
+    mock_response = MagicMock()
+    mock_response.content = (
+        "<report>\n"
+        "## Contexto de 6G\n"
+        "3GPP estudia protocolos agénticos en Release 20.\n\n"
+        "## Verificación de Datos\n"
+        "* **Afirmación 1**: 3GPP ha decidido dedicar el 50% del tiempo de Release-20 a estudios de 6G. Esta afirm"
+    )
+    mock_llm.invoke.return_value = mock_response
+
+    mock_agent_state["research_depth"] = "deep"
+    mock_agent_state["web_research"] = [{"title": "3GPP", "url": "https://3gpp.org", "content": "6G studies"}]
+
+    result = consolidate_research_node(mock_agent_state)
+
+    assert mock_get_llm.call_args.kwargs["num_predict"] == 8192
+    summary = result["consolidated_summary"]
+    assert not summary.endswith("Esta afirm")
+    assert summary.endswith("3GPP ha decidido dedicar el 50% del tiempo de Release-20 a estudios de 6G.")

@@ -143,3 +143,57 @@ def test_unreachable_books_service_falls_back_to_knowledge_base(mock_agent_state
     # tried the configured host, then the swapped one
     assert [c.args[0] for c in mock_get.call_args_list] == [
         "http://host.docker.internal:8765/api/search", "http://127.0.0.1:8765/api/search"]
+
+
+def test_books_rag_filters_preface_references_and_offtopic_economics_books(mock_agent_state, monkeypatch, tmp_path):
+    """Regression test: BOOKS_RAG_URL must drop Preface/References chapters, author email blocks,
+    title pages, and off-topic Economics books that lack the query's technical anchors (6G/3GPP/agentic)."""
+    monkeypatch.setenv("RAG_KB_DIR", str(tmp_path))
+    monkeypatch.setenv("BOOKS_RAG_URL", "http://127.0.0.1:8765")
+    mock_agent_state["topic"] = "IA agentica en redes 6G: estado del arte, evolución y estandarización en 3gpp"
+    mock_agent_state["queries"] = {"en": "Agentic AI in 6G networks and 3GPP standardization"}
+
+    hits = [
+        {
+            "book_title": "Cellular Communication Networks and Standards",
+            "file_path": "/books/cellular_6g.pdf",
+            "page_start": 6,
+            "page_end": 7,
+            "chapter": "Preface",
+            "text": "This textbook offers students a review of cellular systems up to 6G.",
+            "similarity_score": 0.81,
+        },
+        {
+            "book_title": "EconomÃ­a, teorÃ­a y polÃ­tica",
+            "file_path": "/books/economia.pdf",
+            "page_start": 252,
+            "page_end": 253,
+            "chapter": "11.4. Los bienes públicos",
+            "text": "Los avances en las tecnologías de la información han facilitado la aparición de externalidades positivas.",
+            "similarity_score": 0.79,
+        },
+        {
+            "book_title": "Net Of Things In 5G Mobile Technologies",
+            "file_path": "/books/iot_5g.pdf",
+            "page_start": 412,
+            "page_end": 413,
+            "chapter": "References",
+            "text": "Chen, S.: The requirements for 5G. IEEE Commun. Mag. (2014).",
+            "similarity_score": 0.78,
+        },
+        {
+            "book_title": "Cellular Communication Networks and Standards",
+            "file_path": "/books/cellular_6g.pdf",
+            "page_start": 32,
+            "page_end": 32,
+            "chapter": "1.4 Summary",
+            "text": "We elaborate on ongoing research and development efforts toward the first 6G standard in 3GPP.",
+            "similarity_score": 0.79,
+        },
+    ]
+    with patch("requests.get", return_value=_books_resp(hits)):
+        out = local_rag_node(mock_agent_state)
+
+    assert [r["title"] for r in out["local_research"]] == [
+        "Cellular Communication Networks and Standards (p. 32, 1.4 Summary)"
+    ]

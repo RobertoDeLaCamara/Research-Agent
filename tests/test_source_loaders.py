@@ -172,3 +172,27 @@ def test_duckduckgo_search_other_errors_propagate():
         mock_ddgs.return_value.text.side_effect = source_loaders.DDGSException("ratelimit")
         with pytest.raises(source_loaders.DDGSException):
             duckduckgo_search("query")
+
+
+@pytest.mark.parametrize("title,text", [
+    ("Just a moment...", "Performing security verification. This website uses a security service to protect against malicious bots."),
+    ("alphaxiv", "Title: Just a moment...\nWarning: This page maybe requiring CAPTCHA"),
+    ("Reddit", "We would like to show you a description here but the site won’t allow us."),
+    ("", "   "),
+])
+def test_is_bot_block_or_stub_detects_cloudflare_and_robots_stubs(title, text):
+    from src.tools.source_loaders import is_bot_block_or_stub
+    assert is_bot_block_or_stub(text, title) is True
+
+
+def test_duckduckgo_search_drops_bot_block_and_stub_hits():
+    hits = [
+        {"title": "Good", "href": "https://3gpp.org/6g", "body": "3GPP Release 20 6G AI agentic protocols"},
+        {"title": "Blocked", "href": "https://reddit.com/video/1", "body": "We would like to show you a description here but the site won’t allow us."},
+        {"title": "Just a moment...", "href": "https://alphaxiv.org/1", "body": "Performing security verification"},
+    ]
+    with patch("src.tools.source_loaders.DDGS") as mock_ddgs:
+        mock_ddgs.return_value.text.return_value = hits
+        results = duckduckgo_search("6G agentic AI")
+
+    assert [r["url"] for r in results] == ["https://3gpp.org/6g"]

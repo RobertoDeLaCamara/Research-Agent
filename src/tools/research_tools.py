@@ -9,7 +9,7 @@ import datetime
 from ..credentials import get_credential
 from ..state import AgentState
 from ..utils import get_max_results
-from .source_loaders import duckduckgo_search, wikipedia_pages
+from .source_loaders import duckduckgo_search, is_bot_block_or_stub, wikipedia_pages
 from .router_tools import update_next_node
 
 logger = logging.getLogger(__name__)
@@ -58,14 +58,18 @@ def search_web_node(state: AgentState) -> dict:
                         from ..config import settings
                         jina_url = f"https://r.jina.ai/{url}"
                         jina_res = requests.get(jina_url, timeout=settings.content_fetch_timeout)
-                        if jina_res.status_code == 200:
+                        if jina_res.status_code == 200 and not is_bot_block_or_stub(jina_res.text, res.get("title", "")):
                             res["content"] = jina_res.text[:settings.max_content_preview_chars]
                     except Exception:
                         pass
                 return res
 
             with ThreadPoolExecutor(max_workers=5) as executor:
-                container["data"] = list(executor.map(enhance_result, raw_results))
+                enhanced = list(executor.map(enhance_result, raw_results))
+            container["data"] = [
+                r for r in enhanced
+                if not is_bot_block_or_stub(r.get("content", ""), r.get("title", ""))
+            ]
         except Exception as e_inner:
             logger.error(f"Inner web search failed: {e_inner}")
 
@@ -130,34 +134,114 @@ def search_wiki_node(state: AgentState) -> dict:
     return {"wiki_research": results, "next_node": update_next_node(state, "wiki"), "source_metadata": {"wiki": {"source_type": "official", "reliability": 5}}}
 
 
+_ARXIV_STOPWORDS = frozenset({
+    "de", "del", "la", "las", "el", "los", "en", "un", "una", "unos", "unas",
+    "por", "para", "con", "sin", "sobre", "entre", "hacia", "como", "mas", "más",
+    "estado", "arte", "evolucion", "evolución", "estandarizacion", "estandarización",
+    "the", "and", "or", "in", "on", "of", "for", "to", "with", "by", "from", "at",
+    "as", "into", "about", "state", "art", "evolution", "standardization",
+    "overview", "review", "survey", "tutorial", "study", "analysis",
+})
+
+_HEP_COLLISION_RE = re.compile(
+    r"\b(BESIII|BEPCII|charmonium|fb\^\{?-1\}?|GeV/c|MeV/c|born cross section)s?\b"
+    r"|e\^\+?\{?\+\}?e\^\-?\{?\-\}?\s*\\(to|rightarrow)",
+    re.I,
+)
+_PHYSICS_TOPIC_RE = re.compile(
+    r"\b(physics|f[ií]sica|particle|quark|meson|baryon|hadron|charmonium|besiii|collider|gev|mev|positron|electron)\b",
+    re.I,
+)
+_MAX_ARXIV_AUTHORS = 5
+
+
+def sanitize_arxiv_query(raw_query: str) -> str:
+    """Clean a free-text topic for the arXiv API.
+
+    Strips colons (which arXiv's Lucene parser misinterprets as field prefixes like ``6G:``)
+    and removes Spanish/English filler words so the query targets core technical concepts.
+    """
+    if not raw_query or not raw_query.strip():
+        return ""
+    # Replace colons and punctuation with spaces
+    cleaned = re.sub(r"[:;,/\\()\[\]{}'\"!\?]+", " ", raw_query)
+    tokens = []
+    for tok in cleaned.split():
+        low = tok.lower().strip("-")
+        if len(low) <= 1 or low in _ARXIV_STOPWORDS:
+            continue
+        tokens.append(tok)
+    if not tokens:
+        return re.sub(r"[:;,]+", " ", raw_query).strip()
+    return " ".join(tokens)
+
+
+def format_arxiv_authors(authors, max_authors: int = _MAX_ARXIV_AUTHORS) -> str:
+    """Format arXiv author list, capping huge collaborations (e.g. BESIII 500+ authors) with 'et al.'."""
+    names = [getattr(a, "name", str(a)).strip() for a in (authors or []) if getattr(a, "name", str(a)).strip()]
+    if not names:
+        return "Unknown"
+    if len(names) > max_authors:
+        return ", ".join(names[:max_authors]) + " et al."
+    return ", ".join(names)
+
+
+def is_arxiv_result_relevant(title: str, summary: str, query: str) -> bool:
+    """Filter out off-topic arXiv hits (such as high-energy particle physics papers matching author initials)."""
+    combined = f"{title or ''} {summary or ''}"
+    if not combined.strip():
+        return False
+    # Reject high-energy particle physics collision papers unless the query is actually about physics
+    if _HEP_COLLISION_RE.search(combined) and not _PHYSICS_TOPIC_RE.search(query or ""):
+        return False
+    sanitized = sanitize_arxiv_query(query or "").lower()
+    keywords = [
+        w for w in re.findall(r"[a-z0-9áéíóúñ]{2,}", sanitized)
+        if w not in _ARXIV_STOPWORDS and w not in {"test", "topic", "query", "arxiv"}
+    ]
+    if not keywords:
+        return True
+    combined_lower = combined.lower()
+    return any(kw in combined_lower for kw in keywords)
+
+
 def search_arxiv_node(state: AgentState) -> dict:
     """Busca artículos científicos en arXiv usando la librería arxiv directamente."""
     logger.info("arxiv_search_started")
 
     topic = state.get("topic", "")
     queries = state.get("queries", {})
-    search_topic = queries.get("en", topic)
+    raw_search_topic = queries.get("en", topic)
+    search_topic = sanitize_arxiv_query(raw_search_topic)
     results = []
 
     import threading
     container = {"data": []}
     def run_arxiv_search():
         max_results = get_max_results(state)
+        fetch_limit = max(max_results * 2, 10)
         try:
-            client = arxiv.Client(page_size=max_results, delay_seconds=1.0)
+            client = arxiv.Client(page_size=fetch_limit, delay_seconds=1.0)
             search = arxiv.Search(
                 query=search_topic,
-                max_results=max_results,
+                max_results=fetch_limit,
                 sort_by=arxiv.SortCriterion.Relevance
             )
             results_iter = client.results(search)
-            for i in range(max_results):
+            for _ in range(fetch_limit):
+                if len(container["data"]) >= max_results:
+                    break
                 try:
                     result = next(results_iter)
+                    title = (result.title or "").strip()
+                    summary = (result.summary or "").strip()
+                    if not is_arxiv_result_relevant(title, summary, raw_search_topic):
+                        logger.debug(f"Skipping irrelevant arXiv result: {title[:80]}")
+                        continue
                     container["data"].append({
-                        "title": result.title,
-                        "summary": result.summary[:1000] + "...",
-                        "authors": ", ".join(author.name for author in result.authors),
+                        "title": title,
+                        "summary": summary[:1000] + "...",
+                        "authors": format_arxiv_authors(result.authors),
                         "url": result.entry_id
                     })
                 except StopIteration:

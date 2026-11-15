@@ -187,6 +187,9 @@ def test_hybrid_survives_lexical_failure(store, monkeypatch):
     "12345 67890 " * 30,      # long, no real words
     "establisheddeep" * 30,   # long, no spaces (bad extraction)
     "   \n ",
+    "[Page 4]\n5G NR: The Next\nGeneration Wireless\nAccess Technology\nErik Dahlman\nStefan Parkvall\nJohan Sko¨ld",
+    "L.A. Amaral\ne-mail: leonardo.amaral@acad.pucrs.br\nE. de Matos\ne-mail: everton.matos.001@acad.pucrs.br\n© Springer 2016",
+    "2012 Int. Conf. (CTS), pp. 21-26 (2012). doi:10.1109/CTS.2012.6261022\n9. Chen, S.: IEEE Commun. Mag. (2014). doi:10.1109/MCOM.2014.6815891",
 ])
 def test_looks_like_junk_true(text):
     assert looks_like_junk(text)
