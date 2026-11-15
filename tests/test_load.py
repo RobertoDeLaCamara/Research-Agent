@@ -5,14 +5,14 @@ from src.tools.research_tools import search_web_node
 
 @patch('src.tools.research_tools.update_next_node')
 @patch('src.config.settings')
-@patch('langchain_community.tools.tavily_search.TavilySearchResults')
+@patch('src.tools.research_tools.tavily_search')
 @patch('requests.get') # Patch globally as requests is imported locally
 def test_concurrent_web_searches(mock_requests_get, mock_tavily, mock_settings, mock_next_node):
     """Test running multiple web searches in parallel."""
     
     # Setup Mocks
-    mock_tavily_instance = mock_tavily.return_value
-    mock_tavily_instance.run.return_value = [{"url": "http://example.com", "content": "Example content"}]
+    # A fresh list per call: the node mutates the result dicts in place
+    mock_tavily.side_effect = lambda *a, **k: [{"url": "http://example.com", "content": "Example content"}]
     
     # Configure requests mock for Jina reader
     mock_response = MagicMock()

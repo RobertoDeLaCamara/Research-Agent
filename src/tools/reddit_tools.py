@@ -2,6 +2,7 @@ import logging
 from ..credentials import get_credential
 from ..state import AgentState
 from .router_tools import update_next_node
+from .source_loaders import duckduckgo_search
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +50,7 @@ def search_reddit_node(state: AgentState) -> dict:
                 container["data"] = [{"content": r.get("content"), "url": r.get("url"), "title": r.get("title")} for r in tavily_results]
             else:
                 # Fallback to DuckDuckGo
-                from langchain_community.tools import DuckDuckGoSearchRun
-                search = DuckDuckGoSearchRun()
-                res_text = search.run(f"{search_topic} reddit")
-                container["data"] = [{"content": res_text, "url": "Reddit (via DDG)"}]
+                container["data"] = duckduckgo_search(f"{search_topic} reddit", max_results=max_results)
 
         thread = threading.Thread(target=run_reddit_search, daemon=True)
         thread.start()

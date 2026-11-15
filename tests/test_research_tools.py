@@ -6,10 +6,9 @@ def test_search_web_node_tavily(mock_get, mock_agent_state, monkeypatch):
     """Test web search node with Jina extraction."""
     # The Tavily branch is only taken when a key is configured; do not depend on
     # the developer's .env or on the CI environment providing one.
-    monkeypatch.setattr("src.config.settings.tavily_api_key", "test-key")
-    with patch("langchain_community.tools.tavily_search.TavilySearchResults") as mock_tavily:
-        mock_search = mock_tavily.return_value
-        mock_search.run.return_value = [{"url": "http://test.com", "content": "Raw content"}]
+    with patch("src.tools.research_tools.get_credential", return_value="test-key"), \
+         patch("src.tools.research_tools.tavily_search") as mock_tavily:
+        mock_tavily.return_value = [{"url": "http://test.com", "content": "Raw content"}]
         
         # Mock Jina response
         mock_jina_res = MagicMock()
@@ -23,38 +22,41 @@ def test_search_web_node_tavily(mock_get, mock_agent_state, monkeypatch):
         assert len(result["web_research"]) > 0
         assert result["web_research"][0]["content"] == "Markdown content from Jina"
         assert "next_node" in result
+        # The key resolved by the node is the one handed to Tavily
+        assert mock_tavily.call_args.kwargs["api_key"] == "test-key"
 
 def test_search_web_node_ddg(mock_agent_state, monkeypatch):
     # No Tavily key anywhere (settings or environment) -> DuckDuckGo fallback
     monkeypatch.delenv("TAVILY_API_KEY", raising=False)
-    with patch("langchain_community.tools.DuckDuckGoSearchRun") as mock_ddg, \
+    with patch("src.tools.research_tools.duckduckgo_search") as mock_ddg, \
          patch("src.config.settings") as mock_settings:
         
         mock_settings.tavily_api_key = None
         mock_settings.web_search_timeout = 45
         mock_settings.content_fetch_timeout = 3
         mock_settings.max_content_preview_chars = 5000
-        mock_instance = mock_ddg.return_value
-        mock_instance.run.return_value = "DuckDuckGo Content"
+        mock_ddg.return_value = [{"url": "http://ddg-hit.com", "content": "DuckDuckGo Content", "title": "Hit"}]
         
         result = search_web_node(mock_agent_state)
         
         assert "web_research" in result
         assert len(result["web_research"]) > 0
         assert result["web_research"][0]["content"] == "DuckDuckGo Content"
+        assert result["web_research"][0]["url"] == "http://ddg-hit.com"
         assert "next_node" in result
 
 def test_search_wiki_node(mock_agent_state):
-    with patch("langchain_community.document_loaders.WikipediaLoader") as mock_wiki:
-        mock_instance = mock_wiki.return_value
-        mock_doc = MagicMock()
-        mock_doc.page_content = "This is a wiki page content"
-        mock_doc.metadata = {"title": "Test Wiki", "source": "http://wiki.com"}
-        mock_instance.load.return_value = [mock_doc]
-        
+    with patch("src.tools.research_tools.wikipedia_pages") as mock_wiki:
+        mock_wiki.return_value = [
+            {"title": "Test Wiki", "content": "This is a wiki page content", "url": "http://wiki.com"}
+        ]
+
         result = search_wiki_node(mock_agent_state)
-        
-        assert "wiki_research" in result
+
+        # The node must use the patched loader, never the real Wikipedia API.
+        assert result["wiki_research"] == [
+            {"title": "Test Wiki", "summary": "This is a wiki page content...", "url": "http://wiki.com"}
+        ]
         assert "next_node" in result
 
 @patch("arxiv.Client")

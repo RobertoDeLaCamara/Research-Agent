@@ -88,8 +88,8 @@ def test_search_web_node_success():
     }
     
     # Act
-    with patch('src.tools.research_tools.TavilySearchResults') as mock_tavily:
-        mock_tavily.return_value.run.return_value = [
+    with patch('src.tools.research_tools.tavily_search') as mock_tavily:
+        mock_tavily.return_value = [
             {"url": "https://example.com", "content": "Test content"}
         ]
         result = search_web_node(state)
@@ -104,9 +104,9 @@ def test_search_web_node_success():
 
 **Tavily Search:**
 ```python
-@patch('src.tools.research_tools.TavilySearchResults')
+@patch('src.tools.research_tools.tavily_search')
 def test_with_tavily(mock_tavily):
-    mock_tavily.return_value.run.return_value = [
+    mock_tavily.return_value = [
         {"url": "https://example.com", "content": "Result"}
     ]
     # ... test code
@@ -124,10 +124,10 @@ def test_with_ollama(mock_ollama):
 
 **Wikipedia:**
 ```python
-@patch('src.tools.research_tools.WikipediaLoader')
+@patch('src.tools.research_tools.wikipedia_pages')
 def test_with_wikipedia(mock_wiki):
-    mock_wiki.return_value.load.return_value = [
-        MagicMock(page_content="Wiki content", metadata={"title": "Test"})
+    mock_wiki.return_value = [
+        {"title": "Test", "content": "Wiki content", "url": "https://en.wikipedia.org/wiki/Test"}
     ]
     # ... test code
 ```
@@ -139,7 +139,7 @@ def test_handles_api_failure():
     """Test graceful handling of API failures."""
     state = {"topic": "test", "research_depth": "standard", "queries": {}}
     
-    with patch('src.tools.research_tools.TavilySearchResults') as mock_tavily:
+    with patch('src.tools.research_tools.tavily_search') as mock_tavily:
         mock_tavily.return_value.run.side_effect = Exception("API Error")
         result = search_web_node(state)
     
@@ -161,7 +161,7 @@ def test_timeout_handling():
         time.sleep(100)  # Simulate slow API
         return []
     
-    with patch('src.tools.research_tools.TavilySearchResults') as mock_tavily:
+    with patch('src.tools.research_tools.tavily_search') as mock_tavily:
         mock_tavily.return_value.run = slow_function
         
         start = time.time()
@@ -236,7 +236,7 @@ def test_full_research_workflow(sample_state):
     initial_state["research_depth"] = "quick"
     
     # Mock all external services
-    with patch('src.tools.research_tools.TavilySearchResults'), \
+    with patch('src.tools.research_tools.tavily_search'), \
          patch('src.tools.synthesis_tools.ChatOllama'), \
          patch('src.tools.router_tools.ChatOllama'):
         
@@ -487,10 +487,10 @@ pytest tests/ --import-mode=importlib
 ```python
 # Ensure correct import path
 # If code uses: from src.tools import research_tools
-# Mock should be: @patch('src.tools.research_tools.TavilySearchResults')
+# Mock should be: @patch('src.tools.research_tools.tavily_search')
 
 # If code uses: from tools import research_tools
-# Mock should be: @patch('tools.research_tools.TavilySearchResults')
+# Mock should be: @patch('tools.research_tools.tavily_search')
 ```
 
 ## Test Checklist

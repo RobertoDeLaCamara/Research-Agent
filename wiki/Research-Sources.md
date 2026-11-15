@@ -11,8 +11,8 @@ All sources are opt-in via the Streamlit sidebar. Local RAG is off by default.
 ### Web Search (`web`)
 
 ```
-Primary: TavilySearchResults (requires TAVILY_API_KEY)
-Fallback: DuckDuckGoSearchRun
+Primary: Tavily (tavily-python client, requires TAVILY_API_KEY)
+Fallback: DuckDuckGo (duckduckgo_search library, one result per hit)
 
 Post-processing:
   - Jina Reader enhancement: GET r.jina.ai/{url}
@@ -26,7 +26,7 @@ Max results: config.max_results_per_source (default: 5)
 ### Wikipedia (`wiki`)
 
 ```
-Library: langchain_community.document_loaders.WikipediaLoader
+Library: wikipedia (via src/tools/source_loaders.py)
 Language: auto-detected (Spanish / English)
 Max docs: 1 (quick/standard) | 3 (deep)
 Content preview: 1000 chars + "..."
@@ -100,7 +100,7 @@ Reliability score: 4/5.
 
 ```
 Primary: TavilyClient with site:reddit.com
-Fallback: DuckDuckGoSearchRun
+Fallback: DuckDuckGo (duckduckgo_search library)
 Time range: "d" (last 24 hours) for news_editor persona
 Search depth: "advanced"
 Timeout: 15 seconds
@@ -116,7 +116,7 @@ Search: youtube_search.YoutubeSearch
   → Timeout: 15 seconds
 
 Summarization (sequential within same thread):
-  → Transcript: YoutubeLoader.from_youtube_url(languages=['es', 'en'])
+  → Transcript: youtube-transcript-api, languages ['es', 'en'] then 'en'
   → Timeout: 20 seconds for transcript load
   → Summary chain: load_summarize_chain (map_reduce)
   → Timeout: 90 seconds per video

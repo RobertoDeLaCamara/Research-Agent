@@ -16,17 +16,14 @@ def test_search_videos_node(mock_yt_search, mock_agent_state):
     assert "video123" in result["video_urls"][0]
 
 @patch("src.tools.youtube_tools.load_summarize_chain")
-@patch("src.tools.youtube_tools.YoutubeLoader")
+@patch("src.tools.youtube_tools.youtube_transcript")
 def test_summarize_videos_node_with_transcript(mock_loader, mock_chain, mock_agent_state):
     # Mock Chain
     mock_chain_instance = mock_chain.return_value
     mock_chain_instance.run.return_value = "Video Summary"
     
     # Mock Loader
-    mock_loader_instance = mock_loader.from_youtube_url.return_value
-    mock_doc = MagicMock()
-    mock_doc.page_content = "Transcript content"
-    mock_loader_instance.load.return_value = [mock_doc]
+    mock_loader.return_value = "Transcript content"
     
     mock_agent_state["video_urls"] = ["https://youtube.com/watch?v=1"]
     mock_agent_state["video_metadata"] = [{"title": "Video 1"}]
@@ -35,10 +32,13 @@ def test_summarize_videos_node_with_transcript(mock_loader, mock_chain, mock_age
     
     assert "summaries" in result
     assert result["summaries"][0] == "Video Summary"
+    # The transcript text is what gets summarized
+    docs = mock_chain_instance.run.call_args.args[0]
+    assert [d.page_content for d in docs] == ["Transcript content"]
 
 @patch("src.tools.youtube_tools.load_summarize_chain")
 @patch("src.tools.youtube_tools.get_llm")
-@patch("src.tools.youtube_tools.YoutubeLoader")
+@patch("src.tools.youtube_tools.youtube_transcript")
 def test_summarize_videos_node_fallback(mock_loader, mock_chat_ollama, mock_chain, mock_agent_state):
     # Mock LLM (for the fallback call later)
     mock_llm = mock_chat_ollama.return_value
@@ -50,7 +50,7 @@ def test_summarize_videos_node_fallback(mock_loader, mock_chat_ollama, mock_chai
     mock_chain.return_value = MagicMock()
     
     # Mock Loader to fail (transcript blocked)
-    mock_loader.from_youtube_url.side_effect = Exception("Blocked")
+    mock_loader.side_effect = Exception("Blocked")
     
     mock_agent_state["video_urls"] = ["https://youtube.com/watch?v=1"]
     mock_agent_state["video_metadata"] = [{"title": "Video 1", "author": "User"}]
