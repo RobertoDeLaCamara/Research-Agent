@@ -72,9 +72,11 @@ def _extract_query_keywords(topic: str) -> tuple[set[str], set[str]]:
     for t in tokens:
         if t in {"5g", "6g", "4g", "3g", "ai", "ia", "ml"}:
             all_kw.add(t)
+    # Alphanumeric terms (5g, 3gpp, h100) are anchors; pure numbers (years such as 2026, versions)
+    # are not, or every book chunk that does not print the year would be rejected.
     anchors = {
         t for t in all_kw
-        if any(ch.isdigit() for ch in t) or t in _DOMAIN_ANCHOR_TERMS
+        if (any(ch.isdigit() for ch in t) and any(ch.isalpha() for ch in t)) or t in _DOMAIN_ANCHOR_TERMS
     }
     return all_kw, anchors
 
