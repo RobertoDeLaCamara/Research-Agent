@@ -35,7 +35,7 @@ Research-Agent is a LangGraph-based autonomous agent that searches **10 sources 
 
 - **Parallel Multi-Source Research**: Web, Wikipedia, arXiv, Semantic Scholar, GitHub, Hacker News, Stack Overflow, Reddit, YouTube, and local RAG -- all execute concurrently via `ThreadPoolExecutor`.
 - **Research Personas**: Generalist, Market Analyst, Software Architect, Scientific Reviewer, Product Manager, or News Editor -- each shapes source selection and analysis style.
-- **Local Knowledge (RAG)**: Upload PDFs/TXT files through the dashboard or place them in `./knowledge_base`. Indexed with SQLite cache and ChromaDB vector search.
+- **Local Knowledge (RAG)**: Upload PDFs/TXT files (10 MB limit) through the dashboard or place them in `./knowledge_base`. `RAG_MODE=hybrid` retrieves the best chunks with ChromaDB dense search + SQLite FTS5 keyword search (RRF fusion, optional reranker); the default `legacy` mode scans the files. An external books library can be added with `BOOKS_RAG_URL`.
 - **Fact-Check Layer**: Evaluation node scans the synthesis for dubious claims and flags them as warnings in the report — no re-plan loops, no garbage propagation. Skipped entirely for Quick depth.
 - **Cross-Session Memory**: Past research is stored in a ChromaDB collection (`session_memory`). New queries automatically retrieve and cite relevant findings from previous sessions, avoiding redundant re-investigation.
 - **Report Metadata**: Every report includes an automatic word count and estimated reading time.
@@ -44,7 +44,7 @@ Research-Agent is a LangGraph-based autonomous agent that searches **10 sources 
 - **Configurable Depth**: Quick (2 results/source), Standard (5), or Deep (10).
 - **Multilingual**: Auto-expands queries to English for global academic/technical coverage.
 - **UI Language Switcher**: Toggle the dashboard between English and Spanish with one click (🇪🇸/🇬🇧 buttons in the sidebar).
-- **Cloud LLM Support**: Works with Groq, Google Gemini, OpenAI, or any OpenAI-compatible API — no local Ollama required. Set `OPENAI_API_KEY` + `OLLAMA_BASE_URL` in `.env`.
+- **Cloud LLM Support**: Works with Groq, Google Gemini, OpenAI, DeepSeek (`DEEPSEEK_API_KEY`), or any OpenAI-compatible API — no local Ollama required. Set `OPENAI_API_KEY` + `OLLAMA_BASE_URL` in `.env`. An optional light tier (`LIGHT_LLM_MODEL`) runs cheap steps on a small local model.
 
 ## Architecture
 
@@ -179,15 +179,20 @@ Research-Agent/
 │   ├── config.py               # Settings (Pydantic v2)
 │   ├── validators.py           # Input validation
 │   ├── db_manager.py           # SQLite session persistence
-│   ├── llm.py                  # LLM factory (Ollama / OpenAI-compatible)
+│   ├── llm.py                  # LLM factory (Ollama / OpenAI-compatible, light + heavy tiers)
+│   ├── credentials.py          # Per-visitor API keys and model
+│   ├── uploads.py              # Upload size / type limits
 │   ├── i18n.py                 # Spanish / English UI strings
 │   └── tools/
 │       ├── parallel_tools.py   # ThreadPoolExecutor parallel search
 │       ├── research_tools.py   # Web, Wiki, arXiv, Scholar, GitHub, HN, SO
 │       ├── reddit_tools.py     # Reddit search
 │       ├── youtube_tools.py    # YouTube transcript search + summarize
-│       ├── rag_tools.py        # Local knowledge ingestion
-│       ├── vector_store.py     # ChromaDB + all-MiniLM-L6-v2 embeddings
+│       ├── rag_tools.py        # local_rag: books library + knowledge base
+│       ├── rag_index.py        # Indexer CLI for RAG_MODE=hybrid
+│       ├── vector_store.py     # ChromaDB + SQLite FTS5, all-MiniLM-L6-v2 embeddings
+│       ├── source_loaders.py   # DuckDuckGo / Wikipedia loaders, bot-block detection
+│       ├── reranker.py         # Optional cross-encoder rerank client
 │       ├── router_tools.py     # plan_research, evaluate_research, personas
 │       ├── synthesis_tools.py  # Consolidation + persona prompts + dedup
 │       ├── reporting_tools.py  # PDF / Word / Markdown / HTML + word count
@@ -201,6 +206,7 @@ Research-Agent/
 │   └── session_memory/         # Cross-session memory (past research)
 ├── docs/                       # Architecture, Security, Deployment, Troubleshooting
 ├── wiki/                       # Internal developer wiki
+├── scripts/                    # quickstart.sh, rerank_server.py, eval_retrieval.py, ...
 ├── tests/                      # pytest suite
 ├── docker-compose.yml          # Minimal (bring your own Ollama)
 ├── docker-compose.full.yml     # Batteries-included (Ollama + model pre-pull)
@@ -218,9 +224,12 @@ Research-Agent/
 | `GITHUB_TOKEN` | GitHub API access | Optional |
 | `EMAIL_USERNAME` | Report delivery (SMTP) | Optional |
 | `EMAIL_PASSWORD` | SMTP password | Optional |
-| `OPENAI_API_KEY` | OpenAI backend (alternative to Ollama) | Optional |
+| `OPENAI_API_KEY` | OpenAI-compatible backend (alternative to Ollama) | Optional |
+| `DEEPSEEK_API_KEY` | DeepSeek backend (alternative to Ollama) | Optional |
+| `RAG_MODE` | `legacy` (file scan) or `hybrid` (indexed chunks) | `legacy` |
+| `BOOKS_RAG_URL` | External books search service | Optional |
 
-See `env.example` for the full list.
+See `env.example` for the common ones and the [Configuration](wiki/Configuration.md) wiki page for every variable.
 
 ## MCP Server
 

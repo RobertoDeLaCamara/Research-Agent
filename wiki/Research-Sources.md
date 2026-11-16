@@ -17,9 +17,12 @@ Search: DuckDuckGo (ddgs library, no API key, one result per hit)
 Post-processing:
   - Jina Reader enhancement: GET r.jina.ai/{url}
     → ThreadPoolExecutor (5 workers), 3s timeout per URL
-  - Content length limit: config.max_synthesis_context_chars = 50000
+  - Hits and fetched pages that are bot-block / CAPTCHA interstitials ("Just a moment...", Cloudflare
+    checks, robots.txt stubs) or ad redirects (bing.com/aclick) are discarded; the search snippet is kept
+    when only the page fetch was blocked.
+  - Synthesis context limit: config.max_synthesis_context_chars = 25000 (for all sources together)
 
-Timeout: 45 seconds (thread.join)
+Timeout: config.web_search_timeout (12 seconds, thread.join)
 Max results: config.max_results_per_source (default: 5)
 ```
 
@@ -38,9 +41,12 @@ Timeout: 10 seconds
 ```
 Library: arxiv.Client (direct SDK)
 Sort: arxiv.SortCriterion.Relevance
-Fields extracted: title, summary, authors, entry_id (URL)
-Max results: config.max_results_per_source
-Timeout: 25 seconds
+Fields extracted: title, summary, authors (capped at 5, then "et al."), entry_id (URL)
+Query: the topic is sanitised first (colons and punctuation become spaces)
+Relevance filter: a hit must contain at least one query keyword; high-energy collision papers
+  are dropped unless the query is about physics
+Max results: set by research depth
+Timeout: 12 seconds
 ```
 
 Reliability score: 5/5 (scientific, peer-reviewed).
@@ -101,6 +107,9 @@ Reliability score: 4/5.
 ```
 Search: DuckDuckGo (ddgs library, no API key) with site:reddit.com
 Time range: "d" (last 24 hours) for news_editor persona
+Relevance filter: drops non-Reddit links, blocked stubs and media-only links (v.redd.it, reddit.com/video);
+  for 6G / 3GPP / agentic queries the post must contain one of those terms, and WiFi 6 / 6 GHz posts
+  are dropped on cellular 6G queries
 Timeout: 15 seconds
 ```
 
@@ -115,9 +124,9 @@ Search: youtube_search.YoutubeSearch
 
 Summarization (sequential within same thread):
   → Transcript: youtube-transcript-api, languages ['es', 'en'] then 'en'
-  → Timeout: 20 seconds for transcript load
+  → Timeout: 10 seconds for transcript load
   → Summary chain: load_summarize_chain (map_reduce)
-  → Timeout: 90 seconds per video
+  → Timeout: 25 seconds per video summary
   → Fallback: LLM-generated summary from title if transcript unavailable
 ```
 
@@ -130,8 +139,8 @@ See [RAG Pipeline](RAG-Pipeline.md) for full details.
 ```
 Directory: RAG_KB_DIR env var (default: ./knowledge_base)
 Formats: .pdf, .txt
-Hybrid retrieval: ChromaDB semantic + SQLite keyword
-Off by default in Streamlit UI
+Hybrid retrieval: ChromaDB semantic + SQLite keyword (RAG_MODE=hybrid)
+Checkbox in the Streamlit UI: off by default, on when BOOKS_RAG_URL is set (USE_RAG_DEFAULT overrides)
 ```
 
 Reliability score: 5/5 (user-provided, highest authority).

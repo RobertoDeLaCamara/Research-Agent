@@ -46,7 +46,7 @@ The Research-Agent is built on **LangGraph**, a framework for creating stateful,
 - Research inputs (topic, depth, persona)
 - Research results (web, wiki, arxiv, etc.)
 - Synthesis outputs (consolidated_summary, report)
-- Control flow (next_node, iteration_count)
+- Control flow (`next_node`, `iteration_count`; there is no re-plan loop)
 
 ### 2. Router Tools (`src/tools/router_tools.py`)
 
@@ -109,6 +109,9 @@ def search_X_node(state: AgentState) -> dict:
 - Applies persona-specific analysis
 - Generates bibliography
 - Creates consolidated summary
+- Output cap per depth: 4096 / 6144 / 8192 tokens (quick / standard / deep). If the model stops on the cap
+  (`finish_reason` / `done_reason` = `length`), the broken last line is trimmed; complete reports are untouched.
+- Source context is cut at `MAX_SYNTHESIS_CONTEXT_CHARS`; local knowledge goes first and is limited to `LOCAL_CONTEXT_MAX_CHARS`
 
 **Persona System:**
 - `general`: Balanced analysis
@@ -169,7 +172,7 @@ All Results → Consolidate (LLM) → Consolidated Summary + Bibliography
 
 ### Phase 4: Evaluation
 ```
-Consolidated Summary → Evaluate (LLM) → Fact-check
+Consolidated Summary + digest of source excerpts (max 8000 chars) → Evaluate (LLM) → Fact-check
                                               ↓
                           Dubious claims? → Warning appended to the summary
                           Always          → Generate Report
@@ -304,15 +307,14 @@ CREATE INDEX idx_sessions_topic ON sessions(topic);
 - **YouTube**: Search + summarize run sequentially within a single parallel thread
 
 ### Caching
-- File-based cache with TTL
-- Cache key: hash(source + query)
-- Expiry: 24 hours (configurable)
+- Source results are not cached. `CACHE_EXPIRY_HOURS` is defined in `config.py` but unused.
+- Local RAG keeps a JSON cache of extracted file text (`rag_cache.json`, keyed by mtime + size) and a Chroma/FTS5 index.
 
 ### Timeouts
 - Web search: 12s
 - LLM requests: 60s
 - Content fetch: 3s
-- Thread execution: 12s
+- Per-source thread joins: Wikipedia 10s, arXiv 12s, Stack Overflow 15s, Hacker News 10s (HTTP), Reddit 15s, GitHub 20s, Scholar 25s
 - LLM synthesis: 360s (hard-coded in `synthesis_tools.py`)
 - Parallel search fan-out: 60s overall
 
@@ -361,7 +363,7 @@ github_token = os.getenv("GITHUB_TOKEN")
 ## Technology Stack
 
 - **Framework**: LangGraph (workflow), LangChain (LLM)
-- **LLM**: Ollama (local), OpenAI (optional)
+- **LLM**: Ollama (local) or any OpenAI-compatible API (OpenAI, Groq, Gemini, DeepSeek, ...), optional light tier on local Ollama
 - **UI**: Streamlit
 - **Database**: SQLite
 - **Testing**: pytest
