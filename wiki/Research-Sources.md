@@ -23,7 +23,7 @@ Post-processing:
   - Synthesis context limit: config.max_synthesis_context_chars = 25000 (for all sources together)
 
 Timeout: config.web_search_timeout (12 seconds, thread.join)
-Max results: config.max_results_per_source (default: 5)
+Max results: set by research depth (2 / 5 / 10)
 ```
 
 ### Wikipedia (`wiki`)

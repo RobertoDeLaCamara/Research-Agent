@@ -10,7 +10,7 @@ from src.config import settings
 
 # Access configuration
 print(settings.ollama_base_url)
-print(settings.max_results_per_source)
+print(settings.web_search_timeout)
 ```
 
 ### Progress Tracking (`src/progress.py`)
@@ -153,9 +153,7 @@ class AgentState(TypedDict):  # 32 fields; main ones shown, see src/state.py
 | `DB_PATH` | str | "research_sessions.db" | SQLite session database |
 | `RAG_KB_DIR` | str | "./knowledge_base" | Local RAG directory (read via `os.getenv`, not in `Settings`) |
 
-`src/config.py` also defines `MAX_RESULTS_PER_SOURCE`, `MAX_CONCURRENT_REQUESTS`, `REQUEST_TIMEOUT` and
-`CACHE_EXPIRY_HOURS`, but no code reads them. Results per source follow the research depth (2 / 5 / 10),
-and there is no result cache. Changing them has no effect.
+Results per source follow the research depth (2 / 5 / 10), and there is no result cache.
 
 The full list of variables that are read is on the wiki Configuration page.
 
