@@ -21,9 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the fact-checker receives a digest of the source excerpts; reports cut by the token cap are trimmed only when
   the model reports `finish_reason`/`done_reason` = `length`.
 
+### Removed
+- The unused settings `MAX_RESULTS_PER_SOURCE`, `MAX_CONCURRENT_REQUESTS`, `REQUEST_TIMEOUT` and `CACHE_EXPIRY_HOURS`
+  (no code read them; results per source follow the research depth). Leftover values in `.env` are ignored.
+
 ### Documentation
-- Documented that `MAX_RESULTS_PER_SOURCE`, `MAX_CONCURRENT_REQUESTS`, `REQUEST_TIMEOUT` and `CACHE_EXPIRY_HOURS`
-  are defined but not read by any code. Corrected test counts, coverage figures, timeouts and examples.
+- Corrected test counts, coverage figures, timeouts and examples against the code.
 
 ### Security
 - API keys and the model a visitor enters in the UI are now scoped to that visitor's session. They were written

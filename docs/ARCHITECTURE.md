@@ -265,7 +265,6 @@ class Settings(BaseSettings):
     ollama_model: str = "qwen3:14b"
 
     # Performance
-    max_results_per_source: int = 5
     web_search_timeout: int = 12
 
     # Security
@@ -307,7 +306,7 @@ CREATE INDEX idx_sessions_topic ON sessions(topic);
 - **YouTube**: Search + summarize run sequentially within a single parallel thread
 
 ### Caching
-- Source results are not cached. `CACHE_EXPIRY_HOURS` is defined in `config.py` but unused.
+- Source results are not cached.
 - Local RAG keeps a JSON cache of extracted file text (`rag_cache.json`, keyed by mtime + size) and a Chroma/FTS5 index.
 
 ### Timeouts

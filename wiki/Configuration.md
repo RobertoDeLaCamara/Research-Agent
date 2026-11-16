@@ -51,7 +51,7 @@ Cheap steps (query expansion, source routing) can run on a small local model whi
 | `GITHUB_TOKEN` | GitHub search (higher rate limits) |
 | `YOUTUBE_API_KEY` | YouTube source (disabled if unset) |
 
-Results per source are not configurable: they follow the research depth (Quick 2, Standard 5, Deep 10). `src/config.py` still defines `MAX_RESULTS_PER_SOURCE`, `MAX_CONCURRENT_REQUESTS`, `REQUEST_TIMEOUT` and `CACHE_EXPIRY_HOURS`, but no code reads them, so setting them changes nothing.
+Results per source are not configurable: they follow the research depth (Quick 2, Standard 5, Deep 10). There is no result cache. (`MAX_RESULTS_PER_SOURCE`, `MAX_CONCURRENT_REQUESTS`, `REQUEST_TIMEOUT` and `CACHE_EXPIRY_HOURS` were removed: nothing read them. If they are still in your `.env` they are ignored.)
 
 The report's output cap is fixed by depth: 4096 (Quick), 6144 (Standard) or 8192 (Deep) tokens.
 

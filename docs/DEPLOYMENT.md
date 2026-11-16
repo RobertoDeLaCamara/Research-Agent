@@ -198,8 +198,7 @@ Set these in `.env` (or edit the defaults in `src/config.py`):
 WEB_SEARCH_TIMEOUT=60
 LLM_REQUEST_TIMEOUT=90
 ```
-`MAX_CONCURRENT_REQUESTS`, `MAX_RESULTS_PER_SOURCE`, `REQUEST_TIMEOUT` and `CACHE_EXPIRY_HOURS` exist in
-`config.py` but nothing reads them. Results per source follow the research depth.
+Results per source follow the research depth (2 / 5 / 10).
 
 ## Security Best Practices
 

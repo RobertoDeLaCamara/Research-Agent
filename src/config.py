@@ -18,12 +18,6 @@ class Settings(BaseSettings):
     email_password: Optional[str] = None
     email_recipient: Optional[str] = None
 
-    # Performance Settings
-    max_results_per_source: int = 5
-    max_concurrent_requests: int = 5
-    request_timeout: int = 30
-    cache_expiry_hours: int = 24
-    
     # Timeout Configuration
     web_search_timeout: int = 12
     llm_request_timeout: int = 60
