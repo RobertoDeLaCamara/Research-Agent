@@ -247,8 +247,8 @@ FROM python:3.12-slim
 RUN useradd -m -u 1000 appuser
 USER appuser
 
-# Don't expose unnecessary ports
-EXPOSE 8501
+# Don't expose unnecessary ports (the app listens on 7860; compose publishes it as 8501)
+EXPOSE 7860
 
 # Use secrets for sensitive data
 RUN --mount=type=secret,id=env_file \

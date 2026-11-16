@@ -51,22 +51,33 @@ pytest -n auto
 ```
 tests/
 ├── conftest.py                  # Shared fixtures
-├── test_agent.py                # Workflow & graph tests (5 tests)
-├── test_research_tools.py       # Research sources (8 tests)
-├── test_router_tools.py         # Planning/routing (3 tests)
-├── test_synthesis_tools.py      # Consolidation (2 tests)
-├── test_reporting_tools.py      # Export generation (8 tests)
+├── test_agent.py                # Workflow & graph tests (6 tests)
+├── test_app_keys.py             # Streamlit widget keys (3 tests)
+├── test_books_rag_defaults.py   # Books library defaults, USE_RAG_DEFAULT (7 tests)
 ├── test_chat_tools.py           # Interactive chat (2 tests)
-├── test_rag_tools.py            # Local knowledge (2 tests)
-├── test_reddit_tools.py         # Reddit search (2 tests)
-├── test_youtube_tools.py        # Video summaries (3 tests)
-├── test_persistence.py          # Database (4 tests)
-├── test_resilience.py           # Timeouts & retries (4 tests)
-├── test_security.py             # Input validation & XSS (7 tests)
+├── test_config.py               # Settings (1 test)
+├── test_credentials.py          # Per-visitor keys and model (7 tests)
+├── test_llm_tiers.py            # LLM factory, light/heavy tiers, OpenAI kwargs (8 tests)
+├── test_load.py                 # Concurrent load (1 test)
 ├── test_mcp_server.py           # MCP server: tools, jobs, export sandbox (16 tests)
-└── test_load.py                 # Concurrent load (1 test)
+├── test_persistence.py          # Database (4 tests)
+├── test_rag_hybrid_mode.py      # Hybrid local_rag, books filtering (12 tests)
+├── test_rag_index.py            # Indexer CLI (11 tests)
+├── test_rag_tools.py            # Local knowledge, legacy mode (3 tests)
+├── test_reddit_tools.py         # Reddit search and relevance filter (5 tests)
+├── test_reporting_tools.py      # Export generation (8 tests)
+├── test_reranker.py             # Cross-encoder rerank client (6 tests)
+├── test_research_tools.py       # Research sources (13 tests)
+├── test_resilience.py           # Timeouts & retries (4 tests)
+├── test_router_tools.py         # Planning/routing, fact-check (5 tests)
+├── test_security.py             # Input validation & XSS (7 tests)
+├── test_source_loaders.py       # DuckDuckGo/Wikipedia loaders, bot-block detection (27 tests)
+├── test_synthesis_tools.py      # Consolidation, truncation handling, context cap (21 tests)
+├── test_uploads.py              # Upload size/type limits, path sanitising (11 tests)
+├── test_vector_store.py         # ChromaDB + FTS5 store (38 tests)
+└── test_youtube_tools.py        # Video summaries (3 tests)
 
-Total: 67 tests (all passing)
+Total: 229 tests (all passing). Counts drift as tests are added: `pytest --co -q` is the source of truth.
 ```
 
 ## Writing Tests
@@ -112,13 +123,13 @@ def test_with_web_search(mock_ddg):
     # ... test code
 ```
 
-**Ollama LLM:**
+**LLM (any backend):** patch the factory, not a client class.
 ```python
-@patch('src.tools.synthesis_tools.ChatOllama')
-def test_with_ollama(mock_ollama):
+@patch('src.tools.synthesis_tools.get_llm')
+def test_with_llm(mock_get_llm):
     mock_response = MagicMock()
     mock_response.content = "Mocked LLM response"
-    mock_ollama.return_value.invoke.return_value = mock_response
+    mock_get_llm.return_value.invoke.return_value = mock_response
     # ... test code
 ```
 
@@ -237,8 +248,8 @@ def test_full_research_workflow(sample_state):
     
     # Mock all external services
     with patch('src.tools.research_tools.duckduckgo_search'), \
-         patch('src.tools.synthesis_tools.ChatOllama'), \
-         patch('src.tools.router_tools.ChatOllama'):
+         patch('src.tools.synthesis_tools.get_llm'), \
+         patch('src.tools.router_tools.get_llm'):
         
         result = app.invoke(initial_state)
         
@@ -251,12 +262,19 @@ def test_full_research_workflow(sample_state):
 ## Test Coverage Goals
 
 ### Current Coverage
-- ✅ All research tools: 100%
-- ✅ Router tools: 100%
-- ✅ Synthesis tools: 100%
-- ✅ Reporting tools: 100%
-- ✅ Database operations: 100%
-- ✅ Validation functions: 100%
+Measured with `pytest tests/ --cov=src` (229 tests): **71% of `src/`** overall. CI fails the build below 60%.
+
+| Area | Coverage |
+|------|----------|
+| `llm.py`, `config.py`, `credentials.py`, `uploads.py`, `reranker.py` | 96-100% |
+| `source_loaders.py`, `rag_tools.py`, `rag_index.py`, `reddit_tools.py`, `chat_tools.py` | 91-99% |
+| `research_tools.py`, `vector_store.py`, `db_manager.py`, `youtube_tools.py` | 81-85% |
+| `router_tools.py`, `synthesis_tools.py`, `parallel_tools.py` | 63-73% |
+| `reporting_tools.py` | 54% |
+| `app.py` (Streamlit UI) | 46% |
+| `main.py`, `health.py`, `metrics.py` | 0% |
+
+The figures change with every commit; rerun the command above for current numbers.
 
 ### Coverage Report
 

@@ -17,7 +17,7 @@ print(settings.max_results_per_source)
 Real-time progress updates during execution.
 
 ```python
-from progress import init_progress, update_progress
+from src.progress import init_progress, update_progress
 
 init_progress(12)  # 12 total steps
 update_progress("Starting research...")
@@ -27,7 +27,7 @@ update_progress("Starting research...")
 Performance monitoring and statistics.
 
 ```python
-from metrics import metrics
+from src.metrics import metrics
 
 @metrics.time_operation("my_operation")
 def my_function():
@@ -42,7 +42,7 @@ stats = metrics.get_stats()
 Input validation and sanitization.
 
 ```python
-from validators import validate_topic, sanitize_content
+from src.validators import validate_topic, sanitize_content
 
 topic = validate_topic(user_input)
 clean_content = sanitize_content(raw_content)
@@ -77,13 +77,14 @@ def search_arxiv_node(state: AgentState) -> dict:
 def search_scholar_node(state: AgentState) -> dict:
     """Search Semantic Scholar for academic papers."""
     # Returns: {"scholar_research": [results]}
+```
 
 ### Local Knowledge (RAG)
 ```python
 def local_rag_node(state: AgentState) -> dict:
-    """Analyze files in ./knowledge_base."""
+    """Local knowledge: the external books library (BOOKS_RAG_URL) plus ./knowledge_base
+    (RAG_MODE=legacy file scan, or RAG_MODE=hybrid chunks from the Chroma + BM25 index)."""
     # Returns: {"local_research": [results]}
-```
 ```
 
 ### Code Search
@@ -143,28 +144,27 @@ class AgentState(TypedDict):  # 32 fields; main ones shown, see src/state.py
 | `OLLAMA_MODEL` | str | "qwen3:14b" | LLM model to use |
 | `GITHUB_TOKEN` | str | None | GitHub API token |
 | `LOG_LEVEL` | str | "INFO" | Logging level |
-| `MAX_RESULTS_PER_SOURCE` | int | 5 | Results per research source |
-| `MAX_CONCURRENT_REQUESTS` | int | 5 | Concurrent API requests |
-| `CACHE_EXPIRY_HOURS` | int | 24 | Cache expiration time |
-| `REQUEST_TIMEOUT` | int | 30 | API request timeout |
+| `WEB_SEARCH_TIMEOUT` | int | 12 | Seconds to wait for the web search thread |
+| `LLM_REQUEST_TIMEOUT` | int | 60 | Default LLM call timeout (synthesis uses 360) |
+| `MAX_SYNTHESIS_CONTEXT_CHARS` | int | 25000 | Source text passed to the report writer |
+| `LOCAL_CONTEXT_MAX_CHARS` | int | 7500 | Part of that budget for local knowledge (0 = no cap) |
+| `DEEPSEEK_API_KEY` | str | None | Use api.deepseek.com (model defaults to `deepseek-chat`) |
+| `OPENAI_API_KEY` | str | None | Use an OpenAI-compatible endpoint at `OLLAMA_BASE_URL` |
 | `DB_PATH` | str | "research_sessions.db" | SQLite session database |
 | `RAG_KB_DIR` | str | "./knowledge_base" | Local RAG directory (read via `os.getenv`, not in `Settings`) |
 
+`src/config.py` also defines `MAX_RESULTS_PER_SOURCE`, `MAX_CONCURRENT_REQUESTS`, `REQUEST_TIMEOUT` and
+`CACHE_EXPIRY_HOURS`, but no code reads them. Results per source follow the research depth (2 / 5 / 10),
+and there is no result cache. Changing them has no effect.
+
+The full list of variables that are read is on the wiki Configuration page.
+
 ### Performance Tuning
 
-```python
-# High-performance configuration
-MAX_RESULTS_PER_SOURCE=10
-MAX_CONCURRENT_REQUESTS=10
-CACHE_EXPIRY_HOURS=48
-REQUEST_TIMEOUT=60
-
-# Conservative configuration
-MAX_RESULTS_PER_SOURCE=3
-MAX_CONCURRENT_REQUESTS=3
-CACHE_EXPIRY_HOURS=12
-REQUEST_TIMEOUT=15
-```
+- Depth (`quick` / `standard` / `deep`) sets results per source and the output token cap (4096 / 6144 / 8192).
+- `WEB_SEARCH_TIMEOUT` and `LLM_REQUEST_TIMEOUT` trade patience for latency.
+- `MAX_SYNTHESIS_CONTEXT_CHARS` and `SYNTHESIS_NUM_CTX` must stay consistent: the prompt has to fit the
+  Ollama context window, or Ollama drops the start of the prompt (the instructions).
 
 ## Error Handling
 
@@ -194,7 +194,7 @@ if not checks['ollama']:
 ### Metrics Collection
 ```python
 # View performance statistics
-from metrics import metrics
+from src.metrics import metrics
 
 stats = metrics.get_stats()
 print(f"Average execution time: {stats['timings']['web_search']['avg']:.2f}s")
@@ -217,7 +217,7 @@ logger.error("Operation failed", exc_info=True)
 pytest tests/ -v
 
 # Run specific test
-pytest tests/test_research_tools.py::test_search_web_node_ddg -v
+pytest tests/test_research_tools.py::test_search_web_node_replaces_snippets_with_page_text -v
 
 # Run with coverage
 pytest tests/ --cov=src --cov-report=html

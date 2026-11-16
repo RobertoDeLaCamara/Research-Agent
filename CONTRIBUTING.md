@@ -58,7 +58,7 @@ pytest tests/ --cov=src --cov-report=html
 - Place tests in the `tests/` directory
 - Use descriptive test names: `test_function_name_scenario`
 - Mock external dependencies
-- Aim for 100% test coverage
+- Cover new code with tests; CI fails the build below 60% line coverage of `src/` (currently about 71%)
 
 Example test:
 ```python

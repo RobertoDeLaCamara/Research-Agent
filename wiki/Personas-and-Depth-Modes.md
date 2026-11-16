@@ -59,6 +59,8 @@ The persona is passed as a system prompt modifier to the Ollama LLM during the `
 - Structure: 3–5 key points, 3–5 paragraphs each, cross-source comparison, mandatory critical analysis section
 - Use case: technical due diligence, literature review preparation
 
+The output token cap also follows the depth: 4096 (quick), 6144 (standard), 8192 (deep). If the model stops on the cap (`finish_reason` / `done_reason` = `length`), the broken last line is trimmed so the report does not end mid-word; reports that finished normally are not touched.
+
 ## Output Format Requirements (All Depths)
 
 The LLM synthesis prompt enforces these regardless of persona or depth:
@@ -99,6 +101,8 @@ After synthesis, `evaluate_research_node()` runs a second LLM call (fact-check) 
   "reasoning": "Claims are backed by sources, research acceptable."
 }
 ```
+
+The fact-checker sees the summary plus a digest of the retrieved excerpts (web, Wikipedia, arXiv, Scholar and local; at most 8000 characters), so it can check claims against what the sources actually said.
 
 If `dubious_claims` is non-empty, a fact-checker warning listing them is appended to the consolidated summary. The node always routes to `generate_report`; there is no re-plan loop.
 

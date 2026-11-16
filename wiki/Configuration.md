@@ -9,6 +9,7 @@ All configuration is done through environment variables, read by `src/config.py`
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Base URL of the LLM. Point it at a cloud endpoint to use Groq, Gemini, etc. |
 | `OLLAMA_MODEL` | `qwen3:14b` | Model name; it must exist on the configured endpoint. |
 | `OPENAI_API_KEY` | _(empty)_ | Required for any cloud endpoint. When set, `ChatOpenAI` is used instead of `ChatOllama`. |
+| `DEEPSEEK_API_KEY` | _(empty)_ | DeepSeek shortcut: points the client at `https://api.deepseek.com` and, if the model is empty or a `qwen*` one, uses `deepseek-chat`. Takes precedence over `OPENAI_API_KEY`. |
 
 Note: `env.example` and `docker-compose.full.yml` set `OLLAMA_MODEL` to `qwen2.5:1.5b` (about 1 GB) so the zero-config setup is light. The code default, `qwen3:14b`, gives better quality if you have the hardware.
 
@@ -31,6 +32,8 @@ OLLAMA_BASE_URL="https://api.openai.com/v1"
 OLLAMA_MODEL="gpt-4o-mini"
 ```
 
+Ollama-only options (`repeat_penalty`, `num_ctx`, `reasoning`) are dropped for OpenAI-compatible endpoints. The output cap (`num_predict`) is sent as `max_tokens`: as a normal parameter to `api.openai.com`, and in the request body for other endpoints, because some of them (DeepSeek) ignore the `max_completion_tokens` field that `langchain-openai` sends.
+
 ### Light tier (optional)
 
 Cheap steps (query expansion, source routing) can run on a small local model while the report is written by the main one. With `LIGHT_LLM_MODEL` unset, everything uses the main backend.
@@ -48,6 +51,10 @@ Cheap steps (query expansion, source routing) can run on a small local model whi
 | `GITHUB_TOKEN` | GitHub search (higher rate limits) |
 | `YOUTUBE_API_KEY` | YouTube source (disabled if unset) |
 
+Results per source are not configurable: they follow the research depth (Quick 2, Standard 5, Deep 10). `src/config.py` still defines `MAX_RESULTS_PER_SOURCE`, `MAX_CONCURRENT_REQUESTS`, `REQUEST_TIMEOUT` and `CACHE_EXPIRY_HOURS`, but no code reads them, so setting them changes nothing.
+
+The report's output cap is fixed by depth: 4096 (Quick), 6144 (Standard) or 8192 (Deep) tokens.
+
 ## Email delivery
 
 | Variable | Default | Description |
@@ -62,11 +69,7 @@ Cheap steps (query expansion, source routing) can run on a small local model whi
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MAX_RESULTS_PER_SOURCE` | `5` | Results per source (Quick uses 2, Standard 5, Deep 10) |
-| `MAX_CONCURRENT_REQUESTS` | `5` | Concurrency of the thread pool |
-| `CACHE_EXPIRY_HOURS` | `24` | How long source results are cached |
-| `REQUEST_TIMEOUT` | `30` | HTTP timeout in seconds |
-| `WEB_SEARCH_TIMEOUT` | `12` | Timeout for a web search request, in seconds |
+| `WEB_SEARCH_TIMEOUT` | `12` | Seconds to wait for the web search thread |
 | `LLM_REQUEST_TIMEOUT` | `60` | Timeout for an LLM call, in seconds |
 | `CONTENT_FETCH_TIMEOUT` | `3` | Timeout for fetching a page's full text, in seconds |
 | `MAX_CONTENT_PREVIEW_CHARS` | `5000` | Characters kept from a fetched page |

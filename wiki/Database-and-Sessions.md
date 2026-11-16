@@ -112,5 +112,4 @@ Enfócate en aspectos nuevos o complementarios.
 |---------|---------|-------------|
 | `db_path` | `research_sessions.db` | Session SQLite file |
 | `DB_PATH` env var | — | Override for db_path |
-| `cache_expiry_hours` | 24 | (In-memory cache TTL, not DB cleanup) |
 | Auto-cleanup | 30 days | Triggered at `init_db()` |

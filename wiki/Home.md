@@ -95,7 +95,11 @@ src/
 └── tools/
     ├── parallel_tools.py    ThreadPoolExecutor fan-out across all sources
     ├── research_tools.py    10 source-specific fetch functions
-    ├── rag_tools.py         ChromaDB + SQLite hybrid retrieval
+    ├── rag_tools.py         local_rag: books library + knowledge base (legacy / hybrid)
+    ├── rag_index.py         Indexer CLI for hybrid mode
+    ├── vector_store.py      ChromaDB + SQLite FTS5 store
+    ├── source_loaders.py    DuckDuckGo / Wikipedia loaders, bot-block detection
+    ├── reranker.py          Optional cross-encoder rerank client
     ├── synthesis_tools.py   Ollama LLM synthesis, persona prompts
     ├── reporting_tools.py   HTML/PDF/DOCX/MD report generation
     ├── router_tools.py      LLM planning, fact-check evaluation

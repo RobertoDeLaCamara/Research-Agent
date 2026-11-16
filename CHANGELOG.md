@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Web and Reddit search use DuckDuckGo (`ddgs`) only; Tavily is removed (3 attempts, retries drop the time limit).
+- The dead `evaluate_research -> plan_research` edge is gone: the fact-check never re-plans, and `evaluate_research`
+  goes straight to `generate_report`.
+- `local_rag` also searches an external books library (`BOOKS_RAG_URL`); local knowledge is capped at
+  `LOCAL_CONTEXT_MAX_CHARS` (7500) of the synthesis context so web and arXiv results are not pushed out.
+- OpenAI-compatible backends get `max_tokens` (Ollama-only kwargs are dropped), so the output cap applies on DeepSeek.
+- Uploads enforce `MAX_FILE_SIZE_MB` and `ALLOWED_FILE_EXTENSIONS` and keep only the base name of the file
+  (a `../` in the client file name could write outside the knowledge base). The unused `thread_execution_timeout`
+  and `max_content_length` settings were removed.
+- Relevance filters for books, arXiv and Reddit hits; bot-block / CAPTCHA pages and ad redirects are discarded;
+  the fact-checker receives a digest of the source excerpts; reports cut by the token cap are trimmed only when
+  the model reports `finish_reason`/`done_reason` = `length`.
+
+### Documentation
+- Documented that `MAX_RESULTS_PER_SOURCE`, `MAX_CONCURRENT_REQUESTS`, `REQUEST_TIMEOUT` and `CACHE_EXPIRY_HOURS`
+  are defined but not read by any code. Corrected test counts, coverage figures, timeouts and examples.
+
 ### Security
 - API keys and the model a visitor enters in the UI are now scoped to that visitor's session. They were written
   to `os.environ`, which every session of the server shares: on a public deployment one visitor's key was used

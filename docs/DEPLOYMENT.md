@@ -27,8 +27,8 @@
 # Run all tests
 python3 -m pytest tests/ -v
 
-# Verify all 67 tests pass
-# Expected: 49 passed, 0 failed, 0 skipped
+# Expected: every test passes (230 at the time of writing), 0 failed, 0 skipped.
+# CI (Jenkins) also fails the build below 60% line coverage of src/.
 
 # Test the application locally
 streamlit run src/app.py --server.address=0.0.0.0
@@ -98,16 +98,20 @@ Required:
 - `OLLAMA_MODEL`: Model to use (default: qwen3:14b)
 
 Optional:
+- `OPENAI_API_KEY` / `DEEPSEEK_API_KEY`: Use an OpenAI-compatible cloud backend instead of Ollama (see the wiki Configuration page)
 - `GITHUB_TOKEN`: For GitHub repository search
 - `YOUTUBE_API_KEY`: For YouTube search
 - `EMAIL_*`: For email notifications
+- `RAG_MODE`, `BOOKS_RAG_URL`, `RERANK_URL`, `LOCAL_CONTEXT_MAX_CHARS`: Local knowledge (see the wiki RAG Pipeline page)
+
+The container listens on port 7860; the compose files publish it as `8501`.
 
 ### Configuration File
 
 All settings are centralized in `src/config.py`:
 - Timeouts (web_search_timeout, llm_request_timeout, etc.)
 - Content limits (max_synthesis_context_chars, max_content_preview_chars)
-- File upload limits (max_file_size_mb, allowed_file_extensions)
+- File upload limits (max_file_size_mb, allowed_file_extensions), enforced in `src/uploads.py`
 - Research keywords
 
 ## Monitoring
@@ -140,7 +144,7 @@ tail -f logs/research-agent.log
 ### Tests Failing
 
 ```bash
-# Check Python version (need 3.10+)
+# Check Python version (need 3.12+, what the Docker image and CI use)
 python3 --version
 
 # Reinstall dependencies
@@ -188,18 +192,14 @@ For multiple instances:
 
 ### Performance Tuning
 
-In `src/config.py`:
-```python
-# Increase concurrent requests
-max_concurrent_requests: int = 10
-
+Set these in `.env` (or edit the defaults in `src/config.py`):
+```bash
 # Adjust timeouts
-web_search_timeout: int = 60
-llm_request_timeout: int = 90
-
-# Increase cache expiry
-cache_expiry_hours: int = 48
+WEB_SEARCH_TIMEOUT=60
+LLM_REQUEST_TIMEOUT=90
 ```
+`MAX_CONCURRENT_REQUESTS`, `MAX_RESULTS_PER_SOURCE`, `REQUEST_TIMEOUT` and `CACHE_EXPIRY_HOURS` exist in
+`config.py` but nothing reads them. Results per source follow the research depth.
 
 ## Security Best Practices
 
@@ -237,8 +237,10 @@ tar -czf knowledge_base_backup.tar.gz knowledge_base/
 If issues occur after deployment:
 
 ```bash
-# Option 1: Rollback Docker image
+# Option 1: Rollback Docker image (tag the working image before every rebuild)
+docker tag research-agent-research-agent:latest research-agent-research-agent:pre-update   # before updating
 docker compose down
+docker tag research-agent-research-agent:pre-update research-agent-research-agent:latest   # to roll back
 docker compose up -d --force-recreate
 
 # Option 2: Restore from backup
@@ -258,7 +260,7 @@ For issues:
 
 ## Production Checklist
 
-- [ ] All tests passing (49/49)
+- [ ] All tests passing
 - [ ] Exposed credentials revoked
 - [ ] New credentials generated and configured
 - [ ] .env file not in git
