@@ -2,7 +2,7 @@ import logging
 import re
 from ..state import AgentState
 from .router_tools import update_next_node
-from .source_loaders import duckduckgo_search, is_bot_block_or_stub
+from .source_loaders import is_bot_block_or_stub, web_search
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ def search_reddit_node(state: AgentState) -> dict:
                 time_range = "d"
             timelimit = TIME_RANGE_TO_TIMELIMIT.get(time_range, "y")
             try:
-                raw_hits = duckduckgo_search(
+                raw_hits = web_search(
                     f"{search_topic} site:reddit.com", max_results=max_results, timelimit=timelimit
                 )
                 container["data"] = [

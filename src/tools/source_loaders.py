@@ -6,8 +6,12 @@ dependencies. Each function returns plain dicts or strings; timeouts and error
 handling stay in the calling node.
 """
 
+import logging
+import os
 import time
 from urllib.parse import parse_qs, urlparse
+
+import requests
 
 import wikipedia
 from ddgs import DDGS
@@ -19,9 +23,13 @@ from youtube_transcript_api import (
 )
 
 # "wt-wt" (worldwide) makes the ddgs Wikipedia engine query wt.wikipedia.org, which does not exist
+logger = logging.getLogger(__name__)
+
 DDG_REGION = "us-en"
 DDG_ATTEMPTS = 3
 DDG_RETRY_DELAY = 1.0
+SEARXNG_LANGUAGE = "en-US"
+SEARXNG_TIME_RANGE = {"d": "day", "w": "week", "m": "month", "y": "year"}
 WIKIPEDIA_MAX_QUERY_CHARS = 300
 WIKIPEDIA_MAX_CONTENT_CHARS = 4000
 _YOUTUBE_HOSTS = {"youtu.be", "m.youtube.com", "youtube.com", "www.youtube.com",
@@ -104,6 +112,58 @@ def duckduckgo_search(query: str, max_results: int = 5, timelimit: str | None = 
         for h in hits
         if h.get("body") and not is_bot_block_or_stub(h.get("body", ""), h.get("title", ""), h.get("href", ""))
     ]
+
+
+def _searxng_request(base_url: str, query: str, timelimit: str | None) -> list[dict]:
+    params = {"q": query, "format": "json", "language": SEARXNG_LANGUAGE}
+    if timelimit in SEARXNG_TIME_RANGE:
+        params["time_range"] = SEARXNG_TIME_RANGE[timelimit]
+    timeout = float(os.getenv("SEARXNG_TIMEOUT", "10"))
+    resp = requests.get(f"{base_url}/search", params=params, timeout=timeout,
+                        proxies={"http": None, "https": None})  # a self-hosted instance: never via a proxy
+    resp.raise_for_status()
+    return resp.json().get("results") or []
+
+
+def searxng_search(query: str, max_results: int = 5, timelimit: str | None = "y") -> list[dict] | None:
+    """Search a self-hosted SearXNG instance (``SEARXNG_URL``) through its JSON API. No API key.
+
+    Returns None when ``SEARXNG_URL`` is unset. Same result shape and time-limit rule as
+    ``duckduckgo_search``: an empty answer under the "y" limit is retried once without it.
+    Connection and HTTP errors are raised to the caller.
+    """
+    base_url = (os.getenv("SEARXNG_URL") or "").strip().rstrip("/")
+    if not base_url:
+        return None
+    hits = _searxng_request(base_url, query, timelimit)
+    if not hits and timelimit == "y":
+        hits = _searxng_request(base_url, query, None)
+    out = []
+    for h in hits:
+        url, title, content = h.get("url"), h.get("title") or "", h.get("content") or ""
+        if not url or not content or is_bot_block_or_stub(content, title, url):
+            continue
+        out.append({"url": url, "content": content, "title": title})
+        if len(out) >= max_results:
+            break
+    return out
+
+
+def web_search(query: str, max_results: int = 5, timelimit: str | None = "y") -> list[dict]:
+    """Web search for the research nodes: SearXNG when ``SEARXNG_URL`` is set, else ddgs.
+
+    If SearXNG fails or returns nothing, the same query goes to ddgs, so a down or
+    rate-limited instance never costs a source.
+    """
+    if (os.getenv("SEARXNG_URL") or "").strip():
+        try:
+            hits = searxng_search(query, max_results=max_results, timelimit=timelimit)
+            if hits:
+                return hits
+            logger.warning("searxng returned no results; falling back to ddgs")
+        except Exception as e:
+            logger.warning(f"searxng failed ({e}); falling back to ddgs")
+    return duckduckgo_search(query, max_results=max_results, timelimit=timelimit)
 
 
 def wikipedia_pages(query: str, lang: str = "en", max_docs: int = 1) -> list[dict]:

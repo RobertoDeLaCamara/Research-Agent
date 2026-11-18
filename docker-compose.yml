@@ -21,3 +21,18 @@ services:
     # Run Dashboard (default): docker compose up
     # Run CLI: docker compose run --rm research-agent python src/main.py "Topic"
 
+  # Optional self-hosted metasearch for web and Reddit search (no API key). Started only with the
+  # "searxng" profile: `docker compose --profile searxng up -d`, or COMPOSE_PROFILES=searxng in .env.
+  # Point the agent at it with SEARXNG_URL=http://searxng:8080 and set SEARXNG_SECRET.
+  # Not published on the host; ddgs stays the fallback when it is down.
+  searxng:
+    image: searxng/searxng:2026.11.1-10db664f1
+    profiles: ["searxng"]
+    restart: unless-stopped
+    environment:
+      - SEARXNG_SECRET=${SEARXNG_SECRET:-}
+      - FORCE_OWNERSHIP=false  # do not chown the bind-mounted settings file on the host
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    mem_limit: 256m
+    cpus: "0.5"

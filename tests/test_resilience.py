@@ -53,7 +53,7 @@ def test_search_web_node_timeout(mock_settings, mock_next_node):
     mock_settings.max_content_preview_chars = 100
     
     # Mock the web search to hang
-    with patch('src.tools.research_tools.duckduckgo_search') as mock_ddg:
+    with patch('src.tools.research_tools.web_search') as mock_ddg:
         def slow_run(*args, **kwargs):
             time.sleep(0.5) # Sleep longer than timeout
             return [{"url": "http://slow.com", "content": "Too slow"}]

@@ -1,0 +1,24 @@
+# SearXNG for Research-Agent: only the differences from the image defaults.
+# https://docs.searxng.org/admin/settings/
+# The secret key comes from SEARXNG_SECRET (set it in .env); the instance is only reachable on the
+# compose network, so the rate limiter stays off (the image default).
+use_default_settings: true
+
+general:
+  instance_name: "research-agent-searxng"
+
+search:
+  # json is what the agent calls (GET /search?format=json); html keeps the web UI for debugging
+  formats:
+    - html
+    - json
+  autocomplete: ""
+
+server:
+  limiter: false
+  image_proxy: false
+  public_instance: false
+
+outgoing:
+  # Each engine gets this long; the agent's own web search timeout is longer
+  request_timeout: 5.0

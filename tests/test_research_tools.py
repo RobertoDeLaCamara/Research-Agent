@@ -5,7 +5,7 @@ from src.tools.research_tools import search_web_node, search_wiki_node, search_a
 def test_search_web_node_replaces_snippets_with_page_text(mock_get, mock_agent_state):
     """Search hits come from DuckDuckGo; their content is replaced by the Jina Reader text."""
     mock_get.return_value = MagicMock(status_code=200, text="Markdown content from Jina")
-    with patch("src.tools.research_tools.duckduckgo_search") as mock_ddg:
+    with patch("src.tools.research_tools.web_search") as mock_ddg:
         mock_ddg.return_value = [{"url": "http://test.com", "content": "Search snippet", "title": "Hit"}]
 
         result = search_web_node(mock_agent_state)
@@ -20,7 +20,7 @@ def test_search_web_node_replaces_snippets_with_page_text(mock_get, mock_agent_s
 @patch("requests.get")
 def test_search_web_node_keeps_snippet_when_page_fetch_fails(mock_get, mock_agent_state):
     mock_get.return_value = MagicMock(status_code=500)
-    with patch("src.tools.research_tools.duckduckgo_search") as mock_ddg:
+    with patch("src.tools.research_tools.web_search") as mock_ddg:
         mock_ddg.return_value = [{"url": "http://ddg-hit.com", "content": "From DDG", "title": "Hit"}]
 
         result = search_web_node(mock_agent_state)
@@ -30,7 +30,7 @@ def test_search_web_node_keeps_snippet_when_page_fetch_fails(mock_get, mock_agen
 
 @patch("requests.get")
 def test_search_web_node_returns_nothing_when_search_fails(mock_get, mock_agent_state):
-    with patch("src.tools.research_tools.duckduckgo_search", side_effect=RuntimeError("blocked")):
+    with patch("src.tools.research_tools.web_search", side_effect=RuntimeError("blocked")):
         result = search_web_node(mock_agent_state)
 
     assert result["web_research"] == []
@@ -165,7 +165,7 @@ def test_search_web_node_keeps_ddg_snippet_when_jina_returns_cloudflare_captcha(
         "## Performing security verification"
     )
     mock_get.return_value = MagicMock(status_code=200, text=cloudflare_text)
-    with patch("src.tools.research_tools.duckduckgo_search") as mock_ddg:
+    with patch("src.tools.research_tools.web_search") as mock_ddg:
         mock_ddg.return_value = [
             {
                 "url": "https://www.alphaxiv.org/es/abs/2607.18138",

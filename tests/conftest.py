@@ -2,7 +2,7 @@ import pytest
 
 # Opt-in feature switches that a developer's .env may set. mcp_server loads .env into
 # os.environ at import time, so without this they leak into every test in the session.
-_OPT_IN_ENV = ("RAG_MODE", "RAG_TOP_K", "RERANK_URL", "BOOKS_RAG_URL", "USE_RAG_DEFAULT", "LIGHT_LLM_MODEL", "LIGHT_LLM_BASE_URL")
+_OPT_IN_ENV = ("RAG_MODE", "RAG_TOP_K", "RERANK_URL", "BOOKS_RAG_URL", "USE_RAG_DEFAULT", "SEARXNG_URL", "LIGHT_LLM_MODEL", "LIGHT_LLM_BASE_URL")
 
 
 @pytest.fixture(autouse=True)
